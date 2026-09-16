@@ -33,7 +33,7 @@ Pilihan konsumsi harian adalah keputusan yang paling sering diambil orang terhad
 | 1 | Yasmin | 2506606124 | Katalog Produk |
 | 2 | [Nama] | [NPM] | Shelf dan Tabel Pembanding |
 | 3 | [Nama] | [NPM] | Substitusi Komunitas |
-| 4 | [Nama] | [NPM] | Antrean Data |
+| 4 | Rayyan | 2406496372 | Antrean Data |
 | 5 | [Nama] | [NPM] | Preferensi Nutrisi dan Riwayat Keputusan |
 
 ## Jenis Pengguna
@@ -118,7 +118,7 @@ Usulan penggantian produk beserta alasannya, dinilai pengguna lain, boleh menyeb
 - **AJAX:** tombol setuju dan tidak setuju
 - **Catatan:** substitusi punya arah. Usulan X ke Y tidak otomatis berlaku sebaliknya
 
-### 4. Antrean Data - [Nama anggota 4]
+### 4. Antrean Data - Rayyan
 
 Jalur perbaikan data sekaligus antrean pekerjaan bagi kontributor.
 
