@@ -7,6 +7,7 @@ Fakultas Ilmu Komputer, Universitas Indonesia, Semester Gasal 2026/2027
 Kelompok **4**, Kelas **B**, Sub-tema: **Sustainable Food & Diet**
 
 Desain Figma: -
+
 Deployment PWS: -
 
 ## Deskripsi
@@ -31,10 +32,10 @@ Pilihan konsumsi harian adalah keputusan yang paling sering diambil orang terhad
 | No | Nama | NPM | Modul |
 |----|------|-----|-------|
 | 1 | Yasmin | 2506606124 | Katalog Produk |
-| 2 | [Nama] | [NPM] | Shelf dan Tabel Pembanding |
-| 3 | [Nama] | [NPM] | Substitusi Komunitas |
-| 4 | Rayyan | 2406496372 | Antrean Data |
-| 5 | [Nama] | [NPM] | Preferensi Nutrisi dan Riwayat Keputusan |
+| 2 | Ahmad Rizki Daffaa | 2506543640 | Shelf dan Tabel Pembanding |
+| 3 | Rafael Arlen Wijanarko | 2506613514 | Substitusi Komunitas |
+| 4 | Muhammad Rayyan Basalamah | 2406496372 | Antrean Data |
+| 5 | Jonathan Sebastian Sindhu | 2506619650 | Preferensi Nutrisi dan Riwayat Keputusan |
 
 ## Jenis Pengguna
 
@@ -96,7 +97,7 @@ Pintu masuk aplikasi: penelusuran, halaman detail, dan penambahan produk lokal y
 - **Dikunci login:** identitas penambah entri dan riwayat produk yang pernah dilihat
 - **AJAX:** pencarian dan pemfilteran katalog
 
-### 2. Shelf dan Tabel Pembanding - [Nama anggota 2]
+### 2. Shelf dan Tabel Pembanding - Ahmad Rizki Daffaa
 
 Modul inti. Shelf adalah kumpulan produk yang saling menggantikan, dan halamannya langsung berupa tabel pembanding.
 
@@ -107,7 +108,7 @@ Modul inti. Shelf adalah kumpulan produk yang saling menggantikan, dan halamanny
 - **AJAX:** menambah, mengeluarkan, dan mengurutkan ulang isi tabel
 - **Catatan:** isi shelf dibatasi dua belas produk agar tidak merosot jadi kategori. Nilai `"unknown"` ditampilkan apa adanya sebagai tidak diketahui, tidak ikut diperingkat, dan diberi tautan ke modul 4. Urutan baris mengikuti preferensi dari modul 5 kalau pengguna sudah login
 
-### 3. Substitusi Komunitas - [Nama anggota 3]
+### 3. Substitusi Komunitas - Rafael Arlen Wijanarko
 
 Usulan penggantian produk beserta alasannya, dinilai pengguna lain, boleh menyeberangi shelf.
 
@@ -118,7 +119,7 @@ Usulan penggantian produk beserta alasannya, dinilai pengguna lain, boleh menyeb
 - **AJAX:** tombol setuju dan tidak setuju
 - **Catatan:** substitusi punya arah. Usulan X ke Y tidak otomatis berlaku sebaliknya
 
-### 4. Antrean Data - Rayyan
+### 4. Antrean Data - Muhammad Rayyan Basalamah
 
 Jalur perbaikan data sekaligus antrean pekerjaan bagi kontributor.
 
@@ -128,7 +129,7 @@ Jalur perbaikan data sekaligus antrean pekerjaan bagi kontributor.
 - **Dikunci login:** identitas pengaju dan riwayat pengajuan
 - **AJAX:** pengiriman dan peninjauan pengajuan
 
-### 5. Preferensi Nutrisi dan Riwayat Keputusan - [Nama anggota 5]
+### 5. Preferensi Nutrisi dan Riwayat Keputusan - Jonathan Sebastian Sindhu
 
 Menyimpan kebutuhan gizi pengguna beserta arahnya, lalu mencatat keputusan yang akhirnya diambil.
 
