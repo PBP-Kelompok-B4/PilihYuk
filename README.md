@@ -30,7 +30,7 @@ Pilihan konsumsi harian adalah keputusan yang paling sering diambil orang terhad
 
 | No | Nama | NPM | Modul |
 |----|------|-----|-------|
-| 1 | [Nama] | [NPM] | Katalog Produk |
+| 1 | Yasmin | 2506606124 | Katalog Produk |
 | 2 | [Nama] | [NPM] | Shelf dan Tabel Pembanding |
 | 3 | [Nama] | [NPM] | Substitusi Komunitas |
 | 4 | [Nama] | [NPM] | Antrean Data |
@@ -86,7 +86,7 @@ Data masuk lewat dua jalur:
 - **Pemanggilan runtime** dipakai untuk pencarian barcode produk yang belum ada di katalog dan penyegaran data satu produk, dengan header User-Agent yang mengidentifikasi aplikasi ini.
 
 ## Modul dan Pembagian Kerja
-### 1. Katalog Produk - [Nama anggota 1]
+### 1. Katalog Produk - Yasmin
 
 Pintu masuk aplikasi: penelusuran, halaman detail, dan penambahan produk lokal yang belum ada di Open Food Facts.
 
