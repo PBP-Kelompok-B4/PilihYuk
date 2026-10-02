@@ -1,0 +1,21 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/output.css' %}">
+    {% block meta %}{% endblock meta %}
+</head>
+<body class="flex min-h-screen flex-col bg-page font-sans text-ink antialiased">
+    {% include 'components/header.html' %}
+
+    {% block content %}{% endblock content %}
+
+    {% include 'components/footer.html' %}
+    {% include 'components/toast.html' %}
+</body>
+</html>

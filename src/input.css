@@ -1,0 +1,64 @@
+@import "tailwindcss";
+@source inline("bg-nutri-{b,c}");
+
+@theme {
+    --font-sans: "Inter", system-ui, sans-serif;
+
+    --color-brand: #1e6f4c;
+    --color-ink: #16201a;
+    --color-muted: #6e756e;
+    --color-page: #f7f5f0;
+    --color-hero: #e9f0e5;
+    --color-surface: #f1eee7;
+    --color-line: #e9e5db;
+    --color-track: #e4e0d6;
+    --color-bar: #cfc9bb;
+    --color-mint: #e1efe6;
+    --color-leaf: #e4efe0;
+    --color-faint: #d9e6dc;
+    --color-warm: #fbebdd;
+    --color-placeholder: #d9d9de;
+    --color-estimate: #b8860b;
+    --color-night: #10160f;
+    --color-foot: #9ba69c;
+    --color-foot-muted: #6e7a70;
+    --color-lead: #b7beb6;
+    --color-nutri-b: #5ba32b;
+    --color-nutri-c: #d9a400;
+}
+
+@layer components {
+    .section { @apply mx-auto max-w-[1200px] px-4 sm:px-8 xl:px-0; }
+    .eyebrow { @apply text-[11px] font-bold tracking-[1.2px] text-brand; }
+    .section-title { @apply mt-2 text-2xl font-bold tracking-tight sm:text-[32px]; }
+    .card { @apply rounded-[20px] bg-white p-6; }
+    .icon-box { @apply flex h-11 w-11 items-center justify-center rounded-xl; }
+    .logo-mark { @apply flex h-8 w-8 items-center justify-center rounded-[9px] bg-brand; }
+    .chip { @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold; }
+    .row-label { @apply bg-surface px-5 py-4 text-left font-semibold; }
+
+    .btn-brand { @apply inline-flex items-center justify-center gap-2 rounded-[10px] bg-brand px-5 py-3 text-sm font-semibold text-white hover:bg-brand/90; }
+    .btn-white { @apply inline-flex items-center justify-center gap-2 rounded-[10px] bg-white px-5 py-3 text-sm font-semibold text-ink hover:bg-white/80; }
+    .btn-small { @apply px-4 py-2.5 text-[13px]; }
+
+    .nav-link { @apply hover:text-brand; }
+    .nav-link[aria-current] { @apply font-semibold text-brand; }
+
+    .toast-component {
+        position: fixed;
+        inset: auto 2rem 2rem auto;
+        margin: 0;
+        padding: 1rem 1.5rem;
+        background: white;
+        border: 1px solid var(--color-line);
+        border-left: 4px solid var(--color-brand);
+        border-radius: 12px;
+        box-shadow: 0 10px 25px rgb(22 32 26 / 0.15);
+        opacity: 0;
+        transform: translateY(150%);
+        transition: all 0.3s ease;
+    }
+    .toast-component.toast-show { opacity: 1; transform: none; }
+    .toast-component[data-type="success"] { border-left-color: #22c55e; }
+    .toast-component[data-type="error"] { border-left-color: #b42318; }
+}

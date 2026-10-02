@@ -11,8 +11,15 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
-
+from dotenv import load_dotenv
 from pathlib import Path
+
+# Load environment variables from .env file
+load_dotenv()
+
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "ahmad-rizki53-pilihyuk.pws.cs.ui.ac.id"]
+PRODUCTION = os.getenv('PRODUCTION', 'False').lower() == 'true'
+CSRF_TRUSTED_ORIGINS = ["https://ahmad-rizki53-pilihyuk.pws.cs.ui.ac.id"]
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -27,11 +34,6 @@ SECRET_KEY = 'django-insecure-near$rv30q%brt$a-f^k^ca7wt5rr)mssew0w)0sl!j$^i511v
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "ahmad-rizki53-pilihyuk.pws.cs.ui.ac.id"]
-PRODUCTION = os.getenv('PRODUCTION', 'False').lower() == 'true'
-CSRF_TRUSTED_ORIGINS = ["https://ahmad-rizki53-pilihyuk.pws.cs.ui.ac.id"]
-
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -45,6 +47,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -72,6 +75,8 @@ TEMPLATES = [
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+WHITENOISE_USE_FINDERS = True
 
 WSGI_APPLICATION = 'pilihyuk.wsgi.application'
 
@@ -135,8 +140,7 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
-
-STATIC_URL = 'static/'
+# Konfigurasi static ada di atas (STATIC_URL, STATICFILES_DIRS, STATIC_ROOT, WHITENOISE_USE_FINDERS).
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

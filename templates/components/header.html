@@ -1,0 +1,43 @@
+{% load static %}
+<header class="sticky top-0 z-40 border-b border-line bg-white">
+    <div class="mx-auto flex h-[68px] max-w-[1440px] items-center justify-between gap-4 px-4 sm:px-7">
+        <a href="/" class="flex items-center gap-2.5 text-xl font-bold tracking-tight">
+            <span class="logo-mark"><img src="{% static 'img/scale.svg' %}" alt=""></span>PilihYuk
+        </a>
+
+        <nav id="menu" aria-label="Navigasi utama"
+             class="absolute inset-x-0 top-[68px] hidden flex-col gap-4 border-b border-line bg-white p-4 text-sm font-medium md:static md:flex md:flex-row md:items-center md:gap-7 md:border-0 md:p-0">
+            <a href="/katalog/" class="nav-link" {% if '/katalog' in request.path %}aria-current="page"{% endif %}>Katalog</a>
+            <a href="/shelf/" class="nav-link" {% if '/shelf' in request.path %}aria-current="page"{% endif %}>Shelf</a>
+            <a href="/substitusi/" class="nav-link" {% if '/substitusi' in request.path %}aria-current="page"{% endif %}>Substitusi</a>
+            <a href="/antrean/" class="nav-link" {% if '/antrean' in request.path %}aria-current="page"{% endif %}>Lengkapi Data</a>
+            {% if user.is_staff %}
+            <a href="/moderasi/" class="nav-link" {% if '/moderasi' in request.path %}aria-current="page"{% endif %}>Moderasi Data</a>
+            {% endif %}
+        </nav>
+
+        <div class="flex items-center gap-2">
+            <form action="/katalog/" class="hidden w-56 items-center gap-2 rounded-[10px] bg-surface px-3 py-2.5 lg:flex">
+                <img src="{% static 'img/search.svg' %}" alt="">
+                <input type="search" name="q" placeholder="Cari produk, merek, atau shelf…" aria-label="Cari"
+                       class="w-full bg-transparent text-[13px] placeholder:text-muted focus:outline-none">
+            </form>
+
+            {% if user.is_authenticated %}
+            <span class="flex h-9 w-9 items-center justify-center rounded-full bg-mint text-sm font-bold text-brand">{{ user.username|slice:":1"|upper }}</span>
+            <span class="hidden text-[13px] font-semibold leading-tight sm:block">
+                {{ user.username }}{% if user.is_staff %}<small class="block text-[11px] font-normal text-muted">Admin</small>{% endif %}
+            </span>
+            <form action="/keluar/" method="post">{% csrf_token %}
+                <button class="rounded-[10px] px-3 py-2 text-[13px] font-semibold hover:bg-surface">Keluar</button>
+            </form>
+            {% else %}
+            <a href="/masuk/" class="rounded-[10px] px-3 py-2.5 text-sm font-semibold hover:bg-surface">Masuk</a>
+            <a href="/daftar/" class="rounded-[10px] bg-brand px-3 py-2.5 text-sm font-semibold text-white hover:bg-brand/90">Daftar</a>
+            {% endif %}
+
+            <button type="button" aria-label="Buka menu" aria-controls="menu" class="px-2 text-2xl md:hidden"
+                    onclick="document.getElementById('menu').classList.toggle('hidden')">&#9776;</button>
+        </div>
+    </div>
+</header>

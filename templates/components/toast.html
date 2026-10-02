@@ -1,0 +1,12 @@
+{% load static %}
+<div id="toast-component" class="toast-component" popover="manual">
+    <h3 id="toast-title" class="font-bold"></h3>
+    <p id="toast-message" class="text-[13px] text-muted"></p>
+</div>
+<script src="{% static 'js/toast.js' %}"></script>
+{% if messages %}
+<script>
+    {% for message in messages %}showToast('Notifikasi', '{{ message|escapejs }}', '{{ message.tags|escapejs }}');
+    {% endfor %}
+</script>
+{% endif %}

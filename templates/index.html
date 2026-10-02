@@ -1,11 +1,190 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hello, world!</title>
-</head>
-<body>
-    Hello, world
-</body>
-</html>
+{% extends "base.html" %}
+{% load static %}
+{% block meta %}
+    <title>PilihYuk - Bandingkan sebelum pilih</title>
+{% endblock meta %}
+{% block content %}
+<main class="flex-1">
+
+    <section class="bg-hero px-4 pb-16 pt-14 text-center sm:pb-24 sm:pt-16">
+        <span class="inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-1.5 text-xs font-medium">
+            <img src="{% static 'img/dot.svg' %}" alt="">Sustainable food &amp; diet &middot; data Open Food Facts
+        </span>
+        <h1 class="mx-auto mt-6 max-w-4xl text-4xl font-bold tracking-tight sm:text-6xl">Bandingkan sebelum pilih.</h1>
+        <p class="mx-auto mt-6 max-w-[680px] text-base leading-relaxed text-muted sm:text-lg">
+            Bandingkan gizi dan jejak lingkungan produk yang benar-benar sedang kamu pilih. Satu shelf, beberapa pilihan, satu keputusan.
+        </p>
+        <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <a href="/katalog/" class="btn-brand"><img src="{% static 'img/search-1.svg' %}" alt="">Cari Produk</a>
+            <a href="/shelf/" class="btn-white"><img src="{% static 'img/layers.svg' %}" alt="">Jelajahi Shelf</a>
+        </div>
+        <ul class="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-2 text-[13px] text-muted">
+            <li class="flex items-center gap-1.5"><img src="{% static 'img/apple.svg' %}" alt="">Nutri-Score</li>
+            <li class="flex items-center gap-1.5"><img src="{% static 'img/leaf.svg' %}" alt="">Green-Score</li>
+            <li class="flex items-center gap-1.5"><img src="{% static 'img/flask-conical.svg' %}" alt="">NOVA</li>
+            <li class="flex items-center gap-1.5"><img src="{% static 'img/database.svg' %}" alt="">Data terbuka</li>
+        </ul>
+    </section>
+
+    <section class="section" aria-label="Contoh tabel pembanding">
+        <div class="overflow-hidden rounded-b-[20px] bg-white shadow-lg">
+            <div class="flex flex-wrap items-center justify-between gap-2 px-5 py-4 sm:px-6">
+                <div class="flex flex-wrap items-center gap-2.5">
+                    <img src="{% static 'img/layers-1.svg' %}" alt="">
+                    <h2 class="font-bold">Mie instan goreng di minimarket</h2>
+                    <span class="rounded-full bg-mint px-2.5 py-1 text-[11px] font-bold text-brand">Shelf publik &middot; 12 produk</span>
+                </div>
+                <span class="text-xs font-medium text-muted">Diurutkan: Protein &uarr;</span>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full min-w-[880px] border-collapse text-left text-sm">
+                    <thead>
+                        <tr>
+                            <th scope="col" class="w-[196px] bg-surface px-5 py-3 align-top text-[11px] font-bold text-muted">Metrik<span class="block font-normal">Per 100 g</span></th>
+                            {% for p in products %}
+                            <th scope="col" class="px-4 py-4 align-top font-normal">
+                                <div class="h-[104px] rounded-xl bg-placeholder"></div>
+                                <p class="mt-3 text-[15px] font-bold">{{ p.name }}</p>
+                                <p class="text-xs text-muted">{{ p.brand }}</p>
+                            </th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="border-t border-line">
+                            <th scope="row" class="row-label">Nutri-Score</th>
+                            {% for p in products %}
+                            <td class="px-4"><span class="flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-nutri-{{ p.nutri|lower }} font-bold text-white">{{ p.nutri }}</span></td>
+                            {% endfor %}
+                        </tr>
+                        <tr class="border-t border-line">
+                            <th scope="row" class="row-label">Green-Score</th>
+                            {% for p in products %}
+                            <td class="px-4">
+                                {% if p.green %}
+                                <span class="chip bg-leaf"><img src="{% static 'img/leaf-1.svg' %}" alt="">{{ p.green }}{% if p.estimated %} <span class="text-estimate">Estimasi</span>{% endif %}</span>
+                                {% else %}
+                                <span class="chip bg-surface font-semibold text-muted"><img src="{% static 'img/info.svg' %}" alt="">Tidak diketahui</span>
+                                {% endif %}
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        <tr class="border-t border-line">
+                            <th scope="row" class="row-label">NOVA</th>
+                            {% for p in products %}
+                            <td class="px-4"><span class="chip bg-surface"><img src="{% static 'img/flask-conical-1.svg' %}" alt="">NOVA {{ p.nova }}</span></td>
+                            {% endfor %}
+                        </tr>
+
+                        {% for row in rows %}
+                        <tr class="border-t border-line">
+                            <th scope="row" class="row-label">
+                                <span class="flex items-center gap-2">{{ row.label }}
+                                    {% if row.best == "max" %}<img src="{% static 'img/arrow-up.svg' %}" alt="makin tinggi makin baik">{% endif %}
+                                    {% if row.best == "min" %}<img src="{% static 'img/arrow-down.svg' %}" alt="makin rendah makin baik">{% endif %}
+                                </span>
+                            </th>
+                            {% for cell in row.cells %}
+                            <td class="px-4 py-3{% if cell.best %} bg-mint{% endif %}">
+                                <b class="text-[15px]{% if cell.best %} text-brand{% endif %}">{{ cell.value }}</b>
+                                <span class="text-[11px] text-muted">{{ row.unit }}</span>
+                                {% if cell.best %}<span class="ml-1 rounded-full bg-brand px-2 py-0.5 text-[9px] font-bold text-white">{% if row.best == "max" %}Tertinggi{% else %}Terendah{% endif %}</span>{% endif %}
+                                <div class="mt-1.5 h-1 w-24 rounded-full bg-track">
+                                    <div class="h-1 rounded-full {% if row.best %}bg-brand{% else %}bg-bar{% endif %}" style="width: {{ cell.pct }}%"></div>
+                                </div>
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+
+                        <tr class="border-t border-line bg-surface">
+                            <th scope="row" class="px-5 py-3 text-left text-xs font-bold text-muted">Aksi</th>
+                            {% for p in products %}
+                            <td class="px-4 py-2"><a href="#" class="btn-white btn-small"><img src="{% static 'img/external-link.svg' %}" alt="">Detail</a></td>
+                            {% endfor %}
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <section class="section py-16 sm:py-24">
+        <p class="eyebrow">Cara kerja</p>
+        <h2 class="section-title">Empat langkah menuju keputusan yang lebih sadar.</h2>
+        <ol class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {% for icon, title, text in steps %}
+            <li class="card">
+                <div class="flex items-start justify-between">
+                    <span class="icon-box bg-mint"><img src="{% static icon %}" alt=""></span>
+                    <b class="text-[22px] text-faint">{{ forloop.counter|stringformat:"02d" }}</b>
+                </div>
+                <h3 class="mt-5 text-[17px] font-bold">{{ title }}</h3>
+                <p class="mt-2 text-[13px] leading-normal text-muted">{{ text }}</p>
+            </li>
+            {% endfor %}
+        </ol>
+    </section>
+
+    <section class="section pb-16 sm:pb-24">
+        <div class="flex flex-wrap items-end justify-between gap-4">
+            <div>
+                <p class="eyebrow">Shelf pilihan</p>
+                <h2 class="section-title">Shelf yang dibuat komunitas dan siap dibandingkan.</h2>
+            </div>
+            <a href="/shelf/" class="btn-white btn-small"><img src="{% static 'img/arrow-right.svg' %}" alt="">Lihat semua shelf</a>
+        </div>
+        <ul class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {% for s in shelves %}
+            <li class="card flex flex-col p-4">
+                <div class="grid grid-cols-3 gap-2">
+                    {% for _ in "123" %}<div class="aspect-[79/110] rounded-xl bg-placeholder"></div>{% endfor %}
+                </div>
+                <p class="mt-4 flex items-center gap-2 text-[11px] text-muted">
+                    <span class="inline-flex items-center gap-1 rounded-full bg-surface px-2.5 py-1 font-semibold text-ink"><img src="{% static 'img/map-pin.svg' %}" alt="">{{ s.context }}</span>
+                    {{ s.count }} produk
+                </p>
+                <h3 class="mt-3 font-bold">{{ s.title }}</h3>
+                <p class="mt-2 flex-1 text-[13px] leading-normal text-muted">{{ s.desc }}</p>
+                <div class="mt-4 flex items-center justify-between border-t border-line pt-4">
+                    <span class="flex items-center gap-2 text-[11px] text-muted">
+                        <span class="flex h-7 w-7 items-center justify-center rounded-full bg-mint text-xs font-bold text-brand">{{ s.user|first|upper }}</span>
+                        oleh {{ s.user }}
+                    </span>
+                    <a href="/shelf/" class="rounded-xl bg-mint px-5 py-2.5 text-sm font-semibold text-brand hover:bg-mint/70">Bandingkan</a>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <section class="section pb-16 sm:pb-24">
+        <p class="eyebrow">Kenapa PilihYuk</p>
+        <h2 class="section-title">Berbeda dari katalog produk biasa.</h2>
+        <ul class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {% for icon, title, text in benefits %}
+            <li class="card">
+                <span class="icon-box bg-warm"><img src="{% static icon %}" alt=""></span>
+                <h3 class="mt-5 text-[17px] font-bold">{{ title }}</h3>
+                <p class="mt-2 text-[13px] leading-normal text-muted">{{ text }}</p>
+            </li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <section class="section pb-16 sm:pb-24">
+        <div class="flex flex-col justify-between gap-6 rounded-[28px] bg-ink px-6 py-8 sm:px-11 sm:py-10 lg:flex-row lg:items-center">
+            <div class="max-w-[640px]">
+                <h2 class="text-2xl font-bold text-white">Siap membandingkan pilihanmu?</h2>
+                <p class="mt-3 text-[15px] leading-relaxed text-lead">Buat shelf pertamamu, atau mulai dari shelf yang sudah dibuat komunitas. Tidak perlu akun untuk melihat perbandingan.</p>
+            </div>
+            <div class="flex flex-col gap-3 sm:flex-row">
+                <a href="/katalog/" class="btn-brand"><img src="{% static 'img/search-1.svg' %}" alt="">Cari Produk</a>
+                <a href="/shelf/" class="btn-white">Jelajahi Shelf</a>
+            </div>
+        </div>
+    </section>
+
+</main>
+{% endblock content %}

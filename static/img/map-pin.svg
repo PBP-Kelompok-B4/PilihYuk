@@ -1,0 +1,11 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="11" height="11" viewBox="0 0 11 11" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="lucide/map-pin" clip-path="url(#clip0_0_43)">
+<path id="Vector" d="M5.77546 9.99121C6.62796 9.25512 9.16667 6.87179 9.16667 4.58333C9.16667 3.61087 8.78036 2.67824 8.09273 1.99061C7.40509 1.30298 6.47246 0.916667 5.5 0.916667C4.52754 0.916667 3.59491 1.30298 2.90728 1.99061C2.21964 2.67824 1.83333 3.61087 1.83333 4.58333C1.83333 6.87179 4.37204 9.25512 5.22454 9.99121C5.30396 10.0509 5.40063 10.0832 5.5 10.0832C5.59937 10.0832 5.69604 10.0509 5.77546 9.99121Z" stroke="#6E756E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Vector_2" d="M5.5 5.95833C6.25939 5.95833 6.875 5.34272 6.875 4.58333C6.875 3.82394 6.25939 3.20833 5.5 3.20833C4.74061 3.20833 4.125 3.82394 4.125 4.58333C4.125 5.34272 4.74061 5.95833 5.5 5.95833Z" stroke="#6E756E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<defs>
+<clipPath id="clip0_0_43">
+<rect width="11" height="11" fill="white"/>
+</clipPath>
+</defs>
+</svg>
