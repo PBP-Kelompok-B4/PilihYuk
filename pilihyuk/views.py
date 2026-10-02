@@ -1,14 +1,17 @@
 from django.shortcuts import render
 
-# ponytail: data contoh dari wireframe Landing. Ganti dengan query Product dan Shelf saat modelnya ada.
+# data contoh dari wireframe. Tukar featured_shelf() dan featured_shelves() dengan query Product dan Shelf.
+# Kunci produk: name, brand (merek dan ukuran), nutri ("a" sampai "e", atau None), green (huruf atau None),
+# estimated, nova, kcal, protein, sugar, sodium (None bila kosong), image dan url (opsional).
+# Kunci shelf: title, context, count, desc, user, thumbs (3 url atau None), url.
 SAMPLE_PRODUCTS = [
-    {"name": "Indomie Mi Goreng", "brand": "Indomie · 85 g", "nutri": "B", "green": "C", "estimated": False,
+    {"name": "Indomie Mi Goreng", "brand": "Indomie · 85 g", "nutri": "b", "green": "C", "estimated": False,
      "nova": 4, "kcal": 447, "protein": 9, "sugar": 7, "sodium": 900},
-    {"name": "Mie Sedaap Goreng", "brand": "Mie Sedaap · 91 g", "nutri": "C", "green": "B", "estimated": False,
+    {"name": "Mie Sedaap Goreng", "brand": "Mie Sedaap · 91 g", "nutri": "c", "green": "B", "estimated": False,
      "nova": 4, "kcal": 450, "protein": 8, "sugar": 8, "sodium": 850},
-    {"name": "Sarimi Isi 2 Goreng", "brand": "Sarimi · 88 g", "nutri": "C", "green": None, "estimated": False,
+    {"name": "Sarimi Isi 2 Goreng", "brand": "Sarimi · 88 g", "nutri": "c", "green": None, "estimated": False,
      "nova": 4, "kcal": 452, "protein": 7.5, "sugar": 6.5, "sodium": 870},
-    {"name": "Supermi Goreng", "brand": "Supermi · 80 g", "nutri": "B", "green": "C", "estimated": True,
+    {"name": "Supermi Goreng", "brand": "Supermi · 80 g", "nutri": "b", "green": "C", "estimated": True,
      "nova": 4, "kcal": 440, "protein": 8.5, "sugar": 6, "sodium": 780},
 ]
 SAMPLE_SHELVES = [
@@ -21,7 +24,6 @@ SAMPLE_SHELVES = [
     {"context": "Minimarket", "count": 11, "title": "Minuman rendah gula",
      "desc": "Teh, soda, dan air kemasan dengan gula lebih rendah.", "user": "farel"},
 ]
-# (path ikon di static, judul, keterangan)
 STEPS = [
     ("img/search-2.svg", "Cari produk", "Telusuri produk makanan dan minuman dari katalog Open Food Facts."),
     ("img/layers-2.svg", "Buat atau pilih shelf", "Susun kumpulan produk yang benar-benar saling menggantikan."),
@@ -36,7 +38,6 @@ BENEFITS = [
     ("img/repeat.svg", "Substitusi dari komunitas", "Usulan penggantian dari pengguna lain lengkap dengan alasan dan voting."),
     ("img/shield-check.svg", "Transparansi data", "Nilai resmi, estimasi, dan data yang belum tersedia selalu dibedakan."),
 ]
-# (label, key, satuan, arah terbaik: "max", "min", atau None bila tidak dinilai)
 METRICS = [
     ("Kalori", "kcal", "kcal", None),
     ("Protein", "protein", "g", "max"),
@@ -45,22 +46,36 @@ METRICS = [
 ]
 
 
-def comparison_rows():
-    """Satu baris per metrik: nilai tiap produk, lebar bar (% dari terbesar), dan penanda nilai terbaik."""
+def comparison_rows(products):
+    """Satu baris per metrik: nilai tiap produk, lebar bar (% dari terbesar), dan penanda nilai terbaik.
+    Nilai None (data kosong) tidak ikut diperingkat."""
     rows = []
     for label, key, unit, best in METRICS:
-        values = [p[key] for p in SAMPLE_PRODUCTS]
-        target = {"max": max, "min": min}.get(best, lambda _: None)(values)
-        cells = [{"value": v, "pct": round(100 * v / max(values)), "best": v == target} for v in values]
+        values = [p[key] for p in products]
+        known = [v for v in values if v is not None]
+        target = {"max": max, "min": min}.get(best, lambda _: None)(known) if known else None
+        cells = [{"value": v, "pct": round(100 * v / max(known)) if v and max(known) else 0,
+                  "best": v is not None and v == target} for v in values]
         rows.append({"label": label, "unit": unit, "best": best, "cells": cells})
     return rows
 
 
+def featured_shelf():
+    """Shelf untuk tabel contoh: kunci shelf ditambah 'public', 'sort', dan 'products' (maksimal 4)."""
+    return {"title": "Mie instan goreng di minimarket", "count": 12, "public": True, "sort": "Protein ↑",
+            "products": SAMPLE_PRODUCTS}
+
+
+def featured_shelves():
+    return [{"thumbs": [None] * 3, "url": "/shelf/", **s} for s in SAMPLE_SHELVES]
+
+
 def home_page(request):
+    shelf = featured_shelf()
     return render(request, "index.html", {
-        "products": SAMPLE_PRODUCTS,
-        "rows": comparison_rows(),
-        "shelves": SAMPLE_SHELVES,
+        "shelf": shelf,
+        "rows": comparison_rows(shelf["products"]),
+        "shelves": featured_shelves(),
         "steps": STEPS,
         "benefits": BENEFITS,
     })

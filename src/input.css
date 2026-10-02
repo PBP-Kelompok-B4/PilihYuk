@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@source inline("bg-nutri-{b,c}");
+@source inline("bg-nutri-{a,b,c,d,e}");
 
 @theme {
     --font-sans: "Inter", system-ui, sans-serif;
@@ -23,8 +23,11 @@
     --color-foot: #9ba69c;
     --color-foot-muted: #6e7a70;
     --color-lead: #b7beb6;
+    --color-nutri-a: #1e8f4e;
     --color-nutri-b: #5ba32b;
     --color-nutri-c: #d9a400;
+    --color-nutri-d: #e8781a;
+    --color-nutri-e: #d6402c;
 }
 
 @layer components {

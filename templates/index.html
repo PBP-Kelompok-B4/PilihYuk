@@ -31,10 +31,10 @@
             <div class="flex flex-wrap items-center justify-between gap-2 px-5 py-4 sm:px-6">
                 <div class="flex flex-wrap items-center gap-2.5">
                     <img src="{% static 'img/layers-1.svg' %}" alt="">
-                    <h2 class="font-bold">Mie instan goreng di minimarket</h2>
-                    <span class="rounded-full bg-mint px-2.5 py-1 text-[11px] font-bold text-brand">Shelf publik &middot; 12 produk</span>
+                    <h2 class="font-bold">{{ shelf.title }}</h2>
+                    <span class="rounded-full bg-mint px-2.5 py-1 text-[11px] font-bold text-brand">{% if shelf.public %}Shelf publik{% else %}Shelf privat{% endif %} &middot; {{ shelf.count }} produk</span>
                 </div>
-                <span class="text-xs font-medium text-muted">Diurutkan: Protein &uarr;</span>
+                <span class="text-xs font-medium text-muted">Diurutkan: {{ shelf.sort }}</span>
             </div>
 
             <div class="overflow-x-auto">
@@ -42,9 +42,9 @@
                     <thead>
                         <tr>
                             <th scope="col" class="w-[196px] bg-surface px-5 py-3 align-top text-[11px] font-bold text-muted">Metrik<span class="block font-normal">Per 100 g</span></th>
-                            {% for p in products %}
+                            {% for p in shelf.products %}
                             <th scope="col" class="px-4 py-4 align-top font-normal">
-                                <div class="h-[104px] rounded-xl bg-placeholder"></div>
+                                {% if p.image %}<img src="{{ p.image }}" alt="" class="h-[104px] w-full rounded-xl object-contain">{% else %}<div class="h-[104px] rounded-xl bg-placeholder"></div>{% endif %}
                                 <p class="mt-3 text-[15px] font-bold">{{ p.name }}</p>
                                 <p class="text-xs text-muted">{{ p.brand }}</p>
                             </th>
@@ -54,13 +54,19 @@
                     <tbody>
                         <tr class="border-t border-line">
                             <th scope="row" class="row-label">Nutri-Score</th>
-                            {% for p in products %}
-                            <td class="px-4"><span class="flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-nutri-{{ p.nutri|lower }} font-bold text-white">{{ p.nutri }}</span></td>
+                            {% for p in shelf.products %}
+                            <td class="px-4">
+                                {% if p.nutri %}
+                                <span class="flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-nutri-{{ p.nutri }} font-bold text-white">{{ p.nutri|upper }}</span>
+                                {% else %}
+                                <span class="chip bg-surface font-semibold text-muted"><img src="{% static 'img/info.svg' %}" alt="">Tidak diketahui</span>
+                                {% endif %}
+                            </td>
                             {% endfor %}
                         </tr>
                         <tr class="border-t border-line">
                             <th scope="row" class="row-label">Green-Score</th>
-                            {% for p in products %}
+                            {% for p in shelf.products %}
                             <td class="px-4">
                                 {% if p.green %}
                                 <span class="chip bg-leaf"><img src="{% static 'img/leaf-1.svg' %}" alt="">{{ p.green }}{% if p.estimated %} <span class="text-estimate">Estimasi</span>{% endif %}</span>
@@ -72,8 +78,14 @@
                         </tr>
                         <tr class="border-t border-line">
                             <th scope="row" class="row-label">NOVA</th>
-                            {% for p in products %}
-                            <td class="px-4"><span class="chip bg-surface"><img src="{% static 'img/flask-conical-1.svg' %}" alt="">NOVA {{ p.nova }}</span></td>
+                            {% for p in shelf.products %}
+                            <td class="px-4">
+                                {% if p.nova %}
+                                <span class="chip bg-surface"><img src="{% static 'img/flask-conical-1.svg' %}" alt="">NOVA {{ p.nova }}</span>
+                                {% else %}
+                                <span class="chip bg-surface font-semibold text-muted"><img src="{% static 'img/info.svg' %}" alt="">Tidak diketahui</span>
+                                {% endif %}
+                            </td>
                             {% endfor %}
                         </tr>
 
@@ -87,8 +99,12 @@
                             </th>
                             {% for cell in row.cells %}
                             <td class="px-4 py-3{% if cell.best %} bg-mint{% endif %}">
+                                {% if cell.value is None %}
+                                <span class="text-xs font-semibold text-muted">Tidak diketahui</span>
+                                {% else %}
                                 <b class="text-[15px]{% if cell.best %} text-brand{% endif %}">{{ cell.value }}</b>
                                 <span class="text-[11px] text-muted">{{ row.unit }}</span>
+                                {% endif %}
                                 {% if cell.best %}<span class="ml-1 rounded-full bg-brand px-2 py-0.5 text-[9px] font-bold text-white">{% if row.best == "max" %}Tertinggi{% else %}Terendah{% endif %}</span>{% endif %}
                                 <div class="mt-1.5 h-1 w-24 rounded-full bg-track">
                                     <div class="h-1 rounded-full {% if row.best %}bg-brand{% else %}bg-bar{% endif %}" style="width: {{ cell.pct }}%"></div>
@@ -100,8 +116,8 @@
 
                         <tr class="border-t border-line bg-surface">
                             <th scope="row" class="px-5 py-3 text-left text-xs font-bold text-muted">Aksi</th>
-                            {% for p in products %}
-                            <td class="px-4 py-2"><a href="#" class="btn-white btn-small"><img src="{% static 'img/external-link.svg' %}" alt="">Detail</a></td>
+                            {% for p in shelf.products %}
+                            <td class="px-4 py-2"><a href="{{ p.url|default:'#' }}" class="btn-white btn-small"><img src="{% static 'img/external-link.svg' %}" alt="">Detail</a></td>
                             {% endfor %}
                         </tr>
                     </tbody>
@@ -139,7 +155,9 @@
             {% for s in shelves %}
             <li class="card flex flex-col p-4">
                 <div class="grid grid-cols-3 gap-2">
-                    {% for _ in "123" %}<div class="aspect-[79/110] rounded-xl bg-placeholder"></div>{% endfor %}
+                    {% for thumb in s.thumbs %}
+                    {% if thumb %}<img src="{{ thumb }}" alt="" class="aspect-[79/110] w-full rounded-xl object-contain">{% else %}<div class="aspect-[79/110] rounded-xl bg-placeholder"></div>{% endif %}
+                    {% endfor %}
                 </div>
                 <p class="mt-4 flex items-center gap-2 text-[11px] text-muted">
                     <span class="inline-flex items-center gap-1 rounded-full bg-surface px-2.5 py-1 font-semibold text-ink"><img src="{% static 'img/map-pin.svg' %}" alt="">{{ s.context }}</span>
@@ -152,7 +170,7 @@
                         <span class="flex h-7 w-7 items-center justify-center rounded-full bg-mint text-xs font-bold text-brand">{{ s.user|first|upper }}</span>
                         oleh {{ s.user }}
                     </span>
-                    <a href="/shelf/" class="rounded-xl bg-mint px-5 py-2.5 text-sm font-semibold text-brand hover:bg-mint/70">Bandingkan</a>
+                    <a href="{{ s.url }}" class="rounded-xl bg-mint px-5 py-2.5 text-sm font-semibold text-brand hover:bg-mint/70">Bandingkan</a>
                 </div>
             </li>
             {% endfor %}
