@@ -10,7 +10,7 @@ Deployment PWS: https://ahmad-rizki53-pilihyuk.pws.cs.ui.ac.id/
 
 Desain Figma: https://www.figma.com/design/6CwhelVNc1lJ9XWB4OnYlc/Wireframe?m=auto&t=CVl65mv1cAQ71x4E-6
 
-Database ERD: https://drive.google.com/file/d/1drkOFYezyV2XjVK9s4vAfAnkS2z1y5r2/view?usp=sharing 
+Database ERD: https://drive.google.com/file/d/1ifEXnbhhhzuR_gfXwdXOaAetRQwDuM4c/view?usp=sharing
 
 ## Deskripsi
 
