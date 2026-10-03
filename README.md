@@ -10,7 +10,7 @@ Deployment PWS: https://ahmad-rizki53-pilihyuk.pws.cs.ui.ac.id/
 
 Desain Figma: https://www.figma.com/design/6CwhelVNc1lJ9XWB4OnYlc/Wireframe?m=auto&t=CVl65mv1cAQ71x4E-6
 
-Database ERD: https://drive.google.com/file/d/1ifEXnbhhhzuR_gfXwdXOaAetRQwDuM4c/view?usp=sharing (versi draw.io terbaru ada di `pilihyuk-docs/erd/pilihyuk.drawio`)
+Database ERD: https://drive.google.com/file/d/1ifEXnbhhhzuR_gfXwdXOaAetRQwDuM4c/view?usp=sharing
 
 ## Deskripsi
 
@@ -74,7 +74,7 @@ Kami memakai API Open Food Facts (OFF). API ini gratis dan tidak butuh key untuk
 | Dump data untuk seeding | https://world.openfoodfacts.org/data |
 | Keterangan field | https://static.openfoodfacts.org/data/data-fields.txt |
 
-Saat aplikasi berjalan, kami memanggil `id.openfoodfacts.org`. Subdomain ini menyaring pencarian ke produk Indonesia, tetapi tidak menyaring pembacaan barcode lewat v3. Karena itu setiap produk diperiksa dengan `is_indonesian()` (berdasarkan `countries_tags`) sebelum masuk, baik saat seeding, lookup barcode, maupun refresh. Dump seeding tetap diambil dari `world` karena OFF hanya menyediakannya secara global. Lookup barcode saat aplikasi berjalan dibatasi 3 per menit per pengguna, sebab semua pengguna berbagi satu alamat server dan OFF hanya mengizinkan 15 permintaan per menit per alamat.
+Saat aplikasi berjalan, kami memanggil `id.openfoodfacts.org`. Subdomain ini menyaring pencarian ke produk Indonesia, tetapi tidak menyaring pembacaan barcode lewat v3. Karena itu setiap produk diperiksa dengan `is_sold_in_indonesia()` (berdasarkan `countries_tags`) sebelum masuk, baik saat seeding, lookup barcode, maupun refresh. Dump seeding tetap diambil dari `world` karena OFF hanya menyediakannya secara global. Lookup barcode saat aplikasi berjalan dibatasi 3 per menit per pengguna, sebab semua pengguna berbagi satu alamat server dan OFF hanya mengizinkan 15 permintaan per menit per alamat.
 
 Field yang kami pakai: `code`, `product_name`, `brands`, `quantity`, `image_url`, `nutrition_grades`, `nova_group`, `categories_tags`, `labels_tags`, `countries_tags`, `origins_tags`, `manufacturing_places`, `packaging_tags`, `ingredients_analysis_tags`, `ingredients_text`, `allergens_tags`, `serving_size`, `nutriments`, `misc_tags`, dan skor lingkungan. Skor lingkungan dibaca dari `environmental_score_grade`, dengan `ecoscore_grade` sebagai cadangan karena v2 dan v3 masih memakai nama lama. Skor yang kosong dikembalikan sebagai `"unknown"` (atau `"not-applicable"`), bukan `null`.
 
@@ -157,7 +157,7 @@ Yang perlu diingat:
 
 *Jalur perbaikan data sekaligus antrean kontribusi.*
 
-- Entitas: `DataFlag`, `DataFlagItem` (satu pengajuan untuk satu produk, boleh memuat beberapa field, dan ditinjau per field)
+- Entitas: `DataCorrection`, `DataCorrectionItem` (satu pengajuan untuk satu produk, boleh memuat beberapa field, dan ditinjau per field)
 - CRUD: ajukan koreksi saat data keliru atau kosong; baca antrean produk yang paling butuh dilengkapi, diurutkan dari yang paling sering muncul di shelf; kurator menyetujui atau menolak; pengaju bisa menarik pengajuannya
 - Filter database: mendeteksi `Product` yang datanya belum lengkap, dari `misc_tags` yang tersimpan dan dari kolom gizi yang kosong
 - Dikunci login: identitas pengaju dan riwayat pengajuan

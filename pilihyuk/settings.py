@@ -44,10 +44,10 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'accounts',
-    'catalog',
+    'product_catalog',
     'shelves',
     'substitutions',
-    'dataflags',
+    'data_correction',
     'preferences',
 ]
 
