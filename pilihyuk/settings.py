@@ -138,7 +138,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'id'  # pesan validasi Django (password, dll.) tampil dalam Bahasa Indonesia
+LANGUAGE_CODE = 'id'  # situs berbahasa Indonesia: pesan validasi Django dan format angka (desimal berkoma)
 
 TIME_ZONE = 'UTC'
 

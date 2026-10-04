@@ -1,4 +1,5 @@
 {% extends "accounts/_auth_layout.html" %}
+{% load static %}
 
 {% block meta %}<title>Masuk · PilihYuk</title>{% endblock meta %}
 
@@ -20,8 +21,17 @@
     <button type="submit" class="btn-brand mt-6 w-full">Masuk</button>
 </form>
 
+<div class="my-5 flex items-center gap-3 text-xs text-muted" aria-hidden="true">
+    <span class="h-px flex-1 bg-line"></span>atau<span class="h-px flex-1 bg-line"></span>
+</div>
+{# Belum aktif: masuk dengan Google akan dibuat nanti. #}
+<button type="button" disabled aria-disabled="true" title="Segera hadir"
+        class="btn-white w-full cursor-not-allowed opacity-60 ring-1 ring-line hover:bg-white">
+    <img src="{% static 'img/globe.svg' %}" alt="" class="h-4 w-4">Masuk dengan Google<span class="sr-only"> (segera hadir)</span>
+</button>
+
 <p class="mt-6 text-center text-[13px] text-muted">Belum punya akun?
     <a href="{% url 'accounts:register' %}{% if next %}?next={{ next|urlencode }}{% endif %}" class="font-semibold text-brand hover:underline">Daftar sekarang</a>
 </p>
-<p class="mt-2 text-center text-xs text-muted"><a href="{% url 'home_page' %}" class="hover:text-brand">&larr; Kembali ke beranda</a></p>
+<p class="mt-2 text-center text-xs text-muted"><a href="/katalog/" class="hover:text-brand">&larr; Kembali ke katalog</a></p>
 {% endblock form_content %}

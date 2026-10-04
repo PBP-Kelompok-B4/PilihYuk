@@ -1,6 +1,8 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError
 from django.test import Client, TestCase
 from django.urls import reverse
 
@@ -157,6 +159,24 @@ class LockoutTests(TestCase):
         for _ in range(4):
             self.attempt("rani@email.com", "salah")
         self.assertRedirects(self.attempt("rani@email.com", PASSWORD), reverse("home_page"))
+
+
+class RaceTests(TestCase):
+    """Dua permintaan serentak lolos cek di form lalu bentrok di database: harus jadi pesan, bukan 500."""
+
+    def test_register_integrity_error_becomes_form_error(self):
+        with patch("accounts.forms.RegisterForm.save", side_effect=IntegrityError):
+            r = self.client.post(reverse("accounts:register"), register_data())
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "sudah terdaftar")
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_profile_edit_integrity_error_becomes_form_error(self):
+        self.client.force_login(make_user())
+        with patch("accounts.forms.ProfileForm.save", side_effect=IntegrityError):
+            r = self.client.post(reverse("accounts:profile_edit"), {"display_name": "Rani", "email": "rani@email.com"})
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "sudah dipakai")
 
 
 class CsrfTests(TestCase):

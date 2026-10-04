@@ -26,6 +26,7 @@
                 <h2 id="password-title" class="text-lg font-bold">Ganti password</h2>
                 <form method="post" action="{% url 'accounts:password' %}" novalidate>
                     {% csrf_token %}
+                    <input type="text" name="username" value="{{ user.username }}" autocomplete="username" hidden>{# untuk password manager #}
                     {% include "accounts/_field.html" with field=password_form.old_password %}
                     {% include "accounts/_field.html" with field=password_form.new_password1 %}
                     {% include "accounts/_field.html" with field=password_form.new_password2 %}

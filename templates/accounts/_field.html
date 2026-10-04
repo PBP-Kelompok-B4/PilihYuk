@@ -1,3 +1,4 @@
+{% load static %}
 <div class="mt-4">
     {% if field.widget_type == 'checkbox' %}
     <label for="{{ field.id_for_label }}" class="flex items-start gap-2.5 text-[13px] leading-snug text-muted">
@@ -6,6 +7,7 @@
     {% else %}
     <label for="{{ field.id_for_label }}" class="mb-1.5 block text-[13px] font-semibold">{{ field.label }}</label>
     <div class="relative">
+        {% if field.field.icon %}{% with "img/"|add:field.field.icon|add:".svg" as icon_path %}<img src="{% static icon_path %}" alt="" class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2">{% endwith %}{% endif %}
         {{ field }}
         {% if field.widget_type == 'password' %}
         <button type="button" data-toggle-password="{{ field.id_for_label }}" aria-pressed="false"

@@ -55,13 +55,6 @@ class LoginView(auth_views.LoginView):
         return response
 
 
-class LogoutView(auth_views.LogoutView):  # POST saja (Django 5)
-    def post(self, request, *args, **kwargs):
-        response = super().post(request, *args, **kwargs)
-        messages.info(request, "Kamu sudah keluar.")
-        return response
-
-
 def profile_links(user):
     links = []
     for title, text, path, staff_only in PROFILE_LINKS:

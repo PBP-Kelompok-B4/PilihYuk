@@ -18,20 +18,22 @@ def email_taken(email, exclude_pk=None):
 
 
 class Styled:
-    """Kelas Tailwind dan aria-invalid untuk semua field, supaya template tidak mengulang."""
+    """Kelas Tailwind untuk semua field, supaya template tidak mengulang. aria-invalid sudah diisi Django."""
+
+    icons = {}  # nama field -> nama berkas static/img/<nama>.svg (sesuai wireframe)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for field in self.fields.values():
+        for name, field in self.fields.items():
             widget = field.widget
-            css = CHECKBOX if isinstance(widget, forms.CheckboxInput) else INPUT
+            if isinstance(widget, forms.CheckboxInput):
+                css = CHECKBOX
+            else:
+                field.icon = self.icons.get(name)
+                left = "pl-11" if field.icon else "pl-4"
+                right = "pr-24" if widget.input_type == "password" else "pr-4"  # ruang tombol Tampilkan
+                css = INPUT.replace("px-4", f"{left} {right}")
             widget.attrs["class"] = f"{widget.attrs.get('class', '')} {css}".strip()
-
-    def full_clean(self):
-        super().full_clean()
-        for name in self.errors:
-            if name in self.fields:
-                self.fields[name].widget.attrs["aria-invalid"] = "true"
 
 
 class RegisterForm(Styled, BaseUserCreationForm):
@@ -47,15 +49,16 @@ class RegisterForm(Styled, BaseUserCreationForm):
         fields = ("email",)  # username dan first_name diisi di clean(); is_staff tidak pernah ikut
 
     field_order = ["display_name", "email", "password1", "password2", "terms"]
+    icons = {"display_name": "user", "email": "mail", "password1": "lock", "password2": "lock"}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["display_name"].widget.attrs["autocomplete"] = "name"
         self.fields["email"].widget.attrs["autocomplete"] = "email"
         self.fields["password1"].label = "Password"
-        self.fields["password1"].help_text = "Minimal 8 karakter. Gunakan kombinasi huruf dan angka."
+        self.fields["password1"].help_text = ""
         self.fields["password2"].label = "Konfirmasi password"
-        self.fields["password2"].help_text = ""
+        self.fields["password2"].help_text = "Minimal 8 karakter. Gunakan kombinasi huruf dan angka."  # sesuai wireframe
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()
@@ -70,18 +73,11 @@ class RegisterForm(Styled, BaseUserCreationForm):
         self.instance.first_name = cleaned.get("display_name", "")
         return cleaned
 
-    def save(self, commit=True):
-        user = super().save(commit=False)
-        user.username = user.email
-        user.first_name = self.cleaned_data["display_name"]
-        if commit:
-            user.save()
-        return user
-
 
 class LoginForm(Styled, AuthenticationForm):
     username = forms.CharField(label="Email", max_length=150)
     remember = forms.BooleanField(label="Ingat saya selama 30 hari", required=False)
+    icons = {"username": "mail", "password": "lock"}
     error_messages = {
         **AuthenticationForm.error_messages,
         # Satu pesan untuk email salah maupun password salah (tanpa membocorkan akun mana yang ada).
@@ -114,6 +110,8 @@ class ProfileForm(Styled, forms.Form):
         kwargs.setdefault("initial", {"display_name": user.first_name, "email": user.email})
         super().__init__(*args, **kwargs)
         self.user = user
+        self.fields["display_name"].widget.attrs["autocomplete"] = "name"
+        self.fields["email"].widget.attrs["autocomplete"] = "email"
 
     def clean(self):
         cleaned = super().clean()
@@ -131,7 +129,9 @@ class ProfileForm(Styled, forms.Form):
 
     def save(self):
         self.user.first_name = self.cleaned_data["display_name"]
-        self.user.email = self.user.username = self.cleaned_data["email"]
+        email = self.cleaned_data["email"]
+        if email != self.user.email.lower():  # username (untuk login) hanya ikut berubah bila email berubah
+            self.user.email = self.user.username = email
         self.user.save(update_fields=["first_name", "email", "username"])
         return self.user
 
