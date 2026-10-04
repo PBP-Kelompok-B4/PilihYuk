@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
+from datetime import timedelta
 from dotenv import load_dotenv
 from pathlib import Path
 
@@ -43,6 +44,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'axes',
     'accounts',
     'product_catalog',
     'shelves',
@@ -60,6 +62,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'axes.middleware.AxesMiddleware',  # harus terakhir
 ]
 
 ROOT_URLCONF = 'pilihyuk.urls'
@@ -153,6 +156,20 @@ LOGIN_URL = 'accounts:login'
 LOGIN_REDIRECT_URL = 'home_page'
 LOGOUT_REDIRECT_URL = 'home_page'
 SESSION_COOKIE_SAMESITE = 'Lax'
+
+# Pembatasan percobaan login (django-axes): 5 gagal per email, kunci 15 menit.
+# Per email, bukan per IP, karena semua pengguna PWS berbagi satu IP proxy.
+# ponytail: orang iseng bisa mengunci akun orang lain 15 menit; tambah faktor IP bila PWS meneruskan IP asli.
+AUTHENTICATION_BACKENDS = [
+    'axes.backends.AxesStandaloneBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+AXES_FAILURE_LIMIT = 5
+AXES_COOLOFF_TIME = timedelta(minutes=15)
+AXES_LOCKOUT_PARAMETERS = ['username']
+SILENCED_SYSTEM_CHECKS = ['axes.W006']  # sengaja tanpa ip_address: semua pengguna berbagi IP proxy PWS
+AXES_RESET_ON_SUCCESS = True
+AXES_LOCKOUT_TEMPLATE = 'accounts/locked.html'
 if PRODUCTION:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True

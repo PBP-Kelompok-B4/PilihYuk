@@ -122,6 +122,43 @@ class LoginLogoutTests(TestCase):
         self.assertNotIn("_auth_user_id", self.client.session)
 
 
+class LockoutTests(TestCase):
+    def setUp(self):
+        make_user()
+        make_user("budi@email.com", "Budi")
+        self.url = reverse("accounts:login")
+
+    def attempt(self, email, password):
+        return self.client.post(self.url, {"username": email, "password": password})
+
+    def test_account_is_locked_after_five_failures_even_with_right_password(self):
+        for _ in range(4):
+            self.assertEqual(self.attempt("rani@email.com", "salah").status_code, 200)
+        self.assertEqual(self.attempt("rani@email.com", "salah").status_code, 429)  # gagal ke-5 mengunci
+        r = self.attempt("rani@email.com", PASSWORD)
+        self.assertEqual(r.status_code, 429)
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_lockout_ignores_email_case(self):
+        for _ in range(5):
+            self.attempt("RANI@email.com", "salah")
+        self.assertEqual(self.attempt("rani@email.com", PASSWORD).status_code, 429)
+
+    def test_other_accounts_are_not_locked(self):
+        for _ in range(5):
+            self.attempt("rani@email.com", "salah")
+        self.assertRedirects(self.attempt("budi@email.com", PASSWORD), reverse("home_page"))
+
+    def test_successful_login_resets_counter(self):
+        for _ in range(4):
+            self.attempt("rani@email.com", "salah")
+        self.attempt("rani@email.com", PASSWORD)
+        self.client.logout()
+        for _ in range(4):
+            self.attempt("rani@email.com", "salah")
+        self.assertRedirects(self.attempt("rani@email.com", PASSWORD), reverse("home_page"))
+
+
 class CsrfTests(TestCase):
     def test_post_without_token_is_forbidden(self):
         strict = Client(enforce_csrf_checks=True)
@@ -164,7 +201,9 @@ class ProfileTests(TestCase):
             ("Rani Baru", "baru@email.com", "baru@email.com"),
         )
         self.assertEqual((self.other.first_name, self.other.email), ("Budi", "budi@email.com"))
-        self.assertTrue(Client().login(username="baru@email.com", password=PASSWORD))
+        fresh = Client()
+        fresh.post(reverse("accounts:login"), {"username": "baru@email.com", "password": PASSWORD})
+        self.assertIn("_auth_user_id", fresh.session)  # email baru bisa dipakai masuk
 
     def test_email_change_needs_current_password(self):
         self.client.force_login(self.user)

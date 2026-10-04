@@ -1,0 +1,9 @@
+{% extends "accounts/_auth_layout.html" %}
+
+{% block meta %}<title>Terlalu banyak percobaan · PilihYuk</title>{% endblock meta %}
+
+{% block form_content %}
+<h1 class="text-[28px] font-bold tracking-tight">Terlalu banyak percobaan</h1>
+<p role="alert" class="mt-2 text-sm text-muted">Akun ini dikunci sementara karena terlalu banyak percobaan masuk yang gagal. Coba lagi dalam 15 menit.</p>
+<a href="{% url 'home_page' %}" class="btn-brand mt-6 w-full">Kembali ke beranda</a>
+{% endblock form_content %}

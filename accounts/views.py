@@ -37,7 +37,7 @@ def register(request):
         except IntegrityError:  # dua pendaftaran serentak dengan email yang sama
             form.add_error("email", "Email ini sudah terdaftar. Coba masuk.")
         else:
-            login(request, user)
+            login(request, user, backend="django.contrib.auth.backends.ModelBackend")
             messages.success(request, "Akun berhasil dibuat. Selamat datang di PilihYuk!")
             return redirect(safe_next(request))
     return render(request, "accounts/register.html", {"form": form, "next": request.GET.get("next", "")})
