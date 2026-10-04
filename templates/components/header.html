@@ -24,16 +24,19 @@
             </form>
 
             {% if user.is_authenticated %}
-            <span class="flex h-9 w-9 items-center justify-center rounded-full bg-mint text-sm font-bold text-brand">{{ user.username|slice:":1"|upper }}</span>
-            <span class="hidden text-[13px] font-semibold leading-tight sm:block">
-                {{ user.username }}{% if user.is_staff %}<small class="block text-[11px] font-normal text-muted">Admin</small>{% endif %}
-            </span>
-            <form action="/keluar/" method="post">{% csrf_token %}
+            {% firstof user.first_name user.username as display_name %}
+            <a href="{% url 'accounts:profile' %}" class="flex items-center gap-2" aria-label="Profil {{ display_name }}">
+                <span class="flex h-9 w-9 items-center justify-center rounded-full bg-mint text-sm font-bold text-brand">{{ display_name|slice:":1"|upper }}</span>
+                <span class="hidden text-[13px] font-semibold leading-tight sm:block">
+                    {{ display_name }}{% if user.is_staff %}<small class="block text-[11px] font-normal text-muted">Admin</small>{% endif %}
+                </span>
+            </a>
+            <form action="{% url 'accounts:logout' %}" method="post">{% csrf_token %}
                 <button class="rounded-[10px] px-3 py-2 text-[13px] font-semibold hover:bg-surface">Keluar</button>
             </form>
             {% else %}
-            <a href="/masuk/" class="rounded-[10px] px-3 py-2.5 text-sm font-semibold hover:bg-surface">Masuk</a>
-            <a href="/daftar/" class="rounded-[10px] bg-brand px-3 py-2.5 text-sm font-semibold text-white hover:bg-brand/90">Daftar</a>
+            <a href="{% url 'accounts:login' %}" class="rounded-[10px] px-3 py-2.5 text-sm font-semibold hover:bg-surface">Masuk</a>
+            <a href="{% url 'accounts:register' %}" class="rounded-[10px] bg-brand px-3 py-2.5 text-sm font-semibold text-white hover:bg-brand/90">Daftar</a>
             {% endif %}
 
             <button type="button" aria-label="Buka menu" aria-controls="menu" class="px-2 text-2xl md:hidden"

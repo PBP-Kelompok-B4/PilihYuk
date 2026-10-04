@@ -31,8 +31,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Wajib ada di .env (lokal) dan environment variables PWS. Tanpa fallback: bila hilang, start gagal dengan KeyError.
 SECRET_KEY = os.environ['SECRET_KEY']
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+# Default mati (gagal tertutup). Nyalakan di laptop dengan DEBUG=True di .env; jangan di PWS.
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
 # Application definition
 
@@ -135,7 +135,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'id'  # pesan validasi Django (password, dll.) tampil dalam Bahasa Indonesia
 
 TIME_ZONE = 'UTC'
 
@@ -147,6 +147,16 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 # Konfigurasi static ada di atas (STATIC_URL, STATICFILES_DIRS, STATIC_ROOT, WHITENOISE_USE_FINDERS).
+
+# Autentikasi (app accounts). Modul lain cukup memakai @login_required / LoginRequiredMixin.
+LOGIN_URL = 'accounts:login'
+LOGIN_REDIRECT_URL = 'home_page'
+LOGOUT_REDIRECT_URL = 'home_page'
+SESSION_COOKIE_SAMESITE = 'Lax'
+if PRODUCTION:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 3600  # ponytail: naikkan (dan SECURE_SSL_REDIRECT) setelah PWS terbukti HTTPS penuh
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

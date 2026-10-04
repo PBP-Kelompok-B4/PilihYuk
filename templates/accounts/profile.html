@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block meta %}<title>Profil · PilihYuk</title>{% endblock meta %}
+
+{% block content %}
+<main class="section w-full flex-1 py-10">
+    <p class="eyebrow">PROFIL</p>
+    <h1 class="section-title">{% firstof user.first_name user.username %}</h1>
+    <p class="mt-2 text-sm text-muted">{{ user.email|default:user.username }}{% if user.is_staff %} · Admin{% endif %}</p>
+
+    <div class="mt-8 grid gap-6 lg:grid-cols-2">
+        <div class="space-y-6">
+            <section class="card" aria-labelledby="akun-title">
+                <h2 id="akun-title" class="text-lg font-bold">Data akun</h2>
+                <form method="post" action="{% url 'accounts:profile_edit' %}" novalidate>
+                    {% csrf_token %}
+                    {% include "accounts/_field.html" with field=edit_form.display_name %}
+                    {% include "accounts/_field.html" with field=edit_form.email %}
+                    {% include "accounts/_field.html" with field=edit_form.current_password %}
+                    <button type="submit" class="btn-brand btn-small mt-5">Simpan perubahan</button>
+                </form>
+            </section>
+
+            <section class="card" aria-labelledby="password-title">
+                <h2 id="password-title" class="text-lg font-bold">Ganti password</h2>
+                <form method="post" action="{% url 'accounts:password' %}" novalidate>
+                    {% csrf_token %}
+                    {% include "accounts/_field.html" with field=password_form.old_password %}
+                    {% include "accounts/_field.html" with field=password_form.new_password1 %}
+                    {% include "accounts/_field.html" with field=password_form.new_password2 %}
+                    <button type="submit" class="btn-brand btn-small mt-5">Ganti password</button>
+                </form>
+            </section>
+        </div>
+
+        <section aria-labelledby="aktivitas-title">
+            <h2 id="aktivitas-title" class="text-lg font-bold">Aktivitasmu</h2>
+            <ul class="mt-4 space-y-3">
+                {% for link in links %}
+                <li>
+                    {% if link.ready %}
+                    <a href="{{ link.path }}" class="card block hover:ring-2 hover:ring-brand">
+                        <span class="font-bold">{{ link.title }}</span>
+                        <span class="mt-1 block text-[13px] text-muted">{{ link.text }}</span>
+                    </a>
+                    {% else %}
+                    <div class="card opacity-60">
+                        <span class="font-bold">{{ link.title }}</span>
+                        <span class="mt-1 block text-[13px] text-muted">{{ link.text }} Segera hadir.</span>
+                    </div>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </section>
+    </div>
+</main>
+<script src="{% static 'js/accounts.js' %}" defer></script>
+{% endblock content %}

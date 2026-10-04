@@ -1,0 +1,27 @@
+{% extends "accounts/_auth_layout.html" %}
+
+{% block meta %}<title>Masuk · PilihYuk</title>{% endblock meta %}
+
+{% block form_content %}
+<h1 class="text-[28px] font-bold tracking-tight">Masuk</h1>
+<p class="mt-2 text-sm text-muted">Masuk untuk membuat shelf, memberi suara, dan mencatat keputusanmu.</p>
+
+<form method="post" class="mt-2" novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    {% if form.non_field_errors %}
+    <div role="alert" class="mt-4 rounded-[10px] bg-warm px-4 py-3 text-[13px] font-semibold text-[#b42318]">
+        {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+    </div>
+    {% endif %}
+    {% include "accounts/_field.html" with field=form.username %}
+    {% include "accounts/_field.html" with field=form.password %}
+    {% include "accounts/_field.html" with field=form.remember %}
+    <button type="submit" class="btn-brand mt-6 w-full">Masuk</button>
+</form>
+
+<p class="mt-6 text-center text-[13px] text-muted">Belum punya akun?
+    <a href="{% url 'accounts:register' %}{% if next %}?next={{ next|urlencode }}{% endif %}" class="font-semibold text-brand hover:underline">Daftar sekarang</a>
+</p>
+<p class="mt-2 text-center text-xs text-muted"><a href="{% url 'home_page' %}" class="hover:text-brand">&larr; Kembali ke beranda</a></p>
+{% endblock form_content %}
