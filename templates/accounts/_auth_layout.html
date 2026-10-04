@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}Layar terbelah sesuai wireframe "12 — Autentikasi". Tanpa header dan footer biasa.{% endcomment %}
+{% block header %}{% endblock header %}
+{% block footer %}{% endblock footer %}
+
+{% block content %}
+<main class="grid flex-1 lg:grid-cols-[minmax(380px,40%)_1fr]">
+    <aside class="hidden flex-col justify-between bg-brand p-10 text-white lg:flex" aria-hidden="true">
+        <div>
+            <a href="{% url 'home_page' %}" tabindex="-1" class="flex items-center gap-2.5 text-xl font-bold tracking-tight">
+                <span class="logo-mark bg-white/15"><img src="{% static 'img/scale.svg' %}" alt=""></span>PilihYuk
+            </a>
+            <h2 class="mt-8 text-4xl font-bold tracking-tight">Bandingkan sebelum pilih.</h2>
+            <p class="mt-4 max-w-sm text-[15px] leading-relaxed text-white/80">Bandingkan gizi dan jejak lingkungan produk yang benar-benar sedang kamu pilih — dalam satu tabel yang mudah dipindai.</p>
+        </div>
+        <div class="rounded-2xl bg-white/10 p-5 text-[13px]">
+            <div class="flex justify-between font-semibold"><span>Mie instan goreng di minimarket</span><span class="text-white/70">4 produk</span></div>
+            <div class="mt-4 grid grid-cols-4 gap-3">
+                <div class="h-16 rounded-lg bg-white/80"></div><div class="h-16 rounded-lg bg-white/80"></div>
+                <div class="h-16 rounded-lg bg-white/80"></div><div class="h-16 rounded-lg bg-white/80"></div>
+            </div>
+            <dl class="mt-4 space-y-2 text-white/80">
+                <div class="flex items-center justify-between"><dt>Protein</dt><dd class="font-semibold text-white">9 g</dd><dd class="chip bg-mint text-brand">Terbaik</dd></div>
+                <div class="flex items-center justify-between"><dt>Gula</dt><dd class="font-semibold text-white">6 g</dd><dd class="chip bg-mint text-brand">Terendah</dd></div>
+                <div class="flex items-center justify-between"><dt>Natrium</dt><dd class="font-semibold text-white">780 mg</dd><dd class="chip bg-mint text-brand">Terendah</dd></div>
+            </dl>
+        </div>
+        <p class="text-xs text-white/70">Data dari Open Food Facts. PilihYuk bukan alat diagnosis atau nasihat medis.</p>
+    </aside>
+
+    <section class="flex items-center justify-center px-4 py-10 sm:px-8">
+        <div class="w-full max-w-[420px]">
+            <a href="{% url 'home_page' %}" class="mb-8 flex items-center gap-2.5 text-xl font-bold tracking-tight lg:hidden">
+                <span class="logo-mark"><img src="{% static 'img/scale.svg' %}" alt=""></span>PilihYuk
+            </a>
+            {% block form_content %}{% endblock form_content %}
+        </div>
+    </section>
+</main>
+<script src="{% static 'js/accounts.js' %}" defer></script>
+{% endblock content %}

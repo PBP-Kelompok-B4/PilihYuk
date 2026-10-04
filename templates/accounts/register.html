@@ -1,0 +1,28 @@
+{% extends "accounts/_auth_layout.html" %}
+
+{% block meta %}<title>Buat Akun · PilihYuk</title>{% endblock meta %}
+
+{% block form_content %}
+<h1 class="text-[28px] font-bold tracking-tight">Buat Akun</h1>
+<p class="mt-2 text-sm text-muted">Gratis. Tidak perlu kartu kredit. Kamu bisa langsung membuat shelf pertama.</p>
+
+<form method="post" class="mt-2" novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    {% if form.non_field_errors %}
+    <div role="alert" class="mt-4 rounded-[10px] bg-warm px-4 py-3 text-[13px] font-semibold text-[#b42318]">
+        {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+    </div>
+    {% endif %}
+    {% include "accounts/_field.html" with field=form.display_name %}
+    {% include "accounts/_field.html" with field=form.email %}
+    {% include "accounts/_field.html" with field=form.password1 %}
+    {% include "accounts/_field.html" with field=form.password2 %}
+    {% include "accounts/_field.html" with field=form.terms %}
+    <button type="submit" class="btn-brand mt-6 w-full">Buat Akun</button>
+</form>
+
+<p class="mt-6 text-center text-[13px] text-muted">Sudah punya akun?
+    <a href="{% url 'accounts:login' %}{% if next %}?next={{ next|urlencode }}{% endif %}" class="font-semibold text-brand hover:underline">Masuk</a>
+</p>
+{% endblock form_content %}

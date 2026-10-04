@@ -118,6 +118,33 @@ Yang perlu diingat:
 - Kelas yang dipakai berulang, misalnya tombol atau kartu, ditulis sekali di `@layer components` dengan `@apply`.
 - Jangan menyunting `output.css` langsung. Isinya ditimpa setiap build.
 
+## Autentikasi dan pengaturan lokal
+
+File `.env` (tidak di-commit) wajib berisi dua baris:
+
+```
+PRODUCTION=False
+SECRET_KEY=<teks acak apa saja>
+```
+
+`SECRET_KEY` tidak punya nilai bawaan, jadi tanpa baris itu `manage.py` berhenti dengan `KeyError: 'SECRET_KEY'`. Buat nilainya dengan `python -c "from django.core.management.utils import get_random_secret_key as g; print(g())"`. Di PWS, `SECRET_KEY` dan `PRODUCTION=True` diisi di environment variables proyek. `DEBUG` mengikuti `PRODUCTION`. Setelah `git pull`, jalankan `pip install -r requirements.txt` dan `python manage.py migrate` (django-axes menambah paket dan tabel).
+
+App `accounts` mengurus daftar, masuk, keluar, dan profil. Pengguna memakai `User` bawaan Django: `username` berisi email huruf kecil, `first_name` berisi nama tampilan, dan `is_staff` menandai kurator. Cara memakainya di modul lain:
+
+```python
+from django.contrib.auth.decorators import login_required, user_passes_test
+
+@login_required                                   # pengunjung dialihkan ke /masuk/?next=...
+def my_view(request): ...
+
+@user_passes_test(lambda u: u.is_staff)           # hanya kurator
+def curator_view(request): ...
+```
+
+Untuk class-based view, pakai `LoginRequiredMixin` dan `UserPassesTestMixin`. Di template: `{% if user.is_authenticated %}` dan `{% firstof user.first_name user.username %}` untuk nama. Query data milik pengguna selalu lewat `request.user`, jangan menerima id pengguna dari URL atau form. Halaman `/profil/` menaut ke `/preferensi/`, `/riwayat/`, dan `/shelf/saya/`; kartunya aktif sendiri saat URL itu ada, jadi pakai path itu atau kabari Daffaa bila berbeda.
+
+Batasan yang diketahui: belum ada verifikasi email dan reset password, pendaftaran belum dibatasi, dan `SECURE_SSL_REDIRECT` menunggu uji di proxy PWS. Login dikunci 15 menit setelah 5 kegagalan per email (django-axes). Admin dari `createsuperuser` masuk dengan username-nya di kolom "Email". `LANGUAGE_CODE = 'id'` membuat desimal di template berkoma ("7,5 g"), jadi jangan menaruh float di nilai CSS atau JS (`style="width: {{ x }}%"`); pakai bilangan bulat atau `{{ x|unlocalize }}`.
+
 ## Modul dan Pembagian Kerja
 
 ### 1. Katalog Produk (Yasmin)

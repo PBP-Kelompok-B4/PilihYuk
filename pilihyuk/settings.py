@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
+from datetime import timedelta
 from dotenv import load_dotenv
 from pathlib import Path
 
@@ -28,11 +29,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-near$rv30q%brt$a-f^k^ca7wt5rr)mssew0w)0sl!j$^i511v'
+# Wajib ada di .env (lokal) dan environment variables PWS. Tanpa fallback: bila hilang, start gagal dengan KeyError.
+SECRET_KEY = os.environ['SECRET_KEY']
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+# Nyala di laptop, mati di PWS (mengikuti PRODUCTION di .env dan env PWS).
+DEBUG = not PRODUCTION
 
 # Application definition
 
@@ -43,6 +44,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'axes',
     'accounts',
     'product_catalog',
     'shelves',
@@ -60,6 +62,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'axes.middleware.AxesMiddleware',  # harus terakhir
 ]
 
 ROOT_URLCONF = 'pilihyuk.urls'
@@ -135,7 +138,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'id'  # situs berbahasa Indonesia: pesan validasi Django dan format angka (desimal berkoma)
 
 TIME_ZONE = 'UTC'
 
@@ -147,6 +150,29 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 # Konfigurasi static ada di atas (STATIC_URL, STATICFILES_DIRS, STATIC_ROOT, WHITENOISE_USE_FINDERS).
+
+# Autentikasi (app accounts). Modul lain cukup memakai @login_required / LoginRequiredMixin.
+LOGIN_URL = 'accounts:login'
+LOGIN_REDIRECT_URL = 'home_page'
+LOGOUT_REDIRECT_URL = 'home_page'
+
+# Pembatasan percobaan login (django-axes): 5 gagal per email, kunci 15 menit.
+# Per email, bukan per IP, karena semua pengguna PWS berbagi satu IP proxy.
+# ponytail: orang iseng bisa mengunci akun orang lain 15 menit; tambah faktor IP bila PWS meneruskan IP asli.
+AUTHENTICATION_BACKENDS = [
+    'axes.backends.AxesStandaloneBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+AXES_FAILURE_LIMIT = 5
+AXES_COOLOFF_TIME = timedelta(minutes=15)
+AXES_LOCKOUT_PARAMETERS = ['username']
+SILENCED_SYSTEM_CHECKS = ['axes.W006']  # sengaja tanpa ip_address: semua pengguna berbagi IP proxy PWS
+AXES_RESET_ON_SUCCESS = True
+AXES_LOCKOUT_TEMPLATE = 'accounts/locked.html'
+if PRODUCTION:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 3600  # ponytail: naikkan (dan SECURE_SSL_REDIRECT) setelah PWS terbukti HTTPS penuh
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
