@@ -31,8 +31,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Wajib ada di .env (lokal) dan environment variables PWS. Tanpa fallback: bila hilang, start gagal dengan KeyError.
 SECRET_KEY = os.environ['SECRET_KEY']
 
-# Default mati (gagal tertutup). Nyalakan di laptop dengan DEBUG=True di .env; jangan di PWS.
-DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
+# Nyala di laptop, mati di PWS (mengikuti PRODUCTION di .env dan env PWS).
+DEBUG = not PRODUCTION
 
 # Application definition
 
