@@ -155,7 +155,6 @@ USE_TZ = True
 LOGIN_URL = 'accounts:login'
 LOGIN_REDIRECT_URL = 'home_page'
 LOGOUT_REDIRECT_URL = 'home_page'
-SESSION_COOKIE_SAMESITE = 'Lax'
 
 # Pembatasan percobaan login (django-axes): 5 gagal per email, kunci 15 menit.
 # Per email, bukan per IP, karena semua pengguna PWS berbagi satu IP proxy.
