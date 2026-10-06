@@ -1,5 +1,5 @@
-# Claude
-.claude/
+# Claude (team docs in .claude/ are tracked; only personal settings are ignored)
+.claude/settings.local.json
 
 # Django
 *.log
@@ -124,5 +124,6 @@ sftp-config.json
 # macOS
 .DS_Store
 
-# Tailwind standalone CLI
-tailwindcss.exe
+
+# Personal Claude Code context (not for the team)
+.private/

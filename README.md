@@ -87,36 +87,8 @@ Setiap anggota memfilter data dari database lokal, bukan dari Public/mock API. A
 
 ## Tailwind CSS
 
-Tampilan memakai Tailwind CSS v4 lewat standalone CLI, jadi Node.js tidak diperlukan. Susunannya mengikuti [dokumentasi Tailwind CLI](https://tailwindcss.com/docs/installation/tailwind-cli):
+Tampilan memakai Tailwind CSS v4 lewat script CDN (`@tailwindcss/browser`), jadi tidak ada CLI, Node.js, atau langkah build. Tema (warna, font) dan kelas komponen (`btn-brand`, `card`, `chip`, dan lainnya) ditulis di `templates/components/tailwind.html` dan dimuat oleh `base.html`. Warna baru ditambahkan di blok `@theme`, kelas berulang di `@layer components` dengan `@apply`. Script CDN membuat CSS di browser, jadi butuh internet.
 
-| File | Fungsi |
-|------|--------|
-| `src/input.css` | Sumber Tailwind: warna tema, font, dan kelas komponen kami (`btn-brand`, `card`, `chip`, dan lainnya) |
-| `static/css/output.css` | Hasil build yang dipakai `base.html`. Ikut di-commit karena PWS tidak menjalankan Tailwind |
-| `tailwindcss.exe` | CLI-nya. Tidak di-commit, jadi tiap anggota mengunduh sendiri |
-
-Unduh CLI dari [halaman rilis Tailwind](https://github.com/tailwindlabs/tailwindcss/releases/latest), lalu taruh di folder `PilihYuk/`.
-
-Di Windows:
-
-```
-curl -L -o tailwindcss.exe https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-windows-x64.exe
-```
-
-Di macOS atau Linux, pilih berkas `tailwindcss-*` yang cocok di halaman yang sama. Setelah mengubah template atau `src/input.css`, build ulang:
-
-```
-./tailwindcss.exe -i ./src/input.css -o ./static/css/output.css --minify
-```
-
-Selama mengerjakan tampilan, pakai `--watch` (tanpa `--minify`) agar CSS dibuat ulang setiap file disimpan. Jalankan build `--minify` sekali lagi sebelum commit.
-
-Yang perlu diingat:
-
-- Tailwind hanya membuat class yang tertulis utuh di template. Class yang dirakit dari data, seperti `bg-nutri-{{ huruf }}`, tidak terdeteksi dan harus didaftarkan lewat `@source inline(...)` di `src/input.css`. Sekarang daftarnya hanya untuk lencana Nutri-Score B dan C.
-- Warna baru ditambahkan di blok `@theme`. Nama `--color-brand` otomatis menjadi `bg-brand`, `text-brand`, dan `border-brand`.
-- Kelas yang dipakai berulang, misalnya tombol atau kartu, ditulis sekali di `@layer components` dengan `@apply`.
-- Jangan menyunting `output.css` langsung. Isinya ditimpa setiap build.
 
 ## Autentikasi dan pengaturan lokal
 

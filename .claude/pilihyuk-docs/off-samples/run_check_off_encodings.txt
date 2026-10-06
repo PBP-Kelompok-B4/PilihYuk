@@ -1,0 +1,122 @@
+
+=== API v2 search: 100 products ===
+
+[2] Distinct encodings per grade field
+  nutrition_grades:
+    string:'unknown'                         30
+    string:'e'                               27
+    string:'c'                               19
+    string:'d'                               10
+    string:'a'                               6
+    string:'b'                               5
+    string:'not-applicable'                  3
+  ecoscore_grade:
+    string:'unknown'                         34
+    string:'d'                               13
+    string:'b'                               13
+    string:'c'                               12
+    string:'not-applicable'                  10
+    string:'a'                               10
+    string:'e'                               6
+    string:'f'                               2
+  environmental_score_grade:
+    absent                                   100
+  nova_group:
+    number                                   60
+    absent                                   40
+
+[1] Coverage (value present and not unknown / not-applicable)
+  nutrition_grades             67/100 (67%)
+  ecoscore_grade               56/100 (56%)
+  environmental_score_grade    0/100 (0%)
+  nova_group                   60/100 (60%)
+  any environmental grade      56/100 (56%)
+
+[3] How each nutrient is encoded inside `nutriments`
+  products without a `nutriments` object: 6
+  energy-kcal_100g     number=82, absent=12
+  proteins_100g        number=81, absent=13
+  fat_100g             number=80, absent=14
+  saturated-fat_100g   number=78, absent=16
+  sugars_100g          number=82, absent=12
+  fiber_100g           number=58, absent=36
+  salt_100g            number=78, absent=16
+
+[4] Origin coverage
+  origins_tags           36/100 (36%)
+  manufacturing_places   39/100 (39%)
+  either                 56/100 (56%)
+
+[extra] Most common completeness-related misc_tags
+  en:environmental-score-missing-data-labels                   55
+  en:environmental-score-missing-data-warning                  55
+  en:nutrients-not-estimated-from-ingredients-too-few-ingredients-with-nutrition-data 54
+  en:environmental-score-missing-data-packagings               45
+  en:environmental-score-not-computed                          43
+  en:estimated-ingredients-with-recipe-estimator-cvxpy         39
+  en:environmental-score-missing-data-origins                  34
+  en:nutriscore-not-computed                                   33
+  en:environmental-score-missing-data-no-packagings            22
+  en:nutriscore-missing-fiber                                  21
+  en:nutriscore-missing-nutrition-data                         19
+  en:nutriscore-missing-nutrition-data-sodium                  17
+
+=== API v3 product (same barcodes): 20 products ===
+
+[2] Distinct encodings per grade field
+  nutrition_grades:
+    string:'c'                               8
+    string:'e'                               4
+    string:'unknown'                         3
+    string:'d'                               3
+    string:'b'                               1
+    string:'a'                               1
+  ecoscore_grade:
+    string:'unknown'                         8
+    string:'d'                               3
+    string:'b'                               3
+    string:'c'                               3
+    string:'a'                               2
+    string:'not-applicable'                  1
+  environmental_score_grade:
+    absent                                   20
+  nova_group:
+    number                                   18
+    absent                                   2
+
+[1] Coverage (value present and not unknown / not-applicable)
+  nutrition_grades             17/20 (85%)
+  ecoscore_grade               11/20 (55%)
+  environmental_score_grade    0/20 (0%)
+  nova_group                   18/20 (90%)
+  any environmental grade      11/20 (55%)
+
+[3] How each nutrient is encoded inside `nutriments`
+  energy-kcal_100g     number=18, absent=2
+  proteins_100g        number=18, absent=2
+  fat_100g             number=18, absent=2
+  saturated-fat_100g   number=18, absent=2
+  sugars_100g          number=18, absent=2
+  fiber_100g           number=16, absent=4
+  salt_100g            number=17, absent=3
+
+[4] Origin coverage
+  origins_tags           11/20 (55%)
+  manufacturing_places   12/20 (60%)
+  either                 16/20 (80%)
+
+[extra] Most common completeness-related misc_tags
+  en:nutrients-not-estimated-from-ingredients-too-few-ingredients-with-nutrition-data 12
+  en:environmental-score-missing-data-labels                   11
+  en:environmental-score-missing-data-warning                  11
+  en:estimated-ingredients-with-recipe-estimator-cvxpy         11
+  en:environmental-score-not-computed                          9
+  en:environmental-score-missing-data-packagings               7
+  en:nutrients-estimated-from-ingredients                      6
+  en:forest-footprint-not-computed                             6
+  en:environmental-score-missing-data-origins                  4
+  en:nutriscore-not-computed                                   3
+  en:environmental-score-missing-data-no-packagings            2
+  en:nutriscore-missing-nutrition-data                         2
+
+HTTP status counts (incl. retries): {503: 3, 200: 21}

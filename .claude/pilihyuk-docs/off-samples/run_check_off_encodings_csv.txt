@@ -1,0 +1,52 @@
+
+=== CSV C:/Users/User/AppData/Local/Temp/claude/C--Coding-kuliah-PBP/a9f2be7c-4b47-4c18-b989-13f9e6cdbfd3/scratchpad/off.csv.gz: 8186 products ===
+
+[2] Distinct encodings per grade field
+  nutrition_grades:
+    string:'unknown'                         7644
+    string:'e'                               187
+    string:'c'                               90
+    string:'b'                               59
+    string:'d'                               57
+    absent                                   56
+    string:'not-applicable'                  49
+    string:'a'                               44
+  ecoscore_grade:
+    absent                                   8186
+  environmental_score_grade:
+    string:'unknown'                         5332
+    absent                                   2477
+    string:'b'                               93
+    string:'a'                               66
+    string:'d'                               66
+    string:'c'                               65
+    string:'not-applicable'                  36
+    string:'e'                               32
+    string:'f'                               11
+    string:'a-plus'                          8
+  nova_group:
+    absent                                   7804
+    number                                   382
+
+[1] Coverage (value present and not unknown / not-applicable)
+  nutrition_grades             437/8186 (5%)
+  ecoscore_grade               0/8186 (0%)
+  environmental_score_grade    341/8186 (4%)
+  nova_group                   382/8186 (5%)
+  any environmental grade      341/8186 (4%)
+
+[3] How each nutrient is encoded inside `nutriments`
+  energy-kcal_100g     absent=7802, number=384
+  proteins_100g        absent=7810, number=376
+  fat_100g             absent=7805, number=381
+  saturated-fat_100g   absent=7881, number=305
+  sugars_100g          absent=7854, number=332
+  fiber_100g           absent=7988, number=198
+  salt_100g            absent=7862, number=324
+
+[4] Origin coverage
+  origins_tags           288/8186 (4%)
+  manufacturing_places   193/8186 (2%)
+  either                 341/8186 (4%)
+
+[extra] Most common completeness-related misc_tags
