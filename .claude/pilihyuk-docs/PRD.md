@@ -340,7 +340,7 @@ Jadwal harian dan tugas per orang ada di `timeline.md`. Tonggak utamanya:
 |---------|--------|
 | 16 September 2026 | Checkpoint 1. Repositori, README awal, pembagian modul disepakati |
 | 2 Oktober 2026 | Checkpoint 2. Kerangka template, halaman landing, Tailwind, dan deployment pertama ke PWS selesai. Enam app Django sudah didaftarkan |
-| 4 Oktober | Auth (`accounts`) selesai lebih awal, 34 tes, sudah di `origin/dev` tetapi belum di `main`. Rapat: seeding, Tailwind, pemeriksaan ERD per modul |
+| 4 Oktober | Auth (`accounts`) selesai lebih awal, 34 tes, sudah di `main` (PR #1, 6 Oktober). Rapat: seeding, Tailwind, pemeriksaan ERD per modul |
 | 10 Oktober | Akhir Fase 1. Semua model di `dev`, fixture 20 produk bisa dimuat, login berjalan, CRUD dasar dimulai |
 | 18 Oktober (pagi) | Akhir Fase 2. Semua modul digabung dari `dev` ke `main`, tujuh Aturan Khusus terpenuhi, bisa didemokan di PWS |
 | 21 Oktober | Responsif ponsel dan tes selesai. Fitur dibekukan malamnya (bonus dikerjakan paling cepat 20 Oktober, keputusan 37) |

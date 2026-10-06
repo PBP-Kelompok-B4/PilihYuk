@@ -6,7 +6,7 @@ Tenggat: Jumat, 23 Oktober 2026, 23.59 WIB. Dokumen ini untuk kelompok dan ikut 
 
 Repo sudah punya scaffold Django, `base.html` dengan header dan footer, halaman landing dari data contoh, Tailwind, dan enam app yang sudah didaftarkan beserta folder `templates/<app>/` dan `static/js/<app>.js` yang masih kosong. Belum ada model produk, shelf, dan seeding. Wireframe Figma desktop sudah lengkap, frame ponsel belum.
 
-**Pembaruan 4 Okt: auth (`accounts`) sudah selesai** dikerjakan Daffaa di `dev` (daftar, masuk, keluar, profil, 34 tes), lebih awal dari target Selasa 6 Okt. Sudah di `origin/dev` (belum di `main`), jadi setelah `git pull` di `dev` modul lain bisa menguji fitur yang butuh login lewat halaman Daftar.
+**Pembaruan 4 Okt: auth (`accounts`) sudah selesai** dikerjakan Daffaa di `dev` (daftar, masuk, keluar, profil, 34 tes), lebih awal dari target Selasa 6 Okt. Sudah di `main` (PR #1, 6 Okt), jadi setelah `git pull` modul lain bisa menguji fitur yang butuh login lewat halaman Daftar.
 
 Hampir semua modul membaca tabel `Product`, jadi `Product` harus masuk `dev` paling dulu.
 
@@ -87,7 +87,7 @@ Target Sabtu 10 Okt siang: semua model sudah di `dev`, fixture 20 produk bisa di
 
 | Hari | Yang dikerjakan |
 |------|-----------------|
-| Sel 6 | Yasmin menggabungkan `Product` dan `ProductView` ke `dev`. Auth sudah selesai Daffaa (4 Okt) dan ada di `origin/dev`. Yang lain menulis model di branch masing-masing |
+| Sel 6 | Yasmin menggabungkan `Product` dan `ProductView` ke `dev`. Auth sudah selesai Daffaa (4 Okt) dan sudah di `main`. Yang lain menulis model di branch masing-masing |
 | Kam 8, malam | Daffaa menggabungkan model `Shelf`. Model lain digabung kalau sudah siap |
 | Sab 10 | Sisa model digabung pagi hari. Fixture 20 produk masuk. Siang sampai sore: CRUD dasar tiap modul |
 

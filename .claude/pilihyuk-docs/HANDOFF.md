@@ -8,8 +8,8 @@ A Django app, "PilihYuk", that compares nutrition and environmental impact of fo
 
 ## Current state
 
-- **`main` (deployed to PWS):** the scaffold, six registered apps, empty template and JS folders per app, the landing page, and the app rename (`catalog` to `product_catalog`, `dataflags` to `data_correction`).
-- **`dev`, not on `main` yet:** auth (`accounts`), finished 4 October: register, login, logout, profile, django-axes, the `Procfile`, and the `SECRET_KEY` and `DEBUG` settings. `accounts` has 34 tests (37 in the project) and passed the security and Django reviews.
+- **`main` (deployed to PWS):** the scaffold, six registered apps, empty template and JS folders per app, the landing page, the app rename (`catalog` to `product_catalog`, `dataflags` to `data_correction`), the Tailwind CDN switch and these docs (PR #2, 6 October), and auth (see the next bullet, PR #1).
+- **Auth (`accounts`), finished 4 October and merged to `main` in PR #1:** register, login, logout, profile, django-axes, the `Procfile`, and the `SECRET_KEY` and `DEBUG` settings. `accounts` has 34 tests (37 in the project) and passed the security and Django reviews.
 - **Tailwind:** CDN script, no CLI or build step. `base.html` includes `templates/components/tailwind.html` (theme, shared classes, script tag). Pages need internet. Checked on 6 October at localhost:8000 (landing page and `/masuk/`): colors, font, `btn-brand` and the dynamic `bg-nutri-*` classes apply, with no horizontal overflow. The only console error is a missing `favicon.ico`.
 - **Deploy:** `deploy.yml` pushes every commit on `main` to PWS (https://ahmad-rizki53-pilihyuk.pws.cs.ui.ac.id/), so a broken `main` breaks the live site. `PRODUCTION=True` and `SECRET_KEY` are set on PWS.
 - **Code facts:** `base.html` has blocks `meta` and `content`. `settings.py` uses PostgreSQL when `PRODUCTION=True` and SQLite locally, `DEBUG = not PRODUCTION`, `SECRET_KEY` from the environment with no fallback, WhiteNoise, `LANGUAGE_CODE = 'id'`, and django-axes.
@@ -29,7 +29,7 @@ A Django app, "PilihYuk", that compares nutrition and environmental impact of fo
 
 ## Open items
 
-- Merge `dev` into `main` once the Tailwind CDN switch is committed, then read the first PWS deploy log. The `Procfile` release step is untested, and its content comes from a summary of the PWS docs. If the auth, sessions or axes tables are missing, run `migrate` by hand on PWS.
+- Read the first PWS deploy log now that auth is on `main`. The `Procfile` release step is untested, and its content comes from a summary of the PWS docs. If the auth, sessions or axes tables are missing, run `migrate` by hand on PWS.
 - Send Yasmin the folder `drafts/product_catalog/`.
 - Seeding is not final (PRD decision 16, K-12, K-13).
 - Test on the real PWS proxy before turning on `SECURE_PROXY_SSL_HEADER`, `SECURE_SSL_REDIRECT` or a per-IP lockout. Test auth on PostgreSQL and on a real phone.
