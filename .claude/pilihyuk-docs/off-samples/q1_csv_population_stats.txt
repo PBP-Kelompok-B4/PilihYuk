@@ -1,0 +1,22 @@
+Sumber: en.openfoodfacts.org.products.csv.gz (Last-Modified 2026-10-01 12:25 GMT, 1.275.171.186 byte), disaring dengan is_indonesian() lewat extract_id.py
+Unduh 148 dtk, streaming 4.535.553 baris 52 dtk, baris Indonesia 8186 (API count 2026-10-02: 9001)
+
+nutriscore_grade: [('unknown', 7644), ('e', 187), ('c', 90), ('b', 59), ('d', 57), ('<kosong>', 56), ('not-applicable', 49), ('a', 44)]
+environmental_score_grade: [('unknown', 5332), ('<kosong>', 2477), ('b', 93), ('a', 66), ('d', 66), ('c', 65), ('not-applicable', 36), ('e', 32), ('f', 11), ('a-plus', 8)]
+nova_group: [('<kosong>', 7804), ('4', 247), ('3', 62), ('1', 41), ('2', 32)]
+Nutri-Score terisi 437 (5.3%) | skor lingkungan terisi 341 (4.2%) | NOVA 382 (4.7%)
+per nutrien (% terisi): {'energy-kcal_100g': 4.7, 'proteins_100g': 4.6, 'fat_100g': 4.7, 'saturated-fat_100g': 3.7, 'sugars_100g': 4.1, 'fiber_100g': 2.4, 'salt_100g': 4.0}
+ketujuh nutrien 163 (2.0%) | >=6 dari 7 298 (3.6%)
+origins_tags 288 (3.5%) | manufacturing_places 193 (2.4%) | salah satu 341 (4.2%)
+gambar 6886 (84.1%) | packaging_tags 286 (3.5%) | berlabel halal 1988 (24.3%) | brands 3234 (39.5%) | product_name 7645 (93.4%)
+
+Jumlah baris pembanding terisi (dari 6; gizi = minimal 6 dari 7 nutrien): [(0, 7301), (1, 365), (2, 173), (3, 151), (4, 101), (5, 53), (6, 42)]
+kumulatif: {'>=1': 885, '>=2': 520, '>=3': 347, '>=4': 196, '>=5': 95, '>=6': 42}
+produk >=4 baris dan bergambar: 194
+produk bernama+bergambar tapi <=1 baris terisi (calon antrean Modul 4): 5987
+panjang code: [(13, 7806), (8, 357), (14, 17), (17, 3), (15, 1), (22, 1), (35, 1)]
+
+VALIDASI vs API (100 produk populer): 99 kode ada di CSV
+  Nutri-Score sama: 96 dari 99
+  Skor lingkungan (API ecoscore_grade vs CSV environmental_score_grade) sama: 91 dari 99
+  Nutri-Score terisi di CSV untuk 100 produk populer: 67 | di seluruh populasi: 437

@@ -1,0 +1,1 @@
+{"code":"96385074","errors":[{"field":{"id":"code","value":"96385074"},"impact":{"id":"failure","lc_name":"Kegagalan","name":"Failure"},"message":{"id":"product_not_found","lc_name":"","name":""}}],"result":{"id":"product_not_found","lc_name":"Produk tidak ditemukan","name":"Product not found"},"status":"failure","warnings":[]}
