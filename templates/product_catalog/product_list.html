@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block meta %}<title>Katalog Produk — PilihYuk</title>{% endblock %}
+{% block content %}
+<main class="section w-full flex-1 py-10">
+    <p class="eyebrow">PILIH DENGAN INFORMASI</p>
+    <h1 class="section-title">Katalog Produk</h1>
+    <p class="mt-3 text-muted">Jelajahi informasi gizi dan lingkungan produk yang dijual di Indonesia.</p>
+
+    <form method="get" class="card my-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Filter katalog">
+        <label class="text-sm font-semibold" for="search">Cari nama, merek, atau barcode
+            <input class="mt-2 w-full rounded-lg border border-line p-3" id="search" name="q" value="{{ filters.q }}" type="search">
+        </label>
+        <label class="text-sm font-semibold" for="category">Kategori
+            <select class="mt-2 w-full rounded-lg border border-line p-3" id="category" name="category">
+                <option value="">Semua kategori</option>
+                {% for value in options.category %}<option value="{{ value }}" {% if filters.category == value %}selected{% endif %}>{{ value }}</option>{% endfor %}
+            </select>
+        </label>
+        <label class="text-sm font-semibold" for="brand">Merek
+            <select class="mt-2 w-full rounded-lg border border-line p-3" id="brand" name="brand">
+                <option value="">Semua merek</option>
+                {% for value in options.brand %}<option value="{{ value }}" {% if filters.brand == value %}selected{% endif %}>{{ value }}</option>{% endfor %}
+            </select>
+        </label>
+        <label class="text-sm font-semibold" for="origin">Asal produk
+            <select class="mt-2 w-full rounded-lg border border-line p-3" id="origin" name="origin">
+                <option value="">Semua asal</option>
+                {% for value in options.origin %}<option value="{{ value }}" {% if filters.origin == value %}selected{% endif %}>{{ value }}</option>{% endfor %}
+            </select>
+        </label>
+        <label class="text-sm font-semibold" for="nutrition-grade">Nutri-Score
+            <select class="mt-2 w-full rounded-lg border border-line p-3" id="nutrition-grade" name="nutrition_grade">
+                <option value="">Semua nilai</option>
+                {% for value, label in nutrition_grades %}<option value="{{ value }}" {% if filters.nutrition_grade == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+        </label>
+        <div class="flex flex-wrap items-center gap-4">
+            <label class="flex items-center gap-2 text-sm" for="halal"><input id="halal" type="checkbox" name="halal" value="1" {% if filters.halal == '1' %}checked{% endif %}>Berlabel halal</label>
+            <button class="btn-brand" type="submit">Terapkan</button>
+            <a class="text-sm text-brand underline" href="{% url 'product_catalog:product_list' %}">Reset filter</a>
+        </div>
+    </form>
+
+    <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {% for product in products %}
+        <article class="card min-w-0">
+            <a class="block" href="{% url 'product_catalog:product_detail' product.pk %}">
+                {% if product.image_url %}<img class="h-44 w-full object-contain" src="{{ product.image_url }}" alt="{{ product.product_name }}" loading="lazy">
+                {% else %}<div class="flex h-44 items-center justify-center rounded-lg bg-surface text-muted">Gambar belum tersedia</div>{% endif %}
+                <h2 class="mt-5 break-words text-lg font-bold text-brand">{{ product.product_name|default:'Produk tanpa nama' }}</h2>
+            </a>
+            <p class="mt-1 break-words text-sm text-muted">{{ product.brand|default:'Merek belum tersedia' }}{% if product.quantity %} · {{ product.quantity }}{% endif %}</p>
+            <p class="mt-2 text-sm">{{ product.category|default:'Kategori belum tersedia' }}</p>
+            <div class="mt-4 flex flex-wrap gap-2">
+                <span class="chip bg-surface">Nutri-Score: {{ product.nutrition_grade }}</span>
+                <span class="chip bg-surface">Green-Score: {{ product.environmental_grade }}</span>
+                {% if product.halal_labeled %}<span class="chip bg-mint">Berlabel halal</span>{% endif %}
+            </div>
+        </article>
+        {% empty %}
+        <div class="card sm:col-span-2 lg:col-span-3">
+            <h2 class="text-lg font-bold">Belum ada produk yang cocok.</h2>
+            <p class="mt-2 text-muted">Katalog mungkin masih kosong. Jika memakai filter, coba reset filter atau kata pencarian lain.</p>
+        </div>
+        {% endfor %}
+    </div>
+</main>
+{% endblock %}

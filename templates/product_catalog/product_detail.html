@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block meta %}<title>{{ product.product_name|default:'Detail Produk' }} — PilihYuk</title>{% endblock %}
+{% block content %}
+<main class="section w-full flex-1 py-10">
+    <a class="text-sm text-brand underline" href="{% url 'product_catalog:product_list' %}">Kembali ke katalog</a>
+    <div class="mt-6 grid gap-6 md:grid-cols-2">
+        <section class="card min-w-0">
+            {% if product.image_url %}<img class="h-64 w-full object-contain" src="{{ product.image_url }}" alt="{{ product.product_name }}">
+            {% else %}<p class="rounded-lg bg-surface p-10 text-center text-muted">Gambar belum tersedia</p>{% endif %}
+            <h1 class="section-title break-words">{{ product.product_name|default:'Produk tanpa nama' }}</h1>
+            <dl class="mt-5 space-y-3 break-words text-sm">
+                <div><dt class="font-semibold">Merek</dt><dd>{{ product.brand|default:'Belum tersedia' }}</dd></div>
+                <div><dt class="font-semibold">Barcode</dt><dd>{{ product.code|default:'Belum tersedia' }}</dd></div>
+                <div><dt class="font-semibold">Berat / isi bersih</dt><dd>{{ product.quantity|default:'Belum tersedia' }}</dd></div>
+                <div><dt class="font-semibold">Kategori</dt><dd>{{ product.category|default:'Belum tersedia' }}</dd></div>
+                <div><dt class="font-semibold">Asal produk</dt><dd>{{ product.origin|default:'Belum tersedia' }}</dd></div>
+                <div><dt class="font-semibold">Ukuran porsi</dt><dd>{{ product.serving_size|default:'Belum tersedia' }}</dd></div>
+            </dl>
+            {% if product.halal_labeled %}<p class="chip mt-5 bg-mint">Berlabel halal</p>{% else %}<p class="mt-5 text-sm text-muted">Label halal belum tercatat; status halal tidak diketahui.</p>{% endif %}
+            {% if off_url %}<p class="mt-5"><a class="text-brand underline" href="{{ off_url }}" target="_blank" rel="noopener noreferrer">Lihat di Open Food Facts</a></p>{% endif %}
+        </section>
+        <div class="min-w-0 space-y-6">
+            <section class="card">
+                <h2 class="text-lg font-bold">Skor produk</h2>
+                <dl class="mt-4 space-y-3 text-sm">
+                    <div><dt class="font-semibold">Nutri-Score</dt><dd>{{ product.nutrition_grade }}</dd></div>
+                    <div><dt class="font-semibold">Green-Score resmi</dt><dd>{{ product.environmental_grade }}</dd></div>
+                    <div><dt class="font-semibold">NOVA</dt><dd>{{ product.nova_group|default_if_none:'Belum tersedia' }}</dd></div>
+                    {% if product.environmental_grade_estimated %}<div><dt class="font-semibold">Skor lingkungan estimasi PilihYuk (bukan skor resmi)</dt><dd>{{ product.environmental_grade_estimated }}</dd></div>{% endif %}
+                </dl>
+                <p class="mt-4 text-xs text-muted">unknown dan not-applicable tidak diperingkat. Data gizi tetap ditampilkan bila tersedia.</p>
+            </section>
+            <section class="card">
+                <h2 class="text-lg font-bold">Kandungan gizi per 100 g</h2>
+                <table class="mt-4 w-full text-sm">
+                    <caption class="sr-only">Kandungan gizi per 100 gram</caption>
+                    <thead><tr><th class="py-2 text-left" scope="col">Zat gizi</th><th class="py-2 text-right" scope="col">Jumlah</th></tr></thead>
+                    <tbody>{% for nutrient in nutrients %}<tr class="border-t border-line"><th class="py-3 text-left font-normal" scope="row">{{ nutrient.label }}</th><td class="py-3 text-right">{% if nutrient.value is None %}Belum tersedia{% else %}{{ nutrient.value|floatformat:'-3' }} {{ nutrient.unit }}{% endif %}</td></tr>{% endfor %}</tbody>
+                </table>
+            </section>
+        </div>
+        <section class="card min-w-0 md:col-span-2">
+            <h2 class="text-lg font-bold">Bahan, alergen, dan kemasan</h2>
+            <h3 class="mt-4 font-semibold">Bahan</h3>
+            <p class="mt-2 whitespace-pre-line break-words text-sm">{{ product.ingredients_text|default:'Belum tersedia' }}</p>
+            <h3 class="mt-4 font-semibold">Alergen tercatat</h3>
+            <ul class="mt-2 flex flex-wrap gap-2 text-sm">{% for tag in allergens %}<li class="chip bg-warm">{{ tag }}</li>{% empty %}<li>Belum tersedia; bukan jaminan bebas alergen.</li>{% endfor %}</ul>
+            <h3 class="mt-4 font-semibold">Kemasan</h3>
+            <ul class="mt-2 flex flex-wrap gap-2 text-sm">{% for tag in packaging %}<li class="chip bg-surface">{{ tag }}</li>{% empty %}<li>Belum tersedia</li>{% endfor %}</ul>
+        </section>
+    </div>
+</main>
+{% endblock %}
