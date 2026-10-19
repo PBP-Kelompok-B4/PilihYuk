@@ -224,9 +224,9 @@ class ProductViewTests(TestCase):
 class NormalizeBarcodeTests(SimpleTestCase):
     def test_check_digit_and_non_ascii_input(self):
         self.assertTrue(off.has_valid_upc_check_digit("089686010947"))
-        for value in (None, "089686010948", "123", "²" * 12):
+        for value in (None, "089686010948", "123", "Â²" * 12):
             self.assertFalse(off.has_valid_upc_check_digit(value))
-        self.assertEqual(off.normalize_barcode("²abc"), "")
+        self.assertEqual(off.normalize_barcode("Â²abc"), "")
 
     def test_matches_open_food_facts_rules(self):
         cases = {
@@ -363,6 +363,42 @@ class GetJsonTests(SimpleTestCase):
 
 class FetchProductTests(SimpleTestCase):
     @mock.patch("product_catalog.open_food_facts.get_json")
+    def test_malformed_response_structures_raise_value_error(self, fake_json):
+        for payload in ([], None, "invalid", 0, True, {}, {"status": 1},
+                        {"status": False}, {"result": "product_not_found"}):
+            with self.subTest(payload=payload):
+                fake_json.return_value = payload
+                with self.assertRaises(ValueError):
+                    off.fetch_product("17")
+
+    @mock.patch("product_catalog.open_food_facts.get_json")
+    def test_product_must_be_a_dictionary_even_with_not_found_marker(self, fake_json):
+        for value in ([], "invalid", 0, 1.5, False, None):
+            for marker in ({}, {"status": 0}):
+                with self.subTest(value=value, marker=marker):
+                    fake_json.return_value = {"product": value, **marker}
+                    with self.assertRaises(ValueError):
+                        off.fetch_product("17")
+        fake_json.return_value = {"product": {}}
+        self.assertEqual(off.fetch_product("17"), {})
+
+    @mock.patch("product_catalog.open_food_facts.get_json")
+    def test_explicit_v3_not_found_marker_returns_none(self, fake_json):
+        fake_json.return_value = {"status": "failure", "result": {"id": "product_not_found"}}
+        self.assertIsNone(off.fetch_product("17"))
+
+    @mock.patch("product_catalog.open_food_facts.time.sleep")
+    @mock.patch("product_catalog.open_food_facts.requests.get")
+    def test_malformed_payload_is_not_retried(self, fake_get, fake_sleep):
+        response = mock.Mock(status_code=200)
+        response.json.return_value = {"product": None}
+        fake_get.return_value = response
+        with self.assertRaises(ValueError):
+            off.fetch_product("17")
+        fake_get.assert_called_once()
+        fake_sleep.assert_not_called()
+
+    @mock.patch("product_catalog.open_food_facts.get_json")
     def test_v3_fields_and_absent_product(self, fake_json):
         fake_json.return_value = {"product": {"code": "0089686010947"}}
         self.assertEqual(off.fetch_product("0089686010947"), {"code": "0089686010947"})
@@ -416,6 +452,27 @@ class OffMappingTests(SimpleTestCase):
     def record(self, **values):
         return {"code": "0089686010947", "countries_tags": ["en:indonesia"], **values}
 
+    def test_invalid_grades_are_rejected_in_primary_and_fallback(self):
+        for key in ("nutriscore_grade", "nutrition_grades", "environmental_score_grade", "ecoscore_grade"):
+            for value in ("null", "None", "NaN", "g", 0, False, [], {}):
+                with self.subTest(key=key, value=value):
+                    with self.assertRaises(ValueError):
+                        product_fields(self.record(**{key: value}))
+        with self.assertRaises(ValueError):
+            product_fields(self.record(nutriscore_grade="f"))
+        with self.assertRaises(ValueError):
+            product_fields(self.record(environmental_score_grade="null", ecoscore_grade="b"))
+
+    def test_nutrition_precedence_and_empty_values_are_preserved(self):
+        for primary, fallback, expected in (
+            ("a", "e", "a"), ("unknown", "b", "b"),
+            ("not-applicable", None, "not-applicable"), (" ", None, "unknown"),
+            (None, "c", "c"),
+        ):
+            with self.subTest(primary=primary, fallback=fallback):
+                fields = product_fields(self.record(nutriscore_grade=primary, nutrition_grades=fallback))
+                self.assertEqual(fields["nutrition_grade"], expected)
+
     def test_environmental_precedence_missing_fallback_and_markers(self):
         for primary, fallback, expected in (
             ("a-plus", "f", "a-plus"), ("unknown", "b", "b"),
@@ -452,13 +509,13 @@ class OffMappingTests(SimpleTestCase):
 
 
 class ProductFixtureTests(TestCase):
-    def test_fixture_is_reproducible_and_all_twenty_models_validate(self):
+    def test_fixture_is_reproducible_and_all_models_validate(self):
         import json
         from .fixture_data import FIXTURE, build_fixture
         fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
         self.assertEqual(fixture, build_fixture())
-        self.assertEqual(len(fixture), 20)
-        self.assertEqual(len({row["fields"]["code"] for row in fixture}), 20)
+        self.assertGreaterEqual(len(fixture), 50)
+        self.assertEqual(len({row["fields"]["code"] for row in fixture}), len(fixture))
         for row in fixture:
             product = Product(**row["fields"])
             product.full_clean()
@@ -476,7 +533,9 @@ class ProductFixtureTests(TestCase):
         snapshot = list(Product.objects.order_by("pk").values())
         call_command("seed_products", stdout=StringIO())
         self.assertEqual(list(Product.objects.order_by("pk").values()), snapshot)
-        self.assertEqual(Product.objects.count(), 21)
+        from .seed_dataset import load_seed_dataset
+        eligible_codes = set(load_seed_dataset()["canonical_barcodes"])
+        self.assertEqual(Product.objects.count(), len(eligible_codes) + 2 - int(CODES[0] in eligible_codes))
         existing.refresh_from_db()
         self.assertEqual(existing.product_name, "My edit")
         self.assertEqual(existing.source, "manual")
@@ -565,14 +624,14 @@ class CatalogViewTests(TestCase):
         self.assertNotContains(response, "Lihat di Open Food Facts")
         self.assertNotContains(response, user.username)
 
-    def test_detail_does_not_record_views_even_when_logged_in(self):
+    def test_detail_records_each_view_when_logged_in(self):
         from django.urls import reverse
         user = get_user_model().objects.create_user(username="reader")
         self.client.force_login(user)
         url = reverse("product_catalog:product_detail", args=[self.product.pk])
         self.assertEqual(self.client.get(url).status_code, 200)
         self.assertEqual(self.client.get(url).status_code, 200)
-        self.assertEqual(ProductView.objects.count(), 0)
+        self.assertEqual(ProductView.objects.filter(user=user, product=self.product).count(), 2)
 
     def test_search_input_is_escaped(self):
         from django.urls import reverse

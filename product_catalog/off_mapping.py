@@ -14,6 +14,24 @@ NUTRIENT_KEYS = {
     "sodium_100g": "sodium_100g",
 }
 
+VALID_NUTRISCORES = frozenset("abcde")
+
+
+def nutrition_grade(record):
+    """Official primary/fallback contract, with case/whitespace normalization."""
+    normalized = record.copy()
+    for key in ("nutriscore_grade", "nutrition_grades"):
+        if isinstance(normalized.get(key), str):
+            normalized[key] = normalized[key].strip().lower()
+    return official_grade(normalized, "nutriscore_grade", "nutrition_grades")
+
+
+def has_valid_nutriscore(record):
+    try:
+        return nutrition_grade(record) in VALID_NUTRISCORES
+    except ValueError:
+        return False
+
 # Small display dictionary; all original tags remain available on Product.
 CATEGORY_NAMES = {
     "en:instant-noodles": "Mi instan",
@@ -42,7 +60,16 @@ def list_value(record, key):
 
 
 def official_grade(record, primary, fallback):
-    """Prefer a known primary grade, then fallback; preserve missing markers."""
+    """Prefer a known primary grade, then fallback; reject undocumented grades."""
+    known = {"a", "b", "c", "d", "e"}
+    if primary == "environmental_score_grade":
+        known.update({"a-plus", "f"})
+    for key in (primary, fallback):
+        raw = record.get(key)
+        if raw is None or (isinstance(raw, str) and not raw.strip()):
+            continue
+        if not isinstance(raw, str) or raw.strip() not in known | {"unknown", "not-applicable"}:
+            raise ValueError(f"OFF {key} contains an invalid grade")
     value = text_value(record, primary, fallback)
     if value:
         return value
@@ -52,7 +79,7 @@ def official_grade(record, primary, fallback):
     return "unknown"
 
 
-def product_fields(record):
+def product_fields(record, *, tolerate_invalid_nutriscore=False):
     """Map a confirmed Indonesian record; leave synchronization/ownership to callers.
 
     Category selection is a local display convention: the last supplied tag,
@@ -70,6 +97,12 @@ def product_fields(record):
     nova = record.get("nova_group")
     nutrients = record.get("nutriments")
     nutrients = nutrients if isinstance(nutrients, dict) else {}
+    try:
+        score = nutrition_grade(record)
+    except ValueError:
+        if not tolerate_invalid_nutriscore:
+            raise
+        score = "unknown"
     fields = {
         "code": code,
         "product_name": text_value(record, "product_name_id", "product_name", "product_name_en"),
@@ -78,7 +111,7 @@ def product_fields(record):
         "image_url": text_value(record, "image_url"),
         "category": CATEGORY_NAMES.get(categories[-1], tag_name(categories[-1])) if categories else "",
         "origin": ", ".join(map(tag_name, origins)) or text_value(record, "manufacturing_places"),
-        "nutrition_grade": official_grade(record, "nutriscore_grade", "nutrition_grades"),
+        "nutrition_grade": score,
         "environmental_grade": official_grade(record, "environmental_score_grade", "ecoscore_grade"),
         "environmental_grade_estimated": "",
         "nova_group": int(float(nova)) if is_number(nova) and float(nova) in (1, 2, 3, 4) else None,

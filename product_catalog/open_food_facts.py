@@ -100,7 +100,11 @@ def get_json(url, params=None, retry_waits=LONG_RETRY_WAITS):
 
 
 def fetch_product(barcode):
-    """Ambil satu produk dari API v3. Kembalikan None bila barcode tidak ada di OFF."""
+    """Return a product dict or None for explicit not-found responses.
+
+    Malformed decoded payloads raise ValueError, like invalid JSON; they are
+    not retried and must not be mistaken for an absent product.
+    """
     url = f"{API_BASE_URL}/api/v3/product/{barcode}"
     params = {"fields": ",".join(PRODUCT_FIELDS)}
     try:
@@ -109,7 +113,18 @@ def fetch_product(barcode):
         if error.response is not None and error.response.status_code == 404:
             return None
         raise
-    return data.get("product")
+    if not isinstance(data, dict):
+        raise ValueError("OFF response must be a dictionary")
+    if "product" not in data:
+        result = data.get("result")
+        if (type(data.get("status")) is int and data["status"] == 0) or (
+            isinstance(result, dict) and result.get("id") == "product_not_found"
+        ):
+            return None
+        raise ValueError("OFF response is missing product without a not-found marker")
+    if not isinstance(data["product"], dict):
+        raise ValueError("OFF response product must be a dictionary")
+    return data["product"]
 
 
 def normalize_barcode(raw_barcode):
@@ -172,7 +187,7 @@ def has_value(product, field):
     return True
 
 
-def read_indonesian_products_from_csv(path, limit=None):
+def read_indonesian_products_from_csv(path, limit=None, stats=None, reject_callback=None):
     """Baca dump CSV OFF baris demi baris dan hasilkan produk yang dijual di Indonesia.
 
     File CSV-nya besar (sekitar 1,3 GB), jadi dibaca sedikit demi sedikit, tidak sekaligus.
@@ -184,14 +199,63 @@ def read_indonesian_products_from_csv(path, limit=None):
     csv.field_size_limit(CSV_MAX_CELL_SIZE)
     open_file = gzip.open if str(path).endswith(".gz") else open
     found = 0
-    with open_file(path, "rt", encoding="utf-8", newline="") as file:
-        for row in csv.DictReader(file, delimiter="\t", quoting=csv.QUOTE_NONE):
-            if INDONESIA_TAG not in (row.get("countries_tags") or ""):
-                continue  # saringan cepat; jutaan baris lain dilewati tanpa diproses
-            product = {column: value for column, value in row.items() if column and value}
+    stats = stats if stats is not None else {}
+
+    def count(key):
+        stats[key] = stats.get(key, 0) + 1
+
+    with open_file(path, "rt", encoding="utf-8-sig", newline="") as file:
+        # Detect from the header only: never read the dump into memory.
+        header = file.readline()
+        try:
+            dialect = csv.Sniffer().sniff(header, delimiters="\t,;")
+        except csv.Error as exc:
+            raise ValueError("CSV header delimiter is not supported") from exc
+        file.seek(0)
+        # OFF TSV exports have literal, unescaped quotes (verified in the dump).
+        # Preserve the existing QUOTE_NONE behavior for tabs; ordinary CSV uses quotes.
+        quoting = csv.QUOTE_NONE if dialect.delimiter == "\t" else csv.QUOTE_MINIMAL
+        reader = csv.reader(file, dialect=dialect, quoting=quoting, strict=True)
+        columns = next(reader, [])
+        if len(columns) != len(set(columns)) or not {"code", "countries_tags"}.issubset(columns):
+            raise ValueError("CSV requires unique headers including code and countries_tags")
+        stats["delimiter"] = dialect.delimiter
+        stats["encoding"] = "utf-8-sig"
+        stats["quoting"] = "literal" if quoting == csv.QUOTE_NONE else "csv"
+        stats["columns"] = columns
+        country_index = columns.index("countries_tags")
+        report_indexes = {key: columns.index(key) for key in
+                          ("code", "product_name", "product_name_id", "product_name_en", "nutriscore_grade", "nutrition_grades")
+                          if key in columns} if reject_callback else {}
+        def rejected(cells, reason):
+            if reject_callback:
+                reject_callback({key: cells[index] for key, index in report_indexes.items()
+                                 if index < len(cells)}, reason)
+        for cells in reader:
+            count("rows_read")
+            if len(cells) != len(columns):
+                count("malformed_row")
+                rejected(cells, "malformed_row")
+                continue
+            countries = [tag.strip() for tag in cells[country_index].split(",") if tag.strip()]
+            if INDONESIA_TAG not in countries:
+                count("non_indonesia")
+                rejected(cells, "non_indonesia")
+                continue
+            count("indonesia_rows")
+            # Build field dictionaries only for the Indonesian subset.
+            row = dict(zip(columns, cells))
+            product = {
+                column: value for column, value in row.items()
+                if column and value and (column in {"code", "nutriscore_grade", "nutrition_grades"} or value.strip().lower() not in {"null", "none", "nan"})
+            }
+            # CSV missing markers are normalized here, not in the strict API mapper.
+            for column in ("nutriscore_grade", "nutrition_grades", "environmental_score_grade", "ecoscore_grade"):
+                if column in product:
+                    product[column] = product[column].strip().lower()
             for column in CSV_LIST_COLUMNS:
                 if column in product:
-                    product[column] = [tag.strip() for tag in product[column].split(",") if tag.strip()]
+                    product[column] = [tag.strip() for tag in product[column].split(",") if tag.strip().lower() not in EMPTY_VALUES]
             if "allergens" in product:
                 product["allergens_tags"] = [
                     tag.strip() for tag in product["allergens"].split(",")
@@ -199,7 +263,7 @@ def read_indonesian_products_from_csv(path, limit=None):
                 ]
             if not is_sold_in_indonesia(product):
                 continue
-            if "nutriscore_grade" in product:
+            if "nutriscore_grade" in product and "nutrition_grades" not in product:
                 product["nutrition_grades"] = product["nutriscore_grade"]
             if is_number(product.get("nova_group")) and float(product["nova_group"]).is_integer():
                 product["nova_group"] = int(float(product["nova_group"]))
