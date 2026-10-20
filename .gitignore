@@ -127,3 +127,9 @@ sftp-config.json
 
 # Personal Claude Code context (not for the team)
 .private/
+
+# Copilot AI Agent and Skills configuration
+.agents/
+docs/
+AGENTS.md
+skills-lock.json
