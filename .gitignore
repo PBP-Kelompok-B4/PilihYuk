@@ -127,3 +127,4 @@ sftp-config.json
 
 # Personal Claude Code context (not for the team)
 .private/
+.hermes/
