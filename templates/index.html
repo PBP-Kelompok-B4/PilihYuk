@@ -32,11 +32,12 @@
                 <div class="flex flex-wrap items-center gap-2.5">
                     <img src="{% static 'img/layers-1.svg' %}" alt="">
                     <h2 class="font-bold">{{ shelf.title }}</h2>
-                    <span class="rounded-full bg-mint px-2.5 py-1 text-[11px] font-bold text-brand">{% if shelf.public %}Shelf publik{% else %}Shelf privat{% endif %} &middot; {{ shelf.count }} produk</span>
+                    <span class="rounded-full bg-mint px-2.5 py-1 text-[11px] font-bold text-brand">Katalog &middot; {{ shelf.count }} produk ditampilkan</span>
                 </div>
                 <span class="text-xs font-medium text-muted">Diurutkan: {{ shelf.sort }}</span>
             </div>
 
+            {% if shelf.products %}
             <div class="overflow-x-auto">
                 <table class="w-full min-w-[880px] border-collapse text-left text-sm">
                     <thead>
@@ -123,6 +124,9 @@
                     </tbody>
                 </table>
             </div>
+            {% else %}
+            <p class="px-5 py-8 text-sm text-muted">Belum ada produk aktif di katalog.</p>
+            {% endif %}
         </div>
     </section>
 
