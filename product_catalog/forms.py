@@ -42,6 +42,12 @@ class ManualProductForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            if not isinstance(field.widget, forms.CheckboxInput):
+                existing = field.widget.attrs.get("class", "")
+                field.widget.attrs["class"] = (
+                    f"{existing} block w-full min-w-0 rounded-lg border border-line p-3"
+                ).strip()
         for key in ("nutrition_grade", "environmental_grade"):
             self.fields[key].required = False
 
