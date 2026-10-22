@@ -25,6 +25,7 @@ Notes:
 import json
 from itertools import count
 from unittest import mock
+from datetime import timedelta
 
 from django.apps import apps
 from django.contrib.auth import get_user_model
@@ -69,7 +70,9 @@ from .responses import (
 from .services import CorrectionError, approve_item, reject_item, submit_correction, withdraw_correction
 from .validators import get_current_value, parse_proposed_value, to_column_value, to_display, to_stored_text
 from .forms import CorrectionForm, help_text_for
-from .templatetags.data_correction_tags import display_value
+from .templatetags.data_correction_tags import ago, display_value
+from .display import display_name
+from .moderation import QueueFilters, field_guide, find_item, queue_items, queue_row, queue_stats
 
 _barcodes = count(1)
 
@@ -1455,3 +1458,453 @@ class WithdrawViewTests(ViewTestMixin, TestCase):
         self.assertJsonError(response, 409, "not_withdrawable")
         self.assertEqual(json_of(response)["error"]["message"], NOT_WITHDRAWABLE_MESSAGE)
         self.assertStillExists()
+
+QUEUE_URL = "/moderasi/"
+ACTION_MESSAGE = "Pilih aksi approve atau reject."
+NOTE_REQUIRED_MESSAGE = "Catatan wajib diisi saat menolak."
+ALREADY_REVIEWED_MESSAGE = "Item ini sudah ditinjau."
+
+
+def submit_items(product, user, **changes):
+    """Ajukan koreksi lewat service (nilai lama dan usulan seperti aslinya); hasil: item per field."""
+    correction = submit_correction(user, product, changes)
+    return {item.field_name: item for item in correction.items.all()}
+
+
+def set_created_at(item, **delta):
+    """Mundurkan waktu pengajuan milik item, mis. set_created_at(item, hours=2)."""
+    created_at = timezone.now() - timedelta(**delta)
+    DataCorrection.objects.filter(pk=item.correction_id).update(created_at=created_at)
+
+
+class DisplayNameAndAgoTests(SimpleTestCase):
+    def test_display_name_never_uses_username(self):
+        User = get_user_model()
+        self.assertEqual(display_name(User(username="budi@email.com", first_name="Budi")), "Budi")
+        self.assertEqual(display_name(User(username="sari@email.com", first_name="  ")), "Pengguna")
+        self.assertEqual(display_name(None), "-")
+
+    def test_ago_uses_a_single_unit(self):
+        now = timezone.now()
+        self.assertEqual(ago(now - timedelta(seconds=20)), "baru saja")
+        self.assertEqual(ago(now - timedelta(hours=2, minutes=40)), "2\xa0jam lalu")
+        self.assertEqual(ago(now - timedelta(days=3, hours=4)), "3\xa0hari lalu")
+        self.assertEqual(ago(None), "")
+
+
+class QueueFiltersTests(SimpleTestCase):
+    def test_unknown_values_fall_back_to_defaults(self):
+        self.assertEqual(QueueFilters.from_query({}), QueueFilters())
+        query = {"tab": "riwayat", "field": "code", "status": "approved", "page": "2"}
+        self.assertEqual(QueueFilters.from_query(query), QueueFilters(page="2"))  # tidak ada tab riwayat
+        filters = QueueFilters.from_query({"tab": "semua", "field": "fiber_100g", "status": "rejected"})
+        self.assertEqual((filters.tab, filters.field, filters.status), ("semua", "fiber_100g", "rejected"))
+        self.assertEqual(QueueFilters.from_query({"tab": "semua", "status": "partial"}).status, "")
+
+    def test_url_keeps_filters_and_skips_defaults(self):
+        filters = QueueFilters(tab="semua", field="fiber_100g")
+        self.assertEqual(QueueFilters().url(), QUEUE_URL)
+        self.assertEqual(filters.url(), "/moderasi/?tab=semua&field=fiber_100g")
+        self.assertEqual(filters.url(page=2), "/moderasi/?tab=semua&field=fiber_100g&page=2")
+        self.assertEqual(filters.url(item=15), "/moderasi/?tab=semua&field=fiber_100g&item=15")
+        self.assertEqual(filters.url(field=""), "/moderasi/?tab=semua")
+
+    def test_tabs_and_chips(self):
+        filters = QueueFilters(tab="semua", field="fiber_100g", status="approved", page="3")
+        tabs = filters.tabs()
+        labels = ["Antrean koreksi", "Semua pengajuan", "Panduan field"]
+        self.assertEqual([tab["label"] for tab in tabs], labels)
+        urls = [QUEUE_URL, "/moderasi/?tab=semua", "/moderasi/?tab=panduan"]
+        self.assertEqual([tab["url"] for tab in tabs], urls)
+        self.assertEqual([tab["active"] for tab in tabs], [False, True, False])
+        fields = filters.field_chips()
+        self.assertEqual(len(fields), len(constants.CORRECTABLE_FIELDS) + 1)
+        first = (fields[0]["label"], fields[0]["url"])
+        self.assertEqual(first, ("Semua field", "/moderasi/?tab=semua&status=approved"))
+        self.assertEqual([chip["label"] for chip in fields if chip["active"]], ["Serat (g/100 g)"])
+        statuses = filters.status_chips()
+        labels = ["Semua status", "Menunggu", "Disetujui", "Ditolak"]
+        self.assertEqual([chip["label"] for chip in statuses], labels)
+        self.assertEqual(statuses[3]["url"], "/moderasi/?tab=semua&field=fiber_100g&status=rejected")
+        self.assertEqual(QueueFilters().status_chips(), [])
+
+    def test_page_links(self):
+        links = QueueFilters(field="fiber_100g").page_links(Paginator(range(45), 20).get_page(2))
+        expected = {
+            "previous": "/moderasi/?field=fiber_100g&page=1",
+            "next": "/moderasi/?field=fiber_100g&page=3",
+        }
+        self.assertEqual(links, expected)
+        single = Paginator(range(5), 20).get_page(1)
+        self.assertEqual(QueueFilters().page_links(single), {"previous": None, "next": None})
+
+
+class ModerationDataTests(TestCase):
+    def setUp(self):
+        self.user = make_user()
+        self.product = make_complete_product(fiber_100g=None, sodium_100g=0.3976)
+        self.old = submit_items(self.product, self.user, fiber_100g="2,5")["fiber_100g"]
+        nameless = make_user("sari@email.com", "")
+        self.new = submit_items(self.product, nameless, sodium_100g="780", brand="Baru")
+        set_created_at(self.old, hours=5)
+
+    def reject(self, item):
+        DataCorrectionItem.objects.filter(pk=item.pk).update(status=REJECTED, review_note="Salah.")
+
+    def test_antrean_has_pending_items_oldest_first(self):
+        self.reject(self.new["brand"])
+        self.assertEqual(list(queue_items(QueueFilters())), [self.old, self.new["sodium_100g"]])
+        sodium_only = QueueFilters(field="sodium_100g")
+        self.assertEqual(list(queue_items(sodium_only)), [self.new["sodium_100g"]])
+
+    def test_semua_has_every_status_newest_first(self):
+        self.reject(self.new["brand"])
+        everything = list(queue_items(QueueFilters(tab="semua")))
+        self.assertEqual(everything, [self.new["brand"], self.new["sodium_100g"], self.old])
+        rejected = QueueFilters(tab="semua", status=REJECTED)
+        self.assertEqual(list(queue_items(rejected)), [self.new["brand"]])
+
+    def test_find_item(self):
+        self.assertEqual(find_item(str(self.old.pk)), self.old)
+        for raw in ("abc", "", "-1", "1.5", chr(0xB2), "99999999999999999999"):  # chr(0xB2) = "²"
+            with self.subTest(raw=raw):
+                self.assertIsNone(find_item(raw))
+
+    def test_stats_are_totals_per_status(self):
+        self.reject(self.new["brand"])
+        DataCorrectionItem.objects.filter(pk=self.old.pk).update(status=APPROVED)
+        self.assertEqual(queue_stats(), {"pending": 1, "approved": 1, "rejected": 1})
+
+    def test_queue_row(self):
+        sodium = self.new["sodium_100g"]
+        row = queue_row(sodium, QueueFilters(field="sodium_100g"))
+        self.assertEqual(row["submitter"], "Pengguna")  # first_name kosong; username tidak dipakai
+        self.assertEqual((row["current"], row["stale"]), ("0.3976", False))
+        self.assertEqual(row["url"], f"/moderasi/?field=sodium_100g&item={sodium.pk}")
+        Product.objects.filter(pk=self.product.pk).update(sodium_100g=0.5)
+        self.assertTrue(queue_row(find_item(sodium.pk), QueueFilters())["stale"])
+        DataCorrectionItem.objects.filter(pk=sodium.pk).update(status=APPROVED)
+        self.assertFalse(queue_row(find_item(sodium.pk), QueueFilters())["stale"])  # hanya item pending
+
+    def test_field_guide_is_built_from_the_rules(self):
+        guide = field_guide()
+        self.assertEqual([row["field_name"] for row in guide], list(constants.CORRECTABLE_FIELDS))
+        rows = {row["field_name"]: row for row in guide}
+        self.assertEqual((rows["brand"]["label"], rows["brand"]["kind"]), ("Merek", "Teks"))
+        self.assertIn("Maksimal 255 karakter.", rows["brand"]["rules"])
+        self.assertEqual(rows["nova_group"]["kind"], "Bilangan bulat")
+        self.assertIn(help_text_for("nova_group"), rows["nova_group"]["rules"])
+        sodium = " ".join(rows["sodium_100g"]["rules"])
+        for text in ("tanpa pemisah ribuan", "0 sampai 100000 mg", "3 angka di belakang koma", "dibagi 1000"):
+            self.assertIn(text, sodium)
+        self.assertIn("0 sampai 900 kkal", " ".join(rows["energy_kcal_100g"]["rules"]))
+        self.assertIn("0 sampai 100 g", " ".join(rows["fiber_100g"]["rules"]))
+
+
+class CuratorQueueViewTests(ViewTestMixin, TestCase):
+    def setUp(self):
+        self.curator = make_staff()
+        self.user = make_user()  # Budi, pengaju@email.com
+        self.product = make_complete_product(
+            product_name="Sarimi Isi 2 Goreng", fiber_100g=None, sodium_100g=0.3976
+        )
+        self.items = submit_items(self.product, self.user, fiber_100g="2,5", sodium_100g="780")
+
+    def item_ids(self, response):
+        return [row["item"].pk for row in response.context["rows"]]
+
+    def test_only_staff_can_open_the_queue(self):
+        self.assertLoginRedirect(self.client.get(QUEUE_URL), QUEUE_URL)
+        self.assertJsonError(self.client.get(QUEUE_URL + "?format=json"), 401, "authentication_required")
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.get(QUEUE_URL).status_code, 403)
+        self.assertJsonError(self.client.get(QUEUE_URL, HTTP_ACCEPT="application/json"), 403, "forbidden")
+        self.client.force_login(self.curator)
+        response = self.client.get(QUEUE_URL)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "data_correction/queue.html")
+
+    def test_rows_show_product_submitter_and_values(self):
+        set_created_at(self.items["fiber_100g"], hours=2)
+        self.client.force_login(self.curator)
+        response = self.client.get(QUEUE_URL)
+        self.assertEqual(self.item_ids(response), [self.items["fiber_100g"].pk, self.items["sodium_100g"].pk])
+        texts = ("Sarimi Isi 2 Goreng", "Sarimi · 88 g", "Budi · 2\xa0jam lalu", "Serat (g/100 g)",
+                 "Tidak diketahui", "2,5", "397,6", "780", "Menunggu")
+        for text in texts:
+            self.assertContains(response, text)
+        self.assertNotContains(response, "pengaju@email.com")  # username/email tidak pernah tampil
+
+    def test_reviewed_items_leave_antrean_but_stay_in_semua(self):
+        reject_item(self.curator, self.items["sodium_100g"], note="Tidak sesuai label.")
+        self.client.force_login(self.curator)
+        self.assertEqual(self.item_ids(self.client.get(QUEUE_URL)), [self.items["fiber_100g"].pk])
+        response = self.client.get(QUEUE_URL + "?tab=semua&status=rejected")
+        self.assertEqual(self.item_ids(response), [self.items["sodium_100g"].pk])
+        self.assertContains(response, "Ditolak")
+        self.assertContains(response, ">Lihat<")  # item yang sudah ditinjau hanya bisa dilihat
+
+    def test_field_filter_and_removed_riwayat_tab(self):
+        self.client.force_login(self.curator)
+        response = self.client.get(QUEUE_URL + "?field=sodium_100g")
+        self.assertEqual(self.item_ids(response), [self.items["sodium_100g"].pk])
+        response = self.client.get(QUEUE_URL + "?tab=riwayat&field=code")  # dihapus (keputusan Tahap 0)
+        self.assertEqual(response.context["filters"], QueueFilters())
+        self.assertEqual(len(response.context["rows"]), 2)
+        self.assertNotContains(response, "Riwayat review")
+
+    def test_stats_are_totals_without_daily_numbers(self):
+        approve_item(self.curator, self.items["fiber_100g"])
+        self.client.force_login(self.curator)
+        response = self.client.get(QUEUE_URL)
+        self.assertEqual(response.context["stats"], {"pending": 1, "approved": 1, "rejected": 0})
+        self.assertNotContains(response, "hari ini")
+        data = json_of(self.client.get(QUEUE_URL + "?format=json"))
+        self.assertEqual(data["stats"], {"pending": 1, "approved": 1, "rejected": 0})
+
+    def test_panduan_tab_lists_every_correctable_field(self):
+        self.client.force_login(self.curator)
+        response = self.client.get(QUEUE_URL + "?tab=panduan")
+        for label in constants.FIELD_LABELS.values():
+            self.assertContains(response, label)
+        self.assertContains(response, "tanpa pemisah ribuan")
+        self.assertContains(response, "0 sampai 100000 mg per 100 g")
+        data = json_of(self.client.get(QUEUE_URL + "?tab=panduan&format=json"))
+        self.assertEqual((data["tab"], data["guide"]), ("panduan", field_guide()))
+
+    def test_selected_item_opens_review_panel(self):
+        item = self.items["sodium_100g"]
+        set_created_at(item, hours=3)
+        self.client.force_login(self.curator)
+        response = self.client.get(QUEUE_URL + f"?field=sodium_100g&item={item.pk}")
+        self.assertEqual(response.context["selected"]["item"], item)
+        self.assertEqual(response.context["back_url"], "/moderasi/?field=sodium_100g")
+        texts = ("Sumber: Budi · 3\xa0jam lalu", "Nilai saat ini", "Usulan nilai", "Sedang ditinjau",
+                 'value="approve"', 'value="reject"', 'name="review_note"', "Kembali ke antrean",
+                 'name="next" value="/moderasi/?field=sodium_100g"', "csrfmiddlewaretoken",
+                 reverse("data_correction:review_item", args=[item.pk]))
+        for text in texts:
+            self.assertContains(response, text)
+        self.assertNotContains(response, "Nilai produk sudah berubah")
+
+    def test_panel_warns_when_product_changed_since_submission(self):
+        Product.objects.filter(pk=self.product.pk).update(sodium_100g=0.5)
+        self.client.force_login(self.curator)
+        response = self.client.get(QUEUE_URL + f"?item={self.items['sodium_100g'].pk}")
+        self.assertTrue(response.context["selected"]["stale"])
+        self.assertContains(response, "Nilai produk sudah berubah sejak diajukan (saat diajukan: 397,6)")
+
+    def test_panel_for_reviewed_missing_and_inactive_items(self):
+        self.client.force_login(self.curator)
+        reject_item(self.curator, self.items["sodium_100g"], note="Tidak sesuai label.")
+        response = self.client.get(QUEUE_URL + f"?tab=semua&item={self.items['sodium_100g'].pk}")
+        self.assertContains(response, "Item ini sudah ditinjau (ditolak).")
+        self.assertContains(response, "Catatan kurator: Tidak sesuai label.")
+        self.assertNotContains(response, 'value="approve"')
+        response = self.client.get(QUEUE_URL + "?item=999999")
+        self.assertTrue(response.context["missing_item"])
+        self.assertContains(response, "Item yang dipilih tidak ditemukan")
+        Product.objects.filter(pk=self.product.pk).update(is_active=False)
+        response = self.client.get(QUEUE_URL + f"?item={self.items['fiber_100g'].pk}")
+        self.assertNotContains(response, 'value="approve"')  # produk nonaktif hanya bisa ditolak
+        self.assertContains(response, 'value="reject"')
+        self.assertContains(response, "Produk ini sudah tidak aktif.")
+
+    def test_json_rows(self):
+        self.client.force_login(self.curator)
+        data = json_of(self.client.get(QUEUE_URL + "?format=json&field=sodium_100g"))
+        summary = (data["count"], data["page"], data["page_size"], data["tab"], data["field"], data["status"])
+        self.assertEqual(summary, (1, 1, 20, "antrean", "sodium_100g", None))
+        row = data["results"][0]
+        self.assertIsNotNone(parse_datetime(row.pop("created_at")))
+        item = self.items["sodium_100g"]
+        self.assertEqual(row, {
+            "id": item.pk, "correction_id": item.correction_id,
+            "product": {"id": self.product.pk, "product_name": "Sarimi Isi 2 Goreng", "brand": "Sarimi",
+                        "quantity": "88 g", "is_active": True},
+            "submitted_by": "Budi",
+            "field_name": "sodium_100g", "label": "Natrium (mg/100 g)", "old_value": 0.3976,
+            "proposed_value": 0.78, "status": PENDING, "status_label": "Menunggu", "review_note": "",
+            "current_value": 0.3976, "stale": False,
+        })
+
+    def test_pagination_and_query_count(self):
+        self.client.force_login(self.curator)
+        url = QUEUE_URL + f"?item={self.items['fiber_100g'].pk}"
+        with CaptureQueriesContext(connection) as few:
+            self.client.get(url)
+        for number in range(1, 13):
+            product = make_complete_product(fiber_100g=None)
+            submit_items(product, self.user, fiber_100g=str(number), sodium_100g="500")
+        with CaptureQueriesContext(connection) as many:
+            response = self.client.get(url)
+        self.assertEqual(len(many), len(few))
+        total = response.context["page_obj"].paginator.count
+        self.assertEqual((total, len(response.context["rows"])), (26, 20))
+        self.assertContains(response, "Halaman 1 dari 2")
+        self.assertEqual(len(self.client.get(QUEUE_URL + "?page=2").context["rows"]), 6)
+
+    def test_my_templates_hide_moderation_link_from_regular_users(self):
+        self.client.force_login(self.user)
+        for url in (reverse("data_correction:my_corrections"),
+                    reverse("data_correction:submit", args=[self.product.pk])):
+            self.assertNotContains(self.client.get(url), 'href="/moderasi/"')
+
+
+class ReviewItemViewTests(ViewTestMixin, TestCase):
+    def setUp(self):
+        self.user = make_user()
+        self.curator = make_staff()
+        self.product = make_complete_product(nova_group=None, sodium_100g=0.3976)
+        self.items = submit_items(
+            self.product, self.user, nova_group="3", sodium_100g="780", brand="Sarimi Baru"
+        )
+
+    def url(self, field_name, as_json=False):
+        url = reverse("data_correction:review_item", args=[self.items[field_name].pk])
+        return url + "?format=json" if as_json else url
+
+    def post(self, field_name, action, note="", as_json=False, **extra):
+        data = {"action": action, "review_note": note, **extra}
+        return self.client.post(self.url(field_name, as_json), data)
+
+    def status_of(self, field_name):
+        return DataCorrectionItem.objects.get(pk=self.items[field_name].pk).status
+
+    def test_url_and_access(self):
+        self.assertEqual(self.url("brand"), f"/moderasi/item/{self.items['brand'].pk}/tinjau/")
+        self.assertLoginRedirect(self.post("brand", "approve"), self.url("brand"))
+        self.assertJsonError(self.post("brand", "approve", as_json=True), 401, "authentication_required")
+        self.client.force_login(self.user)
+        self.assertEqual(self.post("brand", "approve").status_code, 403)
+        self.assertJsonError(self.post("brand", "approve", as_json=True), 403, "forbidden")
+        self.client.force_login(self.curator)
+        self.assertEqual(self.client.get(self.url("brand")).status_code, 405)  # wajib POST
+        self.assertEqual(self.status_of("brand"), PENDING)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.brand, "Sarimi")
+
+    def test_approve_writes_typed_values_and_records_reviewer(self):
+        self.client.force_login(self.curator)
+        response = self.post("nova_group", "approve", next="/moderasi/?tab=semua")
+        self.assertRedirectsTo(response, "/moderasi/?tab=semua")
+        expected = f"Grup NOVA untuk {self.product.product_name} disetujui; data produk sudah diperbarui."
+        self.assertEqual(messages_of(response), [expected])
+        self.post("sodium_100g", "approve", note="Sesuai label kemasan.")
+        self.post("brand", "approve")
+        self.product.refresh_from_db()
+        values = (self.product.nova_group, self.product.sodium_100g, self.product.brand)
+        self.assertEqual(values, (3, 0.78, "Sarimi Baru"))
+        self.assertIs(type(self.product.nova_group), int)
+        self.assertIs(type(self.product.sodium_100g), float)
+        correction = DataCorrection.objects.get()
+        self.assertEqual(correction.reviewed_by, self.curator)
+        self.assertIsNotNone(correction.reviewed_at)
+        self.assertEqual(correction.status, APPROVED)
+        note = DataCorrectionItem.objects.get(pk=self.items["sodium_100g"].pk).review_note
+        self.assertEqual(note, "Sesuai label kemasan.")
+
+    def test_approve_json(self):
+        self.client.force_login(self.curator)
+        response = self.post("sodium_100g", "approve", as_json=True)
+        self.assertEqual(response.status_code, 200)
+        item = self.items["sodium_100g"]
+        self.assertEqual(json_of(response), {
+            "item": {"id": item.pk, "correction_id": item.correction_id, "field_name": "sodium_100g",
+                     "label": "Natrium (mg/100 g)", "old_value": 0.3976, "proposed_value": 0.78,
+                     "status": APPROVED, "status_label": "Disetujui", "review_note": ""},
+            "correction": {"id": item.correction_id, "status": PENDING, "status_label": "Menunggu"},
+            "product": {"id": self.product.pk, "field_name": "sodium_100g", "value": 0.78},
+            "stale": False,
+        })
+
+    def test_stale_approval_is_flagged(self):
+        Product.objects.filter(pk=self.product.pk).update(sodium_100g=0.5, brand="Sarimi Lama")
+        self.client.force_login(self.curator)
+        self.assertTrue(json_of(self.post("sodium_100g", "approve", as_json=True))["stale"])
+        self.assertIn("sudah ditimpa", messages_of(self.post("brand", "approve"))[0])
+
+    def test_reject_needs_note_and_never_touches_product(self):
+        before = Product.objects.values().get(pk=self.product.pk)
+        self.client.force_login(self.curator)
+        response = self.post("brand", "reject", as_json=True)
+        self.assertJsonError(response, 400, "validation_error")
+        expected = {"review_note": [{"message": "Tulis alasan penolakan untuk pengaju.", "code": "invalid"}]}
+        self.assertEqual(json_of(response)["fields"], expected)
+        response = self.post("brand", "reject", next="/moderasi/?field=brand")
+        brand_panel = f"/moderasi/?field=brand&item={self.items['brand'].pk}"
+        self.assertRedirectsTo(response, brand_panel)  # panel item yang sama dibuka lagi
+        self.assertEqual(messages_of(response), [NOTE_REQUIRED_MESSAGE])
+        self.assertEqual(self.status_of("brand"), PENDING)
+        data = json_of(self.post("brand", "reject", note="Merek di label tetap Sarimi.", as_json=True))
+        self.assertEqual((data["item"]["status"], data["item"]["review_note"]),
+                         (REJECTED, "Merek di label tetap Sarimi."))
+        self.assertEqual((data["product"]["value"], data["stale"]), ("Sarimi", False))
+        self.assertEqual(Product.objects.values().get(pk=self.product.pk), before)
+        self.assertEqual(DataCorrection.objects.get().reviewed_by, self.curator)
+
+    def test_mixed_review_gives_partial_status(self):
+        self.client.force_login(self.curator)
+        self.post("nova_group", "approve")
+        self.post("brand", "reject", note="Merek di label tetap Sarimi.")
+        data = json_of(self.post("sodium_100g", "reject", note="Tidak sesuai label.", as_json=True))
+        correction_id = self.items["brand"].correction_id
+        expected = {"id": correction_id, "status": PARTIAL, "status_label": "Sebagian disetujui"}
+        self.assertEqual(data["correction"], expected)
+        self.assertEqual(DataCorrection.objects.get().status, PARTIAL)
+        self.product.refresh_from_db()
+        values = (self.product.nova_group, self.product.brand, self.product.sodium_100g)
+        self.assertEqual(values, (3, "Sarimi", 0.3976))
+
+    def test_second_review_of_the_same_item_is_409(self):
+        self.client.force_login(self.curator)
+        self.post("nova_group", "approve", as_json=True)  # JSON: tidak menyisakan pesan toast
+        for action, note in (("approve", ""), ("reject", "Salah.")):
+            with self.subTest(action=action):
+                response = self.post("nova_group", action, note=note, as_json=True)
+                self.assertJsonError(response, 409, "already_reviewed")
+                self.assertEqual(json_of(response)["error"]["message"], ALREADY_REVIEWED_MESSAGE)
+        response = self.post("nova_group", "approve")
+        self.assertRedirectsTo(response, f"/moderasi/?item={self.items['nova_group'].pk}")
+        self.assertEqual(messages_of(response), [ALREADY_REVIEWED_MESSAGE])
+        self.assertEqual(self.status_of("nova_group"), APPROVED)
+
+    def test_invalid_action_is_rejected(self):
+        self.client.force_login(self.curator)
+        for data in ({"action": "hapus"}, {"review_note": "Tanpa aksi."}):
+            with self.subTest(data=data):
+                response = self.client.post(self.url("brand", as_json=True), data)
+                self.assertJsonError(response, 400, "validation_error")
+                self.assertEqual(json_of(response)["error"]["message"], ACTION_MESSAGE)
+                self.assertIn("action", json_of(response)["fields"])
+        response = self.client.post(self.url("brand"), {"action": "hapus"})
+        self.assertEqual(messages_of(response), [ACTION_MESSAGE])
+        self.assertEqual(self.status_of("brand"), PENDING)
+
+    def test_missing_or_withdrawn_item_is_404(self):
+        self.client.force_login(self.curator)
+        url = self.url("brand")
+        withdraw_correction(self.user, DataCorrection.objects.get())
+        self.assertEqual(self.client.post(url, {"action": "approve"}).status_code, 404)
+        response = self.client.post(url + "?format=json", {"action": "approve"})
+        self.assertJsonError(response, 404, "correction_not_found")
+        huge = reverse("data_correction:review_item", args=[10 ** 20])
+        self.assertEqual(self.client.post(huge, {"action": "approve"}).status_code, 404)
+
+    def test_inactive_product_can_only_be_rejected(self):
+        Product.objects.filter(pk=self.product.pk).update(is_active=False)
+        self.client.force_login(self.curator)
+        self.assertJsonError(self.post("brand", "approve", as_json=True), 409, "product_inactive")
+        data = json_of(self.post("brand", "reject", note="Produk sudah nonaktif.", as_json=True))
+        self.assertEqual(data["item"]["status"], REJECTED)
+
+    def test_return_address_must_stay_on_the_queue(self):
+        self.client.force_login(self.curator)
+        cases = (
+            ("nova_group", "https://contoh.example/curi", QUEUE_URL),
+            ("sodium_100g", "/antrean/saya/", QUEUE_URL),
+            ("brand", "/moderasi/?tab=semua&page=2", "/moderasi/?tab=semua&page=2"),
+        )
+        for field_name, next_url, expected in cases:
+            with self.subTest(next=next_url):
+                self.assertRedirectsTo(self.post(field_name, "approve", next=next_url), expected)
