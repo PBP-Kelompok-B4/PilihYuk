@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.test import TestCase
+from django.urls import reverse
 
 from product_catalog.models import Product
 
@@ -89,3 +90,58 @@ class SubstitutionModelTests(TestCase):
                 user=self.voter,
                 value=0,
             )
+
+
+class SubstitutionPageTests(TestCase):
+    def setUp(self):
+        self.author = get_user_model().objects.create_user(username="author", password="Rahasia-12345")
+        self.source = Product.objects.create(source="manual", product_name="Produk Asal", category="Minuman")
+        self.replacement = Product.objects.create(source="manual", product_name="Produk Pengganti", category="Minuman")
+        self.other_category = Product.objects.create(source="manual", product_name="Produk Lain", category="Makanan")
+
+    def create_substitution(self):
+        return Substitution.objects.create(
+            source_product=self.source,
+            replacement_product=self.replacement,
+            author=self.author,
+            reason="Kandungan gulanya lebih rendah.",
+        )
+
+    def test_public_list_and_detail_render_a_substitution(self):
+        substitution = self.create_substitution()
+
+        response = self.client.get(reverse("substitutions:list"))
+        self.assertContains(response, "Produk Asal")
+        self.assertContains(response, "Produk Pengganti")
+        self.assertContains(response, substitution.reason)
+
+        response = self.client.get(reverse("substitutions:detail", args=[substitution.pk]))
+        self.assertContains(response, "Produk Asal")
+        self.assertContains(response, "Produk Pengganti")
+
+    def test_anonymous_user_is_redirected_when_proposing(self):
+        url = reverse("substitutions:create", args=[self.source.pk])
+
+        self.assertRedirects(self.client.get(url), f"{reverse('accounts:login')}?next={url}")
+
+    def test_authenticated_user_can_propose_an_eligible_replacement(self):
+        self.client.force_login(self.author)
+        response = self.client.post(
+            reverse("substitutions:create", args=[self.source.pk]),
+            {"replacement_product": self.replacement.pk, "reason": "Gula lebih rendah."},
+        )
+
+        substitution = Substitution.objects.get()
+        self.assertRedirects(response, reverse("substitutions:detail", args=[substitution.pk]))
+        self.assertEqual((substitution.source_product, substitution.replacement_product), (self.source, self.replacement))
+        self.assertEqual(substitution.author, self.author)
+
+    def test_user_cannot_propose_a_product_outside_the_source_category(self):
+        self.client.force_login(self.author)
+        response = self.client.post(
+            reverse("substitutions:create", args=[self.source.pk]),
+            {"replacement_product": self.other_category.pk, "reason": "Kategori berbeda."},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Substitution.objects.exists())
