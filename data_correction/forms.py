@@ -20,6 +20,7 @@ Notes:
 Daftar isi:
 - help_text_for  : teks bantuan per field (satuan, contoh, "tanpa pemisah ribuan").
 - CorrectionForm : changes(), add_correction_error(), groups(), json_fields().
+- ReviewForm     : isian tinjau kurator (action approve/reject + review_note).
 """
 from django import forms
 
@@ -213,3 +214,28 @@ class CorrectionForm(forms.Form):
             }
             for name in CORRECTABLE_FIELDS
         ]
+
+APPROVE = "approve"
+REJECT = "reject"
+REVIEW_ACTIONS = ((APPROVE, "Setujui"), (REJECT, "Tolak"))
+ACTION_MESSAGE = "Pilih aksi approve atau reject."
+
+
+class ReviewForm(forms.Form):
+    """Isian POST moderasi/item/<pk>/tinjau/: action (approve | reject) dan review_note.
+
+    Contoh:
+        ReviewForm({"action": "reject", "review_note": "Tidak sesuai label."}).is_valid()  -> True
+        ReviewForm({"action": "hapus"}).errors["action"]  -> ["Pilih aksi approve atau reject."]
+    """
+
+    action = forms.ChoiceField(
+        choices=REVIEW_ACTIONS,
+        error_messages={"required": ACTION_MESSAGE, "invalid_choice": ACTION_MESSAGE},
+    )
+    review_note = forms.CharField(
+        label="Catatan kurator",
+        required=False,
+        help_text="Wajib diisi saat menolak, opsional saat menyetujui. Catatan terlihat oleh pengaju.",
+        widget=forms.Textarea(attrs={"class": INPUT_CLASS, "rows": 3}),
+    )

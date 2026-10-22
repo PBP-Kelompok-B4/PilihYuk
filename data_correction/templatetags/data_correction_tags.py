@@ -6,7 +6,11 @@ Notes:
   (natrium dalam mg, koma desimal, paling banyak 3 desimal) tetap di satu tempat.
 - Nama berkas sengaja diberi akhiran _tags agar tidak tertukar dengan nama app.
 """
+from datetime import timedelta
+
 from django import template
+from django.utils import timezone
+from django.utils.timesince import timesince
 
 from ..validators import to_display
 
@@ -32,3 +36,20 @@ def display_value(value, field_name):
     """
     shown = to_display(field_name, value)
     return UNKNOWN_LABEL if shown is None else shown
+
+@register.filter
+def ago(value):
+    """Waktu relatif dengan satu satuan saja, seperti di wireframe ("Budi · 2 jam lalu").
+    Memakai timesince bawaan Django, jadi satuannya sudah berbahasa Indonesia.
+
+    Contoh hasil (dibanding sekarang):
+        20 detik lalu        -> "baru saja"
+        2 jam 40 menit lalu  -> "2 jam lalu"
+        3 hari 4 jam lalu    -> "3 hari lalu"
+        None                 -> ""
+    """
+    if not value:
+        return ""
+    if timezone.now() - value < timedelta(minutes=1):
+        return "baru saja"
+    return f"{timesince(value, depth=1)} lalu"
