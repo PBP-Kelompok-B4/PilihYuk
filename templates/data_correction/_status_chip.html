@@ -1,0 +1,2 @@
+{# Chip status pengajuan atau item. Dipakai lewat include dengan dua variabel: status (pending/approved/rejected/partial) dan label (teks Indonesia). #}
+{% if status == 'approved' %}<span class="chip bg-mint text-brand">{{ label }}</span>{% elif status == 'rejected' %}<span class="chip bg-warm text-[#b42318]">{{ label }}</span>{% elif status == 'partial' %}<span class="chip bg-leaf text-ink">{{ label }}</span>{% else %}<span class="chip bg-surface text-ink">{{ label }}</span>{% endif %}
