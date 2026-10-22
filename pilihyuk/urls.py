@@ -24,4 +24,5 @@ urlpatterns = [
     path('katalog/', include('product_catalog.urls')),
     path('', home_page, name='home_page'),
     path('', include('accounts.urls')),
+    path('', include('data_correction.urls')),
 ]
