@@ -48,8 +48,7 @@
     </section>
 
     <div class="mt-6 flex max-w-2xl flex-col gap-3 sm:flex-row">
-        {# TODO Tahap 6: ganti "/antrean/" dengan url 'data_correction:contribution_queue' setelah rutenya dibuat. #}
-        <a href="/antrean/" class="btn-brand">Kembali ke Antrean Data</a>
+        <a href="{% url 'data_correction:contribution_queue' %}" class="btn-brand">Kembali ke Antrean Data</a>
         {% if correction.product.is_active %}<a href="{% url 'product_catalog:product_detail' correction.product_id %}" class="btn-white">Lihat Produk</a>{% endif %}
         <a href="{% url 'data_correction:my_corrections' %}" class="btn-white">Pengajuan Saya</a>
     </div>

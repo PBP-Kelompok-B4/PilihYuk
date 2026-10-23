@@ -3,9 +3,8 @@
 {% block meta %}<title>Lengkapi Data · {{ product.product_name|default:'Produk tanpa nama' }} — PilihYuk</title>{% endblock meta %}
 {% block content %}
 <main class="section w-full flex-1 py-10">
-    {# TODO Tahap 6: ganti "/antrean/" dengan url 'data_correction:contribution_queue' setelah rutenya dibuat. #}
     <nav aria-label="Breadcrumb" class="text-[13px] text-muted">
-        <a href="/antrean/" class="hover:text-brand">Antrean Data</a> › <span aria-current="page">Lengkapi Data</span>
+        <a href="{% url 'data_correction:contribution_queue' %}" class="hover:text-brand">Antrean Data</a> › <span aria-current="page">Lengkapi Data</span>
     </nav>
     <h1 class="section-title">Lengkapi Data</h1>
     <p class="mt-2 max-w-2xl text-muted">Isi hanya data yang ingin kamu koreksi; kotak yang dibiarkan kosong tidak diubah. Kurator meninjau setiap isian sebelum data produk berubah.</p>

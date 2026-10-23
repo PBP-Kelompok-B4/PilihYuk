@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% block meta %}<title>Antrean Kelengkapan Data — PilihYuk</title>{% endblock meta %}
+{% block content %}
+<main class="section w-full flex-1 py-10">
+    {# Halaman publik. Tidak ada identitas pengaju di halaman ini (F-4.9). Urutan dan kolom frekuensi shelf menyusul di Tahap 10. #}
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div class="min-w-0">
+            <h1 class="section-title">Antrean Kelengkapan Data</h1>
+            <p class="mt-2 max-w-3xl text-muted">Bantu lengkapi data produk yang sering muncul di shelf. Data yang kosong menjadi pekerjaan komunitas, bukan disembunyikan.</p>
+        </div>
+        {% if user.is_authenticated %}
+        <a href="{% url 'data_correction:my_corrections' %}" class="btn-white btn-small shrink-0 self-start ring-1 ring-line">Pengajuan Saya</a>
+        {% endif %}
+    </div>
+
+    <dl class="mt-6 grid grid-cols-3 gap-3 sm:gap-4">
+        <div class="card min-w-0 p-4 sm:p-6">
+            <dt class="text-[13px] font-semibold">Menunggu kontribusi</dt>
+            <dd class="mt-1 text-2xl font-bold sm:text-3xl">{{ stats.incomplete_products }}</dd>
+            <dd class="text-xs text-muted">produk dengan data kosong</dd>
+        </div>
+        <div class="card min-w-0 p-4 sm:p-6">
+            <dt class="text-[13px] font-semibold">Diajukan minggu ini</dt>
+            <dd class="mt-1 text-2xl font-bold sm:text-3xl">{{ stats.submitted_last_7_days }}</dd>
+            <dd class="text-xs text-muted">pengajuan 7 hari terakhir</dd>
+        </div>
+        <div class="card min-w-0 p-4 sm:p-6">
+            <dt class="text-[13px] font-semibold">Disetujui</dt>
+            <dd class="mt-1 text-2xl font-bold sm:text-3xl">{{ stats.approved }}</dd>
+            <dd class="text-xs text-muted">data berhasil dilengkapi</dd>
+        </div>
+    </dl>
+
+    <div class="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <nav aria-label="Urutkan" class="flex flex-wrap items-center gap-2">
+            <span class="text-[13px] text-muted">Urutkan:</span>
+            {% for chip in filters.sort_chips %}<a href="{{ chip.url }}" class="chip {% if chip.active %}bg-ink text-white{% else %}bg-white text-ink ring-1 ring-line hover:text-brand{% endif %}"{% if chip.active %} aria-current="true"{% endif %}>{{ chip.label }}</a>{% endfor %}
+        </nav>
+        <nav aria-label="Filter data yang kurang" class="flex flex-wrap items-center gap-2">
+            {% for chip in missing_chips %}<a href="{{ chip.url }}" class="chip {% if chip.active %}bg-ink text-white{% else %}bg-white text-ink ring-1 ring-line hover:text-brand{% endif %}"{% if chip.active %} aria-current="true"{% endif %}>{{ chip.label }}</a>{% endfor %}
+            <span class="text-[13px] text-muted">{{ page_obj.paginator.count }} produk</span>
+        </nav>
+    </div>
+
+    <section class="card mt-4 min-w-0" aria-labelledby="judul-daftar">
+        <h2 id="judul-daftar" class="sr-only">Produk yang perlu dilengkapi</h2>
+        {# Judul kolom hanya di desktop. Di layar kecil setiap baris menjadi kartu. #}
+        <div aria-hidden="true" class="hidden gap-4 px-4 pb-2 text-xs font-semibold text-muted lg:grid lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1.5fr)_9rem_12.5rem]">
+            <span>Produk</span><span>Data yang kurang</span><span>Status</span><span>Aksi</span>
+        </div>
+        <ul class="space-y-3">
+            {% for row in rows %}
+            <li class="grid grid-cols-1 gap-3 rounded-[14px] p-4 ring-1 ring-line lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1.5fr)_9rem_12.5rem] lg:items-center lg:gap-4">
+                <div class="min-w-0">
+                    <p class="break-words font-semibold">{{ row.product_name|default:'Produk tanpa nama' }}</p>
+                    <p class="break-words text-xs text-muted">{{ row.brand|default:'Merek tidak diketahui' }}{% if row.quantity %} · {{ row.quantity }}{% endif %}</p>
+                </div>
+                <div class="min-w-0">
+                    <p class="text-xs text-muted lg:sr-only">Data yang kurang:</p>
+                    <ul class="mt-1 flex flex-wrap gap-1.5 lg:mt-0">
+                        {% for entry in row.missing %}<li class="chip bg-warm text-estimate">{{ entry.label }}</li>{% endfor %}
+                    </ul>
+                </div>
+                <div><span class="sr-only">Status: </span>{% include 'data_correction/_status_chip.html' with status=row.status label=row.status_label %}</div>
+                <div class="flex flex-wrap items-center gap-4">
+                    <a href="{{ row.submit_url }}" class="inline-flex items-center justify-center rounded-[10px] bg-mint px-4 py-2.5 text-[13px] font-semibold text-brand hover:bg-faint">Lengkapi Data</a>
+                    <a href="{{ row.detail_url }}" class="text-[13px] font-semibold text-ink underline hover:text-brand">Detail</a>
+                </div>
+            </li>
+            {% empty %}
+            <li class="rounded-[14px] bg-surface p-6 text-center text-sm">
+                {% if filters.missing %}
+                <p class="font-semibold">Tidak ada produk yang cocok.</p>
+                <a href="{{ clear_url }}" class="mt-2 inline-block font-semibold text-brand underline">Bersihkan filter</a>
+                {% else %}
+                <p class="font-semibold">Semua data produk sudah lengkap.</p>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+
+        {% if page_obj.paginator.count %}
+        <div class="mt-4 flex flex-col gap-1 text-xs text-muted sm:flex-row sm:justify-between">
+            <p>Menampilkan {{ page_obj.object_list|length }} dari {{ page_obj.paginator.count }} produk yang perlu dilengkapi.</p>
+            <p>Halaman {{ page_obj.number }} dari {{ page_obj.paginator.num_pages }}</p>
+        </div>
+        {% endif %}
+        {% if page_obj.paginator.num_pages > 1 %}
+        <nav aria-label="Halaman" class="mt-4 flex items-center justify-between gap-3 text-sm">
+            {% if page_links.previous %}<a href="{{ page_links.previous }}" class="btn-white btn-small ring-1 ring-line">Sebelumnya</a>{% else %}<span></span>{% endif %}
+            {% if page_links.next %}<a href="{{ page_links.next }}" class="btn-white btn-small ring-1 ring-line">Berikutnya</a>{% else %}<span></span>{% endif %}
+        </nav>
+        {% endif %}
+    </section>
+</main>
+{% endblock content %}

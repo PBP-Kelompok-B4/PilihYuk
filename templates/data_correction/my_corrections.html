@@ -47,8 +47,7 @@
         <li class="card text-center">
             <p class="font-semibold">Belum ada pengajuan.</p>
             <p class="mt-1 text-sm text-muted">Bantu lengkapi data produk yang masih kosong dari Antrean Data.</p>
-            {# TODO Tahap 6: ganti "/antrean/" dengan url 'data_correction:contribution_queue' setelah rutenya dibuat. #}
-            <a href="/antrean/" class="btn-brand mt-4">Buka Antrean Data</a>
+            <a href="{% url 'data_correction:contribution_queue' %}" class="btn-brand mt-4">Buka Antrean Data</a>
         </li>
         {% endfor %}
     </ul>
