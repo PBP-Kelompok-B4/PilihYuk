@@ -21,6 +21,7 @@ Notes:
       POST      antrean/saya/<pk>/tarik/      withdraw           tarik pengajuan
       GET       moderasi/                     curator_queue      antrean kurator (nama: queue)
       POST      moderasi/item/<pk>/tinjau/    review_item        setujui/tolak satu item
+      GET       antrean/                      contribution_queue antrean kontribusi (publik)
 """
 from functools import wraps
 
@@ -35,7 +36,7 @@ from django.views.decorators.http import require_http_methods, require_POST, req
 
 from product_catalog.models import Product
 
-from . import moderation, services
+from . import contribution, moderation, services
 from .constants import APPROVED
 from .forms import APPROVE, CorrectionForm, ReviewForm
 from .models import DataCorrection, DataCorrectionItem
@@ -435,3 +436,71 @@ def review_item(request, pk):
         return json_ok(serialize_review(result))
     messages.success(request, _review_message(result))
     return redirect(back_url)
+
+
+CONTRIBUTION_PAGE_SIZE = 20  
+
+def serialize_contribution_row(row):
+    """Satu baris antrean kontribusi untuk JSON. Tanpa identitas pengaju (F-4.9).
+
+    Contoh:
+        {"id": 7, "product_name": "Sarimi Isi 2 Goreng", "brand": "Sarimi", "quantity": "88 g",
+         "missing": [{"key": "nutrition", "label": "Gizi", "correctable": true,
+                      "fields": ["fiber_100g"]}],
+         "missing_count": 1, "status": "needs_contribution", "status_label": "Perlu kontribusi",
+         "submit_url": "/antrean/produk/7/ajukan/?field=fiber_100g", "detail_url": "/katalog/7/"}
+    """
+    return {
+        "id": row["pk"],
+        "product_name": row["product_name"],
+        "brand": row["brand"],
+        "quantity": row["quantity"],
+        "missing": row["missing"],
+        "missing_count": row["missing_count"],
+        "status": row["status"],
+        "status_label": row["status_label"],
+        "submit_url": row["submit_url"],
+        "detail_url": row["detail_url"],
+    }
+
+
+@require_safe
+def contribution_queue(request):
+    """Antrean kontribusi: produk aktif yang datanya belum lengkap (PRD F-4.7). PUBLIK.
+
+    Query string:
+        ?sort=kosong (bawaan) | terbaru   (shelf dikenali)
+        ?missing=<key kategori>           filter kategori dari incomplete.CATEGORIES
+        ?page=<n>                         paginasi, 20 produk per halaman
+
+    Contoh:
+        GET /antrean/                            -> data paling banyak kosong di atas
+        GET /antrean/?missing=nova&sort=terbaru  -> yang kurang NOVA, terbaru dulu
+        GET /antrean/?format=json                -> {"count", "page", "page_size", "results",
+                                                     "sort", "missing", "stats"}
+    """
+    filters = contribution.ContributionFilters.from_query(request.GET)
+    rows, categories, total = contribution.queue_products(filters)
+    page = Paginator(rows, CONTRIBUTION_PAGE_SIZE).get_page(filters.page)
+    pending = contribution.pending_product_ids([row["pk"] for row in page])
+    page_rows = [contribution.decorate(row, pending) for row in page]
+    stats = contribution.contribution_stats(total)
+    return render_or_json(
+        request,
+        "data_correction/contribution_queue.html",
+        {
+            "filters": filters,
+            "stats": stats,
+            "page_obj": page,
+            "rows": page_rows,
+            "missing_chips": filters.missing_chips(categories),
+            "page_links": filters.page_links(page),
+            "clear_url": filters.url(missing="", page=""),
+        },
+        lambda: {
+            **page_payload(page, [serialize_contribution_row(row) for row in page_rows]),
+            "sort": filters.sort,
+            "missing": filters.missing or None,
+            "stats": stats,
+        },
+    )
