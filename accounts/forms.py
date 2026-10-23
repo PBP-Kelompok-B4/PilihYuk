@@ -1,6 +1,8 @@
 from django import forms
 from django.contrib.auth import get_user_model
-from django.contrib.auth.forms import AuthenticationForm, BaseUserCreationForm, PasswordChangeForm
+from django.contrib.auth.forms import (
+    AuthenticationForm, BaseUserCreationForm, PasswordChangeForm, PasswordResetForm, SetPasswordForm,
+)
 
 User = get_user_model()
 
@@ -143,6 +145,25 @@ class StyledPasswordChangeForm(Styled, PasswordChangeForm):
         super().__init__(*args, **kwargs)
         self.fields["old_password"].label = "Password lama"
         self.fields["new_password1"].label = "Password baru"
-        self.fields["new_password1"].help_text = "Minimal 8 karakter. Gunakan kombinasi huruf dan angka."
+        self.fields["new_password1"].help_text = "Minimal 8 karakter, berisi huruf dan angka."
+        self.fields["new_password2"].label = "Konfirmasi password baru"
+        self.fields["new_password2"].help_text = ""
+
+
+class StyledPasswordResetForm(Styled, PasswordResetForm):
+    icons = {"email": "mail"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["email"].widget.attrs.update(autocomplete="email", autofocus=True)
+
+
+class StyledSetPasswordForm(Styled, SetPasswordForm):
+    icons = {"new_password1": "lock", "new_password2": "lock"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["new_password1"].label = "Password baru"
+        self.fields["new_password1"].help_text = "Minimal 8 karakter, berisi huruf dan angka."
         self.fields["new_password2"].label = "Konfirmasi password baru"
         self.fields["new_password2"].help_text = ""

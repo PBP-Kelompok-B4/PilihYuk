@@ -64,7 +64,7 @@ Template di `templates/<app>/`, JavaScript di `static/js/<app>.js`, semua halama
 - Isi `featured_shelves()` di landing setelah commit landing Yasmin masuk.
 - Integrasi: `"unknown"` menaut ke koreksi Rayyan, dan tombol "Pilih produk ini" menyimpan `Decision` lewat view Jonathan.
 - Coba semua alur di PWS sebelum pengumpulan.
-- Opsional: reset password (`reset-password-plan.md`). Bonus: urutan dari `preferences/ranking.py`.
+- Reset password sudah jalan. Untuk PWS, isi `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` di environment. Bonus: urutan dari `preferences/ranking.py`.
 
 ### Rafael (`recommendations`)
 

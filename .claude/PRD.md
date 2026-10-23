@@ -86,6 +86,7 @@ Dipakai semua modul untuk butir 6, jadi tidak dinilai sendiri. Memakai `User` ba
 | F-0.8 | Mengganti email wajib memasukkan password saat ini. Mengganti password mempertahankan sesi |
 | F-0.9 | Header menampilkan Masuk dan Daftar bagi pengunjung, serta avatar, nama, dan Keluar bagi pengguna masuk. Pesan tampil lewat toast |
 | F-0.10 | Modul lain memakai `@login_required` (dengan `?next=`) dan `is_staff` |
+| F-0.11 | Lupa password: tautan sekali pakai lewat email, berlaku 1 jam. Halaman konfirmasi sama untuk email terdaftar dan tidak, supaya akun tidak bisa ditebak (`reset-password-plan.md`) |
 
 ### Modul 1: Katalog Produk
 
@@ -284,7 +285,7 @@ Disetujui kelompok, kecuali yang ditandai belum final. Cakupan: **Kelompok** ata
 | 36 | Tiap modul punya branch, digabung ke `dev` lalu `main` | Kelompok |
 | 37 | Tujuh Aturan Khusus dulu, bonus belakangan | Kelompok |
 | 38 | Login dengan email atau username di atas `User` bawaan. Akun dari halaman Daftar memakai email sebagai username | Kelompok |
-| 39 | **Tidak dikerjakan:** verifikasi email, masuk dengan Google (dibatalkan 24 Okt), halaman Ketentuan Layanan dan centang persetujuan (dihapus 24 Okt). **Direncanakan:** reset password (`reset-password-plan.md`) | Kelompok |
+| 39 | **Tidak dikerjakan:** verifikasi email, masuk dengan Google (dibatalkan 24 Okt), halaman Ketentuan Layanan dan centang persetujuan (dihapus 24 Okt). **Dikerjakan 24 Okt:** reset password (F-0.11), dengan SMTP dari environment | Kelompok |
 | 40 | django-axes: 5 gagal per akun, kunci 15 menit, direset saat berhasil | Kelompok |
 | 41 | Halaman Profil sebagai hub ke modul lain. Ganti email wajib password | Daffaa |
 | 42 | `SECRET_KEY` dari environment, `DEBUG = not PRODUCTION`, `LANGUAGE_CODE = 'id'`, `Procfile` menjalankan `collectstatic` dan `migrate`. Seeding di PWS dijalankan manual | Kelompok |
