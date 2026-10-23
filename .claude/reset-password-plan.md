@@ -1,6 +1,6 @@
 # Rencana reset password
 
-Status: kode selesai 24 Oktober (4 tes di `accounts/tests.py`). Di laptop email dicetak ke terminal. Di PWS email baru terkirim setelah `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` (dan opsional `EMAIL_PORT`, `DEFAULT_FROM_EMAIL`) diisi. Tanpa itu, email hanya muncul di log PWS. Belum dikerjakan: layar lupa password di Figma. Pemilik: Daffaa (`accounts`).
+Status: kode selesai 24 Oktober (4 tes di `accounts/tests.py`). Di laptop email dicetak ke terminal. Di PWS email baru terkirim setelah `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` (dan opsional `EMAIL_PORT`, `DEFAULT_FROM_EMAIL`) diisi. Tanpa itu, email hanya muncul di log PWS. Figma frame 12 dan 13 sudah memuat tautan "Lupa password?" serta layar "Lupa password" dan "Buat password baru". Pemilik: Daffaa (`accounts`).
 
 ## Alur
 

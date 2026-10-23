@@ -42,6 +42,6 @@ Other members' progress is read from Git metadata only, so it says nothing about
 ## Open items
 
 - Finish Modul 2, then merge Modul 3 and Modul 4 into `dev`, then `dev` into `main`.
-- Reset password works (`/lupa-password/`). On PWS it only sends mail after `EMAIL_HOST`, `EMAIL_HOST_USER` and `EMAIL_HOST_PASSWORD` are set (a project Gmail with an app password). Without them the mail only shows in the PWS log. Figma has no reset screens yet.
+- Reset password works (`/lupa-password/`). On PWS it only sends mail after `EMAIL_HOST`, `EMAIL_HOST_USER` and `EMAIL_HOST_PASSWORD` are set (a project Gmail with an app password). Without them the mail only shows in the PWS log. Figma frames 12 and 13 have the "Lupa password?" link and both reset screens, laid out in two rows so the frames do not overlap their neighbours.
 - Test on the real PWS proxy before turning on `SECURE_PROXY_SSL_HEADER`, `SECURE_SSL_REDIRECT` or a per-IP lockout.
 - K-7 (Redis) is not studied. PRD section 14 lists what is still unverified.
