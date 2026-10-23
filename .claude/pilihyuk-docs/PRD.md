@@ -23,7 +23,7 @@
 - **Aturan filter berubah** dari data Public/mock API menjadi data database. Butir "Filter API" di README menjadi "Filter database" (bagian 6, F-1.2, F-1.7, F-2.11, F-3.7, F-4.7).
 - **Kerangka kode.** Enam app Django terdaftar, template dan JavaScript kosong disiapkan per app, dan halaman landing dibuat agar mudah beralih ke data asli (keputusan 33 sampai 35). Linimasa di bagian 12 dirinci per minggu.
 
-**v0.2.** Nama aplikasi ditetapkan: PilihYuk. Unit pembanding berganti dari `ComparisonSet` menjadi shelf. Lima modul disusun ulang mengikuti README: `Review` dihapus, Substitusi dan `DataCorrection` jadi modul sendiri, Profil diganti Preferensi Nutrisi dan Riwayat Keputusan, Kandidat Daftar Belanja tidak dipakai. Pengunjung hanya membaca shelf publik. Seeding berganti dari daftar barcode lewat API menjadi dump nightly. Nilai skor kosong ternyata string `"unknown"` atau `"not-applicable"`, bukan `null`. Bagian Model Data ditambahkan (`SubstitutionVote`, constraint unik, kebijakan hapus).
+**v0.2.** Nama aplikasi ditetapkan: PilihYuk. Unit pembanding berganti dari `ComparisonSet` menjadi shelf. Lima modul disusun ulang mengikuti README: `Review` dihapus, Rekomendasi (dulu Substitusi) dan `DataCorrection` jadi modul sendiri, Profil diganti Preferensi Nutrisi dan Riwayat Keputusan, Kandidat Daftar Belanja tidak dipakai. Pengunjung hanya membaca shelf publik. Seeding berganti dari daftar barcode lewat API menjadi dump nightly. Nilai skor kosong ternyata string `"unknown"` atau `"not-applicable"`, bukan `null`. Bagian Model Data ditambahkan (`SubstitutionVote`, constraint unik, kebijakan hapus).
 
 ## 1. Masalah
 
@@ -434,4 +434,4 @@ Belum dikerjakan:
 10. `Procfile` belum dicoba di PWS. Satu-satunya sumber adalah ringkasan dokumentasi PWS (tidak dibaca utuh): `Procfile` dipakai dan baris `release` menjalankan migrasi.
 11. Apakah proxy PWS meneruskan `X-Forwarded-Proto` dan IP asli pengguna. Jawabannya menentukan apakah `SECURE_PROXY_SSL_HEADER`, `SECURE_SSL_REDIRECT`, dan lockout per IP aman dipasang.
 12. Auth di PostgreSQL 14 milik PWS (baru dicoba di SQLite).
-13. Tampilan Masuk, Daftar, dan Profil di ponsel sungguhan dan di PWS. Frame ponsel di Figma belum ada.
+13. Tampilan Masuk, Daftar, dan Profil di ponsel sungguhan dan di PWS. Frame ponsel di Figma sudah ada (bagian `MOBILE`, termasuk `13 Mobile Authentication`).
