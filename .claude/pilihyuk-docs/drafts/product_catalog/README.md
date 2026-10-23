@@ -1,5 +1,7 @@
 # open_food_facts.py
 
+**Arsip.** Modul 1 sudah punya `product_catalog/open_food_facts.py` sendiri di `dev` (PR #4, 20 Oktober). Langkah pemasangan di bawah tidak perlu dijalankan lagi.
+
 File ini menghubungkan Open Food Facts (OFF) dengan tabel `Product`. Isinya mengambil dan merapikan data dari OFF. Menyimpan ke database tetap tugas kode di `product_catalog` (view dan perintah seeding).
 
 ## Cara memasang

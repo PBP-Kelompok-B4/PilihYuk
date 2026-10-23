@@ -1,0 +1,28 @@
+    <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {% for product in products %}
+        <article class="card min-w-0">
+            <a class="block" href="{% url 'product_catalog:product_detail' product.pk %}">
+                {% if product.image_url %}<img class="h-44 w-full object-contain" src="{{ product.image_url }}" alt="{{ product.product_name }}" loading="lazy">
+                {% else %}<div class="flex h-44 items-center justify-center rounded-lg bg-surface text-muted">Gambar belum tersedia</div>{% endif %}
+                <h2 class="mt-5 break-words text-lg font-bold text-brand">{{ product.product_name|default:'Produk tanpa nama' }}</h2>
+            </a>
+            <p class="mt-1 break-words text-sm text-muted">{{ product.brand|default:'Merek belum tersedia' }}{% if product.quantity %} · {{ product.quantity }}{% endif %}</p>
+            <p class="mt-2 text-sm">{{ product.category|default:'Kategori belum tersedia' }}</p>
+            <div class="mt-4 flex flex-wrap gap-2">
+                <span class="chip bg-surface">Nutri-Score: {{ product.nutrition_grade }}</span>
+                <span class="chip bg-surface">Green-Score: {{ product.environmental_grade }}</span>
+                {% if product.halal_labeled %}<span class="chip bg-mint">Berlabel halal</span>{% endif %}
+            </div>
+        </article>
+        {% empty %}
+        <div class="card sm:col-span-2 lg:col-span-3">
+            <h2 class="text-lg font-bold">Belum ada produk yang cocok.</h2>
+            <p class="mt-2 text-muted">Katalog mungkin masih kosong. Jika memakai filter, coba reset filter atau kata pencarian lain.</p>
+        </div>
+        {% endfor %}
+    </div>
+<nav class="mt-6 flex gap-4" aria-label="Paginasi katalog">
+{% if page_obj.has_previous %}<a data-page href="?{{ query }}&page={{ page_obj.previous_page_number }}">Sebelumnya</a>{% endif %}
+<span>Halaman {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+{% if page_obj.has_next %}<a data-page href="?{{ query }}&page={{ page_obj.next_page_number }}">Berikutnya</a>{% endif %}
+</nav>
