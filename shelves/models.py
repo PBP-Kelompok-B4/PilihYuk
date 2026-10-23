@@ -3,9 +3,7 @@ from django.db import models
 
 from product_catalog.models import Product
 
-# Batas isi shelf (F-2.5). Divalidasi di form, bukan di basis data (PRD bagian 7).
 MAX_SHELF_ITEMS = 12
-
 
 class Shelf(models.Model):
     name = models.CharField(max_length=100)

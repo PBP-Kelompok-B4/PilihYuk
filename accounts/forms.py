@@ -31,7 +31,7 @@ class Styled:
             else:
                 field.icon = self.icons.get(name)
                 left = "pl-11" if field.icon else "pl-4"
-                right = "pr-24" if widget.input_type == "password" else "pr-4"  # ruang tombol Tampilkan
+                right = "pr-24" if getattr(widget, "input_type", None) == "password" else "pr-4"  # ruang tombol Tampilkan; Textarea tanpa input_type
                 css = INPUT.replace("px-4", f"{left} {right}")
             widget.attrs["class"] = f"{widget.attrs.get('class', '')} {css}".strip()
 

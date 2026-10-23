@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block meta %}<title>Shelf Saya · PilihYuk</title>{% endblock meta %}
+
+{% block content %}
+<main class="section w-full flex-1 py-10">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+            <a href="{% url 'shelves:list' %}" class="text-sm text-muted hover:text-brand">← Jelajahi Shelf</a>
+            <h1 class="section-title">Shelf Saya</h1>
+        </div>
+        <a href="{% url 'shelves:create' %}" class="btn-brand btn-small">+ Buat Shelf</a>
+    </div>
+
+    <section class="mt-8" aria-labelledby="own-title">
+        <h2 id="own-title" class="text-lg font-bold">Buatanmu <span class="text-sm font-normal text-muted">({{ own.paginator.count }})</span></h2>
+        {% if own.object_list %}
+        <div class="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {% for shelf in own %}{% include "shelves/_card.html" %}{% endfor %}
+        </div>
+        {% include "shelves/_pagination.html" with page=own param="page" %}
+        {% else %}
+        <p class="card mt-3 text-sm text-muted">Kamu belum membuat shelf.</p>
+        {% endif %}
+    </section>
+
+    <section class="mt-10" aria-labelledby="saved-title">
+        <h2 id="saved-title" class="text-lg font-bold">Disimpan <span class="text-sm font-normal text-muted">({{ saved.paginator.count }})</span></h2>
+        {% if saved.object_list %}
+        <div class="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {% for shelf in saved %}{% include "shelves/_card.html" %}{% endfor %}
+        </div>
+        {% include "shelves/_pagination.html" with page=saved param="saved_page" %}
+        {% else %}
+        <p class="card mt-3 text-sm text-muted">Belum ada shelf orang lain yang kamu simpan.</p>
+        {% endif %}
+    </section>
+</main>
+{% endblock content %}
