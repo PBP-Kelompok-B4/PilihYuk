@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% load static %}
-{% comment %}Desktop: layar terbelah sesuai wireframe "12 — Autentikasi", tanpa header. Ponsel: header biasa lalu panel merek ditumpuk di atas form ("13 — Mobile Authentication"). Footer tidak dipakai.{% endcomment %}
+{% comment %}Desktop: layar terbelah sesuai wireframe "12 — Autentikasi", tanpa header. Ponsel: header biasa, form, lalu panel merek di bawahnya ("13 — Mobile Authentication"). Footer tidak dipakai.{% endcomment %}
 {% block header %}<div class="contents lg:hidden">{{ block.super }}</div>{% endblock header %}
 {% block footer %}{% endblock footer %}
 
 {% block content %}
 <main class="grid flex-1 lg:grid-cols-[minmax(380px,40%)_1fr]">
-    <aside class="m-4 flex flex-col gap-5 rounded-2xl bg-brand p-5 text-white lg:m-0 lg:justify-between lg:gap-0 lg:rounded-none lg:p-10" aria-hidden="true">
+    <aside class="order-last m-4 mt-0 flex flex-col lg:order-none gap-5 rounded-2xl bg-brand p-5 text-white lg:m-0 lg:justify-between lg:gap-0 lg:rounded-none lg:p-10" aria-hidden="true">
         <div>
             <a href="{% url 'home_page' %}" tabindex="-1" class="flex items-center gap-2.5 text-xl font-bold tracking-tight">
                 <span class="logo-mark bg-white/15"><img src="{% static 'img/scale.svg' %}" alt=""></span>PilihYuk
@@ -29,7 +29,7 @@
         <p class="flex items-start gap-2 text-xs text-white/70"><img src="{% static 'img/shield-check.svg' %}" alt="" class="mt-px h-4 w-4 shrink-0 brightness-0 invert opacity-70">Data dari Open Food Facts. PilihYuk bukan alat diagnosis atau nasihat medis.</p>
     </aside>
 
-    <section class="flex items-center justify-center px-4 pb-10 pt-2 sm:px-8 lg:py-10">
+    <section class="flex items-center justify-center px-4 py-8 sm:px-8 lg:py-10">
         <div class="w-full max-w-[420px]">
             {% block form_content %}{% endblock form_content %}
         </div>
