@@ -28,7 +28,7 @@ BENEFITS = [
      "Produk dibandingkan dengan alternatif nyata dalam satu keputusan pembelian, bukan per kategori."),
     ("img/sliders-horizontal.svg", "Preferensi nutrisi dua arah",
      "Maksimalkan protein, batasi gula, atau atur bobotnya. Tabel mengikuti preferensimu."),
-    ("img/repeat.svg", "Substitusi dari komunitas", "Usulan penggantian dari pengguna lain lengkap dengan alasan dan voting."),
+    ("img/repeat.svg", "Rekomendasi dari komunitas", "Usulan penggantian dari pengguna lain lengkap dengan alasan dan voting."),
     ("img/shield-check.svg", "Transparansi data", "Nilai resmi, estimasi, dan data yang belum tersedia selalu dibedakan."),
 ]
 METRICS = [

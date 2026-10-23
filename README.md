@@ -24,7 +24,7 @@ Orang memutuskan beli makanan kemasan dalam hitungan detik di depan rak. Harga d
 
 [Open Food Facts](https://world.openfoodfacts.org/) punya data yang sudah terstandar (Nutri-Score, NOVA, Green-Score), tapi berbahasa Inggris dan disusun per kategori, padahal keputusan belanja sering melintasi kategori. Preferensinya pun hanya mengenal arah "hindari": orang yang mencari kandungan tertinggi, misalnya protein, tidak bisa menyatakannya. Data produk Indonesia di sana juga masih jauh dari lengkap. Dari 8.186 produk Indonesia di dump, Nutri-Score baru terisi di 5,3% dan skor lingkungan di 4,2%.
 
-PilihYuk membawa data ini ke saat orang berbelanja, dalam bahasa Indonesia dan bentuk yang langsung bisa dibandingkan. Shelf dan usulan substitusi yang dibuat satu pengguna bisa dipakai pengguna lain sebagai rujukan.
+PilihYuk membawa data ini ke saat orang berbelanja, dalam bahasa Indonesia dan bentuk yang langsung bisa dibandingkan. Shelf dan usulan rekomendasi yang dibuat satu pengguna bisa dipakai pengguna lain sebagai rujukan.
 
 ## Anggota Kelompok
 
@@ -32,7 +32,7 @@ PilihYuk membawa data ini ke saat orang berbelanja, dalam bahasa Indonesia dan b
 |----|------|-----|-------|
 | 1 | Yasmin | 2506606124 | Katalog Produk |
 | 2 | Ahmad Rizki Daffaa | 2506543640 | Shelf dan Tabel Pembanding |
-| 3 | Rafael Arlen Wijanarko | 2506613514 | Substitusi Komunitas |
+| 3 | Rafael Arlen Wijanarko | 2506613514 | Rekomendasi Komunitas |
 | 4 | Muhammad Rayyan Basalamah | 2406496372 | Antrean Data |
 | 5 | Jonathan Sebastian Sindhu | 2506619650 | Preferensi Nutrisi dan Riwayat Keputusan |
 
@@ -40,8 +40,8 @@ PilihYuk membawa data ini ke saat orang berbelanja, dalam bahasa Indonesia dan b
 
 | Jenis | Yang Bisa Dilakukan |
 |-------|---------------------|
-| Pengunjung | Menelusuri katalog dan shelf publik, melihat tabel pembanding, memakai filter, dan membaca usulan substitusi tanpa melihat siapa pengusulnya |
-| Pengguna Terdaftar | Semua hal di atas, ditambah mengelola shelf, mengusulkan substitusi dan memberi suara, mengajukan koreksi data, mengatur preferensi nutrisi, dan mencatat riwayat keputusan |
+| Pengunjung | Menelusuri katalog dan shelf publik, melihat tabel pembanding, memakai filter, dan membaca usulan rekomendasi tanpa melihat siapa pengusulnya |
+| Pengguna Terdaftar | Semua hal di atas, ditambah mengelola shelf, mengusulkan rekomendasi dan memberi suara, mengajukan koreksi data, mengatur preferensi nutrisi, dan mencatat riwayat keputusan |
 | Kurator Data / Admin | Meninjau pengajuan koreksi lalu menyetujui atau menolaknya, dan menyunting produk yang ditambahkan secara manual |
 
 Target pengguna utama kami adalah mahasiswa dan pekerja muda di kota besar yang rutin belanja di minimarket. Mereka ingin memilih dengan lebih baik, tapi tidak punya info pembanding di depan rak. Karena mereka sering membeli produk yang sama, shelf yang sudah dikurasi layak dipakai lagi. Ini masih asumsi kelompok dan belum kami uji lewat wawancara.
@@ -54,7 +54,7 @@ Target pengguna utama kami adalah mahasiswa dan pekerja muda di kota besar yang 
 
 2. Preferensi nutrisi dua arah. Alat yang ada sekarang hanya punya kriteria "rendah X". Di PilihYuk, nutrien, arah, dan bobot dipisah, jadi pengguna bisa meminta "maksimalkan protein" selain "hindari gula". Urutan tabel pembanding mengikuti preferensi ini, bukan satu skor tunggal.
 
-3. Substitusi lintas shelf. Pengguna mengusulkan produk X diganti Y beserta alasannya, lalu pengguna lain menyetujui atau menolak. Usulan boleh menyeberangi shelf, misalnya dari krimer ke susu UHT. Bedanya dengan alternatif hasil algoritma, usulan di sini datang dari sesama pembeli dan alasannya bisa dinilai.
+3. Rekomendasi lintas shelf. Pengguna mengusulkan produk X diganti Y beserta alasannya, lalu pengguna lain menyetujui atau menolak. Usulan boleh menyeberangi shelf, misalnya dari krimer ke susu UHT. Bedanya dengan alternatif hasil algoritma, usulan di sini datang dari sesama pembeli dan alasannya bisa dinilai.
 
 4. Antrean kelengkapan data pasar Indonesia. Produk yang datanya kosong muncul sebagai antrean kontribusi, diurutkan dari yang paling sering ada di shelf.
 
@@ -141,7 +141,7 @@ Batasan yang diketahui: belum ada verifikasi email dan reset password, pendaftar
 - AJAX: menambah dan mengeluarkan produk, mengurutkan ulang tabel
 - Catatan: satu shelf berisi paling banyak dua belas produk supaya tidak berubah jadi kategori. Nilai `"unknown"` ditampilkan apa adanya, tidak ikut diperingkat, dan ditautkan ke modul 4. Kalau pengguna login, urutan baris mengikuti preferensi di modul 5
 
-### 3. Substitusi Komunitas (Rafael Arlen Wijanarko)
+### 3. Rekomendasi Komunitas (Rafael Arlen Wijanarko)
 
 *Usulan penggantian produk yang dinilai komunitas dan boleh melintasi shelf.*
 
