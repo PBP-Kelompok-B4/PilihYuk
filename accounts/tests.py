@@ -16,7 +16,6 @@ def register_data(**over):
         "email": "rani@email.com",
         "password1": PASSWORD,
         "password2": PASSWORD,
-        "terms": "on",
     }
     data.update(over)
     return data
@@ -49,7 +48,7 @@ class RegisterTests(TestCase):
         for bad in (
             {"password1": "12345678", "password2": "12345678"},  # numeric / common
             {"password2": "lain-Lain-123"},  # mismatch
-            {"terms": ""},  # terms unchecked
+            {"password1": "HanyaHurufSaja", "password2": "HanyaHurufSaja"},  # tanpa angka
             {"email": "bukan-email"},
             {"display_name": ""},
         ):
@@ -90,6 +89,13 @@ class LoginLogoutTests(TestCase):
 
     def test_login_email_is_case_insensitive(self):
         self.assertRedirects(self.login(username="Rani@Email.com"), reverse("home_page"))
+
+    def test_admin_logs_in_with_username_or_email(self):
+        User.objects.create_superuser("Admin", "Admin@Contoh.com", PASSWORD)
+        for name in ("Admin", "admin@contoh.com"):
+            with self.subTest(name=name):
+                self.assertRedirects(self.login(username=name), reverse("home_page"))
+                self.client.logout()
 
     def test_wrong_password_is_generic(self):
         wrong_pw = self.login(password="salah")

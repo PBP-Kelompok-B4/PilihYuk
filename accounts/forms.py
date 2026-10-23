@@ -39,16 +39,12 @@ class Styled:
 class RegisterForm(Styled, BaseUserCreationForm):
     display_name = forms.CharField(label="Nama tampilan", max_length=150)
     email = forms.EmailField(label="Email", max_length=150)
-    terms = forms.BooleanField(
-        label="Saya setuju dengan Ketentuan Layanan dan memahami PilihYuk bukan alat diagnosis medis.",
-        error_messages={"required": "Centang persetujuan untuk melanjutkan."},
-    )
 
     class Meta:
         model = User
         fields = ("email",)  # username dan first_name diisi di clean(); is_staff tidak pernah ikut
 
-    field_order = ["display_name", "email", "password1", "password2", "terms"]
+    field_order = ["display_name", "email", "password1", "password2"]
     icons = {"display_name": "user", "email": "mail", "password1": "lock", "password2": "lock"}
 
     def __init__(self, *args, **kwargs):
@@ -58,7 +54,7 @@ class RegisterForm(Styled, BaseUserCreationForm):
         self.fields["password1"].label = "Password"
         self.fields["password1"].help_text = ""
         self.fields["password2"].label = "Konfirmasi password"
-        self.fields["password2"].help_text = "Minimal 8 karakter. Gunakan kombinasi huruf dan angka."  # sesuai wireframe
+        self.fields["password2"].help_text = "Minimal 8 karakter, berisi huruf dan angka."
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()
@@ -75,24 +71,30 @@ class RegisterForm(Styled, BaseUserCreationForm):
 
 
 class LoginForm(Styled, AuthenticationForm):
-    username = forms.CharField(label="Email", max_length=150)
+    username = forms.CharField(label="Email atau username", max_length=150)
     remember = forms.BooleanField(label="Ingat saya selama 30 hari", required=False)
-    icons = {"username": "mail", "password": "lock"}
+    icons = {"username": "user", "password": "lock"}
     error_messages = {
         **AuthenticationForm.error_messages,
-        # Satu pesan untuk email salah maupun password salah (tanpa membocorkan akun mana yang ada).
-        "invalid_login": "Email atau password salah.",
+        # Satu pesan untuk akun salah maupun password salah (tanpa membocorkan akun mana yang ada).
+        "invalid_login": "Email, username, atau password salah.",
     }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["username"].widget.attrs.update(autocomplete="username", inputmode="email", autofocus=True)
+        self.fields["username"].widget.attrs.update(autocomplete="username", autofocus=True)
         self.fields["password"].label = "Password"
 
     def clean_username(self):
         value = self.cleaned_data["username"].strip()
-        # Email disimpan huruf kecil; username admin tanpa "@" dibiarkan apa adanya.
-        return value.lower() if "@" in value else value
+        if "@" not in value:
+            return value
+        value = value.lower()
+        if User.objects.filter(username=value).exists():
+            return value
+        # Akun dari createsuperuser bisa punya username selain email; masuk lewat emailnya tetap dicari.
+        usernames = list(User.objects.filter(email__iexact=value).values_list("username", flat=True)[:2])
+        return usernames[0] if len(usernames) == 1 else value
 
 
 class ProfileForm(Styled, forms.Form):
