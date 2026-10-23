@@ -49,6 +49,7 @@ from django.http import QueryDict
 from django.template import Context, Template
 from django.test.utils import CaptureQueriesContext
 from django.utils.dateparse import parse_datetime
+from django.template.loader import get_template
 
 from product_catalog.models import Product
 
@@ -73,6 +74,13 @@ from .forms import CorrectionForm, help_text_for
 from .templatetags.data_correction_tags import ago, display_value
 from .display import display_name
 from .moderation import QueueFilters, field_guide, find_item, queue_items, queue_row, queue_stats
+from .contribution import (
+    ContributionFilters,
+    contribution_stats,
+    decorate,
+    pending_product_ids,
+    queue_products,
+)
 
 _barcodes = count(1)
 
@@ -1908,3 +1916,235 @@ class ReviewItemViewTests(ViewTestMixin, TestCase):
         for field_name, next_url, expected in cases:
             with self.subTest(next=next_url):
                 self.assertRedirectsTo(self.post(field_name, "approve", next=next_url), expected)
+
+
+CONTRIBUTION_URL = "/antrean/"
+PACKAGING_TAGS = ["en:packagings-not-complete"]
+
+
+def queue_ids(filters=None):
+    """Id produk di antrean kontribusi, sesuai urutannya."""
+    rows, _, _ = queue_products(filters or ContributionFilters())
+    return [row["pk"] for row in rows]
+
+
+class ContributionFiltersTests(SimpleTestCase):
+    def test_unknown_values_fall_back_to_defaults(self):
+        self.assertEqual(ContributionFilters.from_query({}), ContributionFilters())
+        query = {"sort": "acak", "missing": "code", "page": "3"}
+        self.assertEqual(ContributionFilters.from_query(query), ContributionFilters(page="3"))
+        self.assertEqual(ContributionFilters.from_query({"sort": "shelf"}).sort, "kosong")  # sampai Tahap 10
+        filters = ContributionFilters.from_query({"sort": "terbaru", "missing": "packaging"})
+        self.assertEqual((filters.sort, filters.missing), ("terbaru", "packaging"))
+
+    def test_url_chips_and_page_links_keep_filters(self):
+        filters = ContributionFilters(sort="terbaru", missing="nutrition", page="2")
+        self.assertEqual(ContributionFilters().url(), CONTRIBUTION_URL)
+        self.assertEqual(filters.url(), "/antrean/?sort=terbaru&missing=nutrition&page=2")
+        sorts = filters.sort_chips()
+        self.assertEqual([chip["label"] for chip in sorts], ["Paling banyak data kosong", "Terbaru"])
+        urls = ["/antrean/?missing=nutrition", "/antrean/?sort=terbaru&missing=nutrition"]
+        self.assertEqual([chip["url"] for chip in sorts], urls)
+        self.assertEqual([chip["active"] for chip in sorts], [False, True])
+        chips = filters.missing_chips(["nutrition", "nova"])
+        self.assertEqual([chip["label"] for chip in chips], ["Semua data", "Gizi", "NOVA"])
+        self.assertEqual([chip["active"] for chip in chips], [False, True, False])
+        urls = [
+            "/antrean/?sort=terbaru",
+            "/antrean/?sort=terbaru&missing=nutrition",
+            "/antrean/?sort=terbaru&missing=nova",
+        ]
+        self.assertEqual([chip["url"] for chip in chips], urls)
+        links = filters.page_links(Paginator(range(45), 20).get_page(2))
+        self.assertEqual(links["previous"], "/antrean/?sort=terbaru&missing=nutrition&page=1")
+        self.assertEqual(links["next"], "/antrean/?sort=terbaru&missing=nutrition&page=3")
+
+
+class ContributionQueueDataTests(TestCase):
+    def test_detection_follows_incomplete_rules(self):
+        complete_tags = make_complete_product(
+            misc_tags=["en:nutriscore-computed", "en:environmental-score-computed"]
+        )
+        unknown_grades = make_complete_product(nutrition_grade="unknown", environmental_grade="unknown")
+        zero_fiber = make_complete_product(fiber_100g=0.0)  # nol bukan kosong
+        packaging = make_complete_product(misc_tags=PACKAGING_TAGS)
+        missing_fiber = make_complete_product(fiber_100g=None)  # tanpa misc_tags, gizi NULL
+        make_product(is_active=False)  # semua kolom kosong, tetapi nonaktif
+        rows, categories, total = queue_products(ContributionFilters())
+        found = {row["pk"]: row["missing"] for row in rows}
+        self.assertEqual(set(found), {packaging.pk, missing_fiber.pk})
+        packaging_entry = {"key": "packaging", "label": "Kemasan", "correctable": False, "fields": []}
+        self.assertEqual(found[packaging.pk], [packaging_entry])
+        fiber_entry = {"key": "nutrition", "label": "Gizi", "correctable": True, "fields": ["fiber_100g"]}
+        self.assertEqual(found[missing_fiber.pk], [fiber_entry])
+        self.assertEqual((categories, total), (["nutrition", "packaging"], 2))
+        for product in (complete_tags, unknown_grades, zero_fiber):
+            self.assertNotIn(product.pk, found)
+
+    def test_missing_filter_keeps_every_category_for_the_chips(self):
+        packaging = make_complete_product(misc_tags=PACKAGING_TAGS)
+        make_complete_product(fiber_100g=None)
+        rows, categories, total = queue_products(ContributionFilters(missing="packaging"))
+        self.assertEqual([row["pk"] for row in rows], [packaging.pk])
+        self.assertEqual((categories, total), (["nutrition", "packaging"], 2))
+        self.assertEqual(queue_ids(ContributionFilters(missing="nova")), [])
+
+    def test_sort_by_missing_then_name_and_by_newest(self):
+        bihun = make_complete_product(product_name="Bihun", fiber_100g=None)
+        apel = make_complete_product(product_name="apel kering", fiber_100g=None)
+        zebra = make_complete_product(product_name="Zebra", fiber_100g=None, brand="")  # 2 data kurang
+        self.assertEqual(queue_ids(), [zebra.pk, apel.pk, bihun.pk])  # lalu nama A-Z (abaikan huruf besar)
+        now = timezone.now()
+        for product, days in ((apel, 3), (zebra, 2), (bihun, 1)):
+            Product.objects.filter(pk=product.pk).update(created_at=now - timedelta(days=days))
+        self.assertEqual(queue_ids(ContributionFilters(sort="terbaru")), [bihun.pk, zebra.pk, apel.pk])
+        shelf = ContributionFilters.from_query({"sort": "shelf"})
+        self.assertEqual(queue_ids(shelf), [zebra.pk, apel.pk, bihun.pk])  # Tahap 10: masih urutan bawaan
+
+    def test_status_uses_one_query_and_follows_pending_items(self):
+        product = make_complete_product(fiber_100g=None)
+        other = make_complete_product(misc_tags=PACKAGING_TAGS)
+        row = {row["pk"]: row for row in queue_products(ContributionFilters())[0]}[product.pk]
+        ids = [product.pk, other.pk]
+        with self.assertNumQueries(1):
+            pending = pending_product_ids(ids)
+        self.assertEqual(decorate(row, pending)["status_label"], "Perlu kontribusi")
+        correction = submit_correction(make_user(), product, {"fiber_100g": "2,5"})
+        pending = pending_product_ids(ids)
+        self.assertEqual(pending, {product.pk})
+        self.assertEqual(decorate(row, pending)["status"], "needs_verification")
+        self.assertEqual(decorate(row, pending)["status_label"], "Perlu verifikasi")
+        reject_item(make_staff(), correction.items.get(), note="Tidak sesuai label.")
+        self.assertEqual(pending_product_ids(ids), set())  # sudah ditinjau: kembali perlu kontribusi
+
+    def test_links_ask_for_every_empty_correctable_field(self):
+        product = make_complete_product(fiber_100g=None, sodium_100g=None, brand="", nova_group=None)
+        info_only = make_complete_product(misc_tags=PACKAGING_TAGS)
+        rows = {row["pk"]: decorate(row, set()) for row in queue_products(ContributionFilters())[0]}
+        fields = "?field=brand&field=nova_group&field=fiber_100g&field=sodium_100g"  # urut seperti form
+        self.assertEqual(rows[product.pk]["submit_url"], f"/antrean/produk/{product.pk}/ajukan/{fields}")
+        self.assertEqual(rows[info_only.pk]["submit_url"], f"/antrean/produk/{info_only.pk}/ajukan/")
+        self.assertEqual(rows[product.pk]["detail_url"], f"/katalog/{product.pk}/")
+
+    def test_stats_count_only_existing_data(self):
+        user = make_user()
+        product = make_complete_product(fiber_100g=None)
+        old = make_correction(product, user, brand=APPROVED)
+        DataCorrection.objects.filter(pk=old.pk).update(created_at=timezone.now() - timedelta(days=8))
+        make_correction(product, user, fiber_100g=PENDING, sugars_100g=APPROVED)
+        expected = {"incomplete_products": 5, "submitted_last_7_days": 1, "approved": 2}
+        self.assertEqual(contribution_stats(5), expected)
+
+
+class ContributionQueueViewTests(ViewTestMixin, TestCase):
+    def setUp(self):
+        self.user = make_user()  # Budi, pengaju@email.com
+        self.fiber = make_complete_product(product_name="Sarimi Isi 2 Goreng", fiber_100g=None)
+        self.nova = make_complete_product(product_name="Teh Botol Sosro", nova_group=None, brand="")
+        self.complete = make_complete_product(product_name="Indomie Goreng")
+
+    def test_page_is_public(self):
+        self.assertEqual(reverse("data_correction:contribution_queue"), CONTRIBUTION_URL)
+        response = self.client.get(CONTRIBUTION_URL)  # pengunjung, tanpa login
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "data_correction/contribution_queue.html")
+        texts = ("Antrean Kelengkapan Data", "Bantu lengkapi data produk yang sering muncul di shelf.",
+                 "Menunggu kontribusi", "Diajukan minggu ini", "Disetujui", "Urutkan:",
+                 "Paling banyak data kosong", "Terbaru", "Semua data", "Gizi", "NOVA", "Merek",
+                 "Perlu kontribusi", "Menampilkan 2 dari 2 produk yang perlu dilengkapi",
+                 "Halaman 1 dari 1", "Sarimi Isi 2 Goreng", "Teh Botol Sosro")
+        for text in texts:
+            self.assertContains(response, text)
+        self.assertNotContains(response, "Indomie Goreng")  # sudah lengkap
+        self.assertNotContains(response, "Paling sering muncul di shelf")  # bonus Tahap 10
+        self.assertNotContains(response, 'href="/antrean/saya/"')  # Pengajuan Saya hanya untuk yang masuk
+        self.assertEqual(self.client.get(CONTRIBUTION_URL + "?format=json").status_code, 200)
+
+    def test_lengkapi_data_and_detail_links(self):
+        response = self.client.get(CONTRIBUTION_URL)
+        fiber_url = f"/antrean/produk/{self.fiber.pk}/ajukan/?field=fiber_100g"
+        self.assertContains(response, f'href="{fiber_url}"')
+        nova_url = f"/antrean/produk/{self.nova.pk}/ajukan/?field=brand&amp;field=nova_group"  # & di-escape
+        self.assertContains(response, f'href="{nova_url}"')
+        self.assertContains(response, f'href="/katalog/{self.fiber.pk}/"')
+        response = self.client.get(fiber_url)  # pengunjung yang mengklik diarahkan ke halaman masuk
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.url.startswith("/masuk/?next=/antrean/produk/"))
+
+    def test_pending_item_marks_product_without_showing_the_submitter(self):
+        submit_correction(self.user, self.fiber, {"fiber_100g": "2,5"})
+        response = self.client.get(CONTRIBUTION_URL)
+        self.assertContains(response, "Perlu verifikasi")
+        self.assertNotContains(response, "Budi")
+        self.assertNotContains(response, "pengaju@email.com")
+        data = json_of(self.client.get(CONTRIBUTION_URL + "?format=json"))
+        statuses = {row["id"]: row["status"] for row in data["results"]}
+        expected = {self.fiber.pk: "needs_verification", self.nova.pk: "needs_contribution"}
+        self.assertEqual(statuses, expected)
+        self.assertEqual(data["stats"]["submitted_last_7_days"], 1)
+
+    def test_filter_sort_and_pagination_keep_the_query(self):
+        for number in range(25):
+            make_complete_product(product_name=f"Produk {number:02d}", fiber_100g=None)
+        response = self.client.get(CONTRIBUTION_URL + "?missing=nutrition&sort=terbaru")
+        page = response.context["page_obj"]
+        self.assertEqual((page.paginator.count, len(page.object_list)), (26, 20))
+        self.assertContains(response, "Menampilkan 20 dari 26 produk yang perlu dilengkapi")
+        self.assertContains(response, "Halaman 1 dari 2")
+        next_url = response.context["page_links"]["next"]
+        self.assertEqual(next_url, "/antrean/?sort=terbaru&missing=nutrition&page=2")
+        self.assertContains(self.client.get(next_url), "Menampilkan 6 dari 26 produk yang perlu dilengkapi")
+        response = self.client.get(CONTRIBUTION_URL + "?missing=nova")
+        self.assertEqual([row["pk"] for row in response.context["rows"]], [self.nova.pk])
+
+    def test_empty_states(self):
+        response = self.client.get(CONTRIBUTION_URL + "?missing=packaging")
+        self.assertContains(response, "Tidak ada produk yang cocok.")
+        self.assertContains(response, "Bersihkan filter")
+        self.assertEqual(response.context["clear_url"], CONTRIBUTION_URL)
+        Product.objects.filter(pk__in=[self.fiber.pk, self.nova.pk]).update(is_active=False)
+        response = self.client.get(CONTRIBUTION_URL)
+        self.assertContains(response, "Semua data produk sudah lengkap.")
+        self.assertNotContains(response, "Bersihkan filter")
+        self.assertNotContains(response, "Menampilkan")
+
+    def test_json_shape(self):
+        data = json_of(self.client.get(CONTRIBUTION_URL, HTTP_ACCEPT="application/json"))
+        summary = {key: data[key] for key in ("count", "page", "page_size", "sort", "missing")}
+        self.assertEqual(summary, {"count": 2, "page": 1, "page_size": 20, "sort": "kosong", "missing": None})
+        self.assertEqual(data["stats"], {"incomplete_products": 2, "submitted_last_7_days": 0, "approved": 0})
+        self.assertEqual(data["results"][0], {
+            "id": self.nova.pk, "product_name": "Teh Botol Sosro", "brand": "", "quantity": "88 g",
+            "missing": [
+                {"key": "nova", "label": "NOVA", "correctable": True, "fields": ["nova_group"]},
+                {"key": "brand", "label": "Merek", "correctable": True, "fields": ["brand"]},
+            ],
+            "missing_count": 2, "status": "needs_contribution", "status_label": "Perlu kontribusi",
+            "submit_url": f"/antrean/produk/{self.nova.pk}/ajukan/?field=brand&field=nova_group",
+            "detail_url": f"/katalog/{self.nova.pk}/",
+        })
+        data = json_of(self.client.get(CONTRIBUTION_URL + "?format=json&missing=nutrition&sort=terbaru"))
+        self.assertEqual((data["count"], data["sort"], data["missing"]), (1, "terbaru", "nutrition"))
+
+    def test_query_count_does_not_grow_with_products(self):
+        with CaptureQueriesContext(connection) as few:
+            self.client.get(CONTRIBUTION_URL)
+        for _ in range(25):
+            make_complete_product(fiber_100g=None)
+        submit_correction(self.user, self.fiber, {"fiber_100g": "2,5"})
+        with CaptureQueriesContext(connection) as many:
+            self.client.get(CONTRIBUTION_URL)
+        self.assertEqual(len(many), len(few))
+        self.assertEqual(len(few), 4)  # produk, produk dengan item pending, dan 2 query statistik
+
+    def test_logged_in_user_gets_a_link_to_own_corrections(self):
+        self.client.force_login(self.user)
+        self.assertContains(self.client.get(CONTRIBUTION_URL), 'href="/antrean/saya/"')
+
+    def test_old_todo_links_now_use_the_route_name(self):
+        for name in ("submit.html", "submit_success.html", "my_corrections.html"):
+            with self.subTest(template=name):
+                source = get_template(f"data_correction/{name}").template.source
+                self.assertNotIn("TODO Tahap 6", source)
+                self.assertNotIn('href="/antrean/"', source)
+                self.assertIn("{% url 'data_correction:contribution_queue' %}", source)
