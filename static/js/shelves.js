@@ -179,3 +179,35 @@
     });
     limit();
 })();
+
+(() => {
+    const form = document.querySelector('[data-save-form]');
+    if (!form) return;
+    const input = form.querySelector('[name=saved]');
+    const button = form.querySelector('button');
+    const label = form.querySelector('[data-save-label]');
+    const count = document.querySelector('[data-save-count]');
+
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+        button.disabled = true;
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST', body: new FormData(form), headers: {'Accept': 'application/json'},
+            });
+            const isJson = (response.headers.get('Content-Type') || '').includes('application/json');
+            if (!response.ok || !isJson) throw new Error('request failed');
+            const data = await response.json();
+            input.value = data.saved ? '0' : '1';
+            button.setAttribute('aria-pressed', String(data.saved));
+            label.textContent = data.saved ? 'Tersimpan di Shelf Saya' : 'Simpan ke Shelf Saya';
+            if (count) count.textContent = `Disimpan ${data.save_count} pengguna`;
+            showToast(data.saved ? 'Shelf disimpan' : 'Simpanan dibatalkan',
+                data.saved ? 'Shelf ini ada di halaman Shelf Saya.' : 'Shelf ini dihapus dari Shelf Saya.', 'success');
+        } catch (error) {
+            showToast('Gagal menyimpan shelf', 'Muat ulang halaman lalu coba lagi.', 'error');
+        } finally {
+            button.disabled = false;
+        }
+    });
+})();

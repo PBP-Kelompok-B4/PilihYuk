@@ -15,16 +15,27 @@
                 <span class="chip bg-white">{{ shelf.item_count }} produk</span>
                 {% if shelf.store_context %}<span class="chip bg-white"><img src="{% static 'img/map-pin.svg' %}" alt="">{{ shelf.store_context }}</span>{% endif %}
                 <span class="chip bg-white">{% if shelf.is_private %}Privat{% else %}Shelf publik{% endif %}</span>
-                {% if not shelf.is_private %}<span class="chip bg-white">Disimpan {{ shelf.save_count }} pengguna</span>{% endif %}
+                {% if not shelf.is_private %}<span class="chip bg-white" data-save-count>Disimpan {{ shelf.save_count }} pengguna</span>{% endif %}
                 <span class="text-muted">dibuat oleh {{ owner_name }} · diperbarui {{ shelf.updated_at|timesince }} lalu</span>
             </div>
         </div>
-        {% if is_owner %}
-        <div class="flex shrink-0 gap-2">
+        <div class="flex shrink-0 flex-wrap gap-2">
+            {% if is_owner %}
             <a href="{% url 'shelves:edit' shelf.pk %}#produk" class="btn-brand btn-small">+ Tambah Produk</a>
             <a href="{% url 'shelves:edit' shelf.pk %}" class="btn-white btn-small">Edit Shelf</a>
+            {% endif %}
+            {% if user.is_authenticated %}
+            <form method="post" action="{% url 'shelves:save' shelf.pk %}" data-save-form>
+                {% csrf_token %}
+                <input type="hidden" name="saved" value="{{ is_saved|yesno:'0,1' }}">
+                <button type="submit" aria-pressed="{{ is_saved|yesno:'true,false' }}" class="btn-white btn-small aria-pressed:bg-mint aria-pressed:text-brand">
+                    <img src="{% static 'img/bookmark-check.svg' %}" alt=""><span data-save-label>{{ is_saved|yesno:"Tersimpan di Shelf Saya,Simpan ke Shelf Saya" }}</span>
+                </button>
+            </form>
+            {% else %}
+            <a href="{% url 'accounts:login' %}?next={{ request.path|urlencode }}" class="btn-white btn-small"><img src="{% static 'img/bookmark-check.svg' %}" alt="">Masuk untuk menyimpan</a>
+            {% endif %}
         </div>
-        {% endif %}
     </div>
 
     <section class="mt-8" aria-labelledby="compare-title">

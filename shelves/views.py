@@ -14,7 +14,7 @@ from product_catalog.models import Product
 
 from .comparison import MAX_COMPARED, comparison_rows
 from .forms import CandidateSearchForm, ShelfForm, ShelfItemForm
-from .models import MAX_SHELF_ITEMS, Shelf, ShelfItem
+from .models import MAX_SHELF_ITEMS, SavedShelf, Shelf, ShelfItem
 
 PAGE_SIZE = 12
 logger = logging.getLogger(__name__)
@@ -89,15 +89,17 @@ def shelf_detail(request, pk):
     chosen = request.GET.getlist("banding")
     compared = [p for p in products if str(p.pk) in chosen][:MAX_COMPARED] or products[:MAX_COMPARED]
     rows = comparison_rows(compared)
+    is_saved = request.user.is_authenticated and shelf.saves.filter(user=request.user).exists()
     if wants_json(request):
         return JsonResponse({**serialize_shelf(shelf), "products": [product_card(p) for p in products],
-                             "compared": [p.pk for p in compared], "rows": rows})
+                             "compared": [p.pk for p in compared], "rows": rows, "saved": is_saved})
     context = {"shelf": shelf, "products": products, "compared": compared, "rows": rows,
                "max_compared": MAX_COMPARED}
     if request.GET.get("partial"):
         return render(request, "shelves/_comparison.html", context)
     return render(request, "shelves/detail.html", {
         **context, "is_owner": shelf.owner_id == request.user.pk, "owner_name": owner_name(shelf.owner),
+        "is_saved": is_saved,
     })
 
 
@@ -186,3 +188,20 @@ def shelf_item_remove(request, pk, product_id):
         return JsonResponse({"item_count": shelf.items.count()})
     messages.success(request, "Produk dikeluarkan dari shelf.")
     return redirect("shelves:edit", pk=shelf.pk)
+
+
+@login_required
+@require_POST
+def shelf_save(request, pk):
+    shelf = get_object_or_404(Shelf, pk=pk)
+    if shelf.is_private and shelf.owner_id != request.user.pk:
+        raise Http404
+    saved = request.POST.get("saved") == "1"
+    if saved:
+        SavedShelf.objects.get_or_create(user=request.user, shelf=shelf)
+    else:
+        SavedShelf.objects.filter(user=request.user, shelf=shelf).delete()
+    if wants_json(request):
+        return JsonResponse({"saved": saved, "save_count": shelf.saves.count()})
+    messages.success(request, "Shelf disimpan ke Shelf Saya." if saved else "Shelf dihapus dari Shelf Saya.")
+    return redirect("shelves:detail", pk=shelf.pk)

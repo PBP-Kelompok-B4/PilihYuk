@@ -249,3 +249,45 @@ class ComparisonTests(TestCase):
         self.assertTemplateUsed(response, "shelves/_comparison.html")
         self.assertContains(response, "P5")
         self.assertNotContains(response, ">P0<")
+
+
+class SaveShelfTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.owner = User.objects.create_user("rani@example.com", "rani@example.com", "pw-12345678")
+        self.other = User.objects.create_user("bagas@example.com", "bagas@example.com", "pw-12345678")
+        self.shelf = Shelf.objects.create(name="Mie instan", owner=self.owner)
+        self.url = reverse("shelves:save", args=[self.shelf.pk])
+        self.client.force_login(self.other)
+
+    def save(self, value, shelf_url=None):
+        return self.client.post(shelf_url or self.url, {"saved": value}, HTTP_ACCEPT="application/json")
+
+    def test_save_twice_keeps_one_and_unsave_removes_it(self):
+        self.assertEqual(self.save("1").json(), {"saved": True, "save_count": 1})
+        self.assertEqual(self.save("1").json(), {"saved": True, "save_count": 1})
+        self.assertEqual(self.save("0").json(), {"saved": False, "save_count": 0})
+
+    def test_owner_can_save_own_shelf(self):
+        self.client.force_login(self.owner)
+        self.assertTrue(self.save("1").json()["saved"])
+
+    def test_private_shelf_of_others_is_404(self):
+        private = Shelf.objects.create(name="Rahasia", owner=self.owner, is_private=True)
+        self.assertEqual(self.save("1", reverse("shelves:save", args=[private.pk])).status_code, 404)
+        self.assertFalse(SavedShelf.objects.exists())
+
+    def test_requires_login_and_post(self):
+        self.assertEqual(self.client.get(self.url).status_code, 405)
+        self.client.logout()
+        self.assertEqual(self.client.post(self.url, {"saved": "1"}).status_code, 302)
+        self.assertFalse(SavedShelf.objects.exists())
+
+    def test_detail_shows_count_without_identities(self):
+        self.save("1")
+        url = reverse("shelves:detail", args=[self.shelf.pk])
+        self.assertContains(self.client.get(url), "Tersimpan di Shelf Saya")
+        self.client.force_login(self.owner)
+        response = self.client.get(url)
+        self.assertContains(response, "Disimpan 1 pengguna")
+        self.assertNotContains(response, "bagas")
