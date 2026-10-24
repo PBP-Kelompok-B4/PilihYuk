@@ -1,16 +1,22 @@
+import logging
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from .forms import ShelfForm
-from .models import Shelf
+from product_catalog.models import Product
+
+from .forms import CandidateSearchForm, ShelfForm, ShelfItemForm
+from .models import MAX_SHELF_ITEMS, Shelf, ShelfItem
 
 PAGE_SIZE = 12
+logger = logging.getLogger(__name__)
 
 
 def wants_json(request):
@@ -41,6 +47,11 @@ def serialize_shelf(shelf):
         "url": reverse("shelves:detail", args=[shelf.pk]),
         "updated_at": shelf.updated_at.isoformat(),
     }
+
+
+def product_card(product):
+    return {"id": product.pk, "name": product.product_name, "brand": product.brand,
+            "quantity": product.quantity, "image_url": product.image_url}
 
 
 def paginate(request, queryset, param="page"):
@@ -103,7 +114,10 @@ def shelf_edit(request, pk):
         form.save()
         messages.success(request, "Perubahan shelf disimpan.")
         return redirect("shelves:detail", pk=shelf.pk)
-    return render(request, "shelves/form.html", {"form": form, "shelf": shelf})
+    return render(request, "shelves/form.html", {
+        "form": form, "shelf": shelf, "items": shelf.items.select_related("product"),
+        "search_form": CandidateSearchForm(), "max_items": MAX_SHELF_ITEMS,
+    })
 
 
 @login_required
@@ -113,3 +127,55 @@ def shelf_delete(request, pk):
     shelf.delete()
     messages.success(request, f"Shelf \"{shelf.name}\" dihapus.")
     return redirect("shelves:mine")
+
+
+@login_required
+def shelf_candidates(request, pk):
+    shelf = get_object_or_404(Shelf, pk=pk, owner=request.user)
+    form = CandidateSearchForm(request.GET)
+    query = form.cleaned_data["q"].strip() if form.is_valid() else ""
+    products = Product.objects.filter(is_active=True).order_by("product_name", "pk")
+    if query:
+        products = products.filter(Q(product_name__icontains=query) | Q(brand__icontains=query))
+    in_shelf = set(shelf.items.values_list("product_id", flat=True))
+    page = paginate(request, products)
+    return JsonResponse({"results": [{**product_card(p), "in_shelf": p.pk in in_shelf} for p in page],
+                         "page": page.number, "num_pages": page.paginator.num_pages, "count": page.paginator.count})
+
+
+@login_required
+@require_POST
+@transaction.atomic
+def shelf_item_add(request, pk):
+    shelf = get_object_or_404(Shelf.objects.select_for_update(), pk=pk, owner=request.user)
+    form = ShelfItemForm(request.POST, shelf=shelf)
+    if form.is_valid():
+        try:
+            with transaction.atomic():
+                item = form.save()
+        except IntegrityError:
+            logger.warning("Duplicate product %s on shelf %s", form.cleaned_data["product"].pk, shelf.pk)
+            form.add_error("product", "Produk ini sudah ada di shelf.")
+    if not form.errors:
+        shelf.save(update_fields=["updated_at"])
+        if wants_json(request):
+            return JsonResponse({"product": product_card(item.product), "item_count": shelf.items.count()}, status=201)
+        messages.success(request, "Produk ditambahkan ke shelf.")
+    else:
+        error = " ".join(message for messages_ in form.errors.values() for message in messages_)
+        if wants_json(request):
+            return JsonResponse({"error": error}, status=400)
+        messages.error(request, error)
+    return redirect("shelves:edit", pk=shelf.pk)
+
+
+@login_required
+@require_POST
+def shelf_item_remove(request, pk, product_id):
+    shelf = get_object_or_404(Shelf, pk=pk, owner=request.user)
+    get_object_or_404(ShelfItem, shelf=shelf, product_id=product_id).delete()
+    shelf.save(update_fields=["updated_at"])
+    if wants_json(request):
+        return JsonResponse({"item_count": shelf.items.count()})
+    messages.success(request, "Produk dikeluarkan dari shelf.")
+    return redirect("shelves:edit", pk=shelf.pk)

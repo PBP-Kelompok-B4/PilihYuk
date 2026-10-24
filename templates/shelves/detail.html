@@ -19,7 +19,12 @@
                 <span class="text-muted">dibuat oleh {{ owner_name }} · diperbarui {{ shelf.updated_at|timesince }} lalu</span>
             </div>
         </div>
-        {% if is_owner %}<a href="{% url 'shelves:edit' shelf.pk %}" class="btn-white btn-small shrink-0">Edit Shelf</a>{% endif %}
+        {% if is_owner %}
+        <div class="flex shrink-0 gap-2">
+            <a href="{% url 'shelves:edit' shelf.pk %}#produk" class="btn-brand btn-small">+ Tambah Produk</a>
+            <a href="{% url 'shelves:edit' shelf.pk %}" class="btn-white btn-small">Edit Shelf</a>
+        </div>
+        {% endif %}
     </div>
 
     <section class="mt-8" aria-labelledby="items-title">

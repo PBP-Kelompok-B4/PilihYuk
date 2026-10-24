@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
 from django.db.models.deletion import ProtectedError
@@ -6,8 +8,8 @@ from django.urls import reverse
 
 from product_catalog.models import Product
 
-from .forms import DESCRIPTION_MAX
-from .models import SavedShelf, Shelf, ShelfItem
+from .forms import DESCRIPTION_MAX, ShelfItemForm
+from .models import MAX_SHELF_ITEMS, SavedShelf, Shelf, ShelfItem
 
 class ShelfModelTests(TestCase):
     def setUp(self):
@@ -129,3 +131,72 @@ class ShelfViewTests(TestCase):
         response = self.client.get(reverse("shelves:mine"))
         self.assertEqual({s.name for s in response.context["own"]}, {"Mie instan", "Rahasia"})
         self.assertEqual([s.name for s in response.context["saved"]], ["Camilan kantor"])
+
+
+class ShelfItemViewTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.owner = User.objects.create_user("rani@example.com", "rani@example.com", "pw-12345678")
+        self.other = User.objects.create_user("bagas@example.com", "bagas@example.com", "pw-12345678")
+        self.shelf = Shelf.objects.create(name="Mie instan", owner=self.owner)
+        self.indomie = Product.objects.create(product_name="Indomie Goreng", brand="Indomie", source="manual")
+        self.add_url = reverse("shelves:item_add", args=[self.shelf.pk])
+        self.client.force_login(self.owner)
+
+    def add(self, product, **headers):
+        return self.client.post(self.add_url, {"product": product.pk}, HTTP_ACCEPT="application/json", **headers)
+
+    def test_candidates_filter_in_database_and_skip_inactive(self):
+        Product.objects.create(product_name="Sarimi Goreng", source="manual")
+        Product.objects.create(product_name="Indomie Lama", source="manual", is_active=False)
+        ShelfItem.objects.create(shelf=self.shelf, product=self.indomie)
+        data = self.client.get(reverse("shelves:candidates", args=[self.shelf.pk]), {"q": "indomie"}).json()
+        self.assertEqual([(p["name"], p["in_shelf"]) for p in data["results"]], [("Indomie Goreng", True)])
+
+    def test_add_returns_json_and_rejects_duplicate(self):
+        response = self.add(self.indomie)
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["item_count"], 1)
+        response = self.add(self.indomie)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("sudah ada", response.json()["error"])
+
+    def test_duplicate_that_slips_past_the_form_returns_400(self):
+        ShelfItem.objects.create(shelf=self.shelf, product=self.indomie)
+        with patch.object(ShelfItemForm, "clean_product", lambda form: form.cleaned_data["product"]), \
+                self.assertLogs("shelves.views", "WARNING"):
+            response = self.add(self.indomie)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("sudah ada", response.json()["error"])
+        self.assertEqual(self.shelf.items.count(), 1)
+
+    def test_add_rejects_inactive_product(self):
+        old = Product.objects.create(product_name="Lama", source="manual", is_active=False)
+        self.assertEqual(self.add(old).status_code, 400)
+        self.assertFalse(self.shelf.items.exists())
+
+    def test_shelf_holds_at_most_twelve_products(self):
+        for i in range(MAX_SHELF_ITEMS):
+            ShelfItem.objects.create(shelf=self.shelf, product=Product.objects.create(product_name=f"P{i}", source="manual"))
+        response = self.add(self.indomie)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.shelf.items.count(), MAX_SHELF_ITEMS)
+
+    def test_remove_returns_json(self):
+        ShelfItem.objects.create(shelf=self.shelf, product=self.indomie)
+        url = reverse("shelves:item_remove", args=[self.shelf.pk, self.indomie.pk])
+        self.assertEqual(self.client.post(url, HTTP_ACCEPT="application/json").json(), {"item_count": 0})
+
+    def test_without_javascript_add_redirects_to_edit(self):
+        response = self.client.post(self.add_url, {"product": self.indomie.pk})
+        self.assertRedirects(response, reverse("shelves:edit", args=[self.shelf.pk]))
+        self.assertTrue(self.shelf.items.filter(product=self.indomie).exists())
+
+    def test_only_owner_manages_products(self):
+        ShelfItem.objects.create(shelf=self.shelf, product=self.indomie)
+        self.client.force_login(self.other)
+        self.assertEqual(self.client.get(reverse("shelves:candidates", args=[self.shelf.pk])).status_code, 404)
+        self.assertEqual(self.add(Product.objects.create(product_name="X", source="manual")).status_code, 404)
+        url = reverse("shelves:item_remove", args=[self.shelf.pk, self.indomie.pk])
+        self.assertEqual(self.client.post(url).status_code, 404)
+        self.assertEqual(self.shelf.items.count(), 1)

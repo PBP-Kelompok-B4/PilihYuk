@@ -1,0 +1,12 @@
+<li class="flex items-center gap-3 rounded-xl bg-surface p-2" data-product-id="{{ product.pk }}">
+    <span class="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-placeholder" data-thumb>{% if product.image_url %}<img src="{{ product.image_url }}" alt="" loading="lazy" class="h-full w-full object-contain">{% endif %}</span>
+    <span class="min-w-0 flex-1">
+        <b class="block truncate text-sm" data-name>{{ product.product_name|default:"Tanpa nama" }}</b>
+        <span class="block truncate text-xs text-muted" data-brand>{{ product.brand }}{% if product.brand and product.quantity %} · {% endif %}{{ product.quantity }}</span>
+    </span>
+    <form method="post" action="{{ action }}" data-remove>
+        {% csrf_token %}
+        <button type="submit" aria-label="Keluarkan {{ product.product_name }}"
+                class="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-lg leading-none hover:text-[#b42318]">×</button>
+    </form>
+</li>

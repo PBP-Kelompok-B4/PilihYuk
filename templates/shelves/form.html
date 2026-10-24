@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block meta %}<title>{% if shelf %}Edit Shelf{% else %}Buat Shelf{% endif %} · PilihYuk</title>{% endblock meta %}
 
@@ -40,6 +41,34 @@
     </form>
 
     {% if shelf %}
+    <section id="produk" class="card mt-6" aria-labelledby="products-title" data-shelf-products
+             data-candidates-url="{% url 'shelves:candidates' shelf.pk %}" data-add-url="{% url 'shelves:item_add' shelf.pk %}" data-max="{{ max_items }}">
+        <h2 id="products-title" class="text-lg font-bold">Tambah produk</h2>
+        <p class="mt-1 text-xs text-muted">Cari di katalog lalu tambahkan. Produk yang kamu tambahkan muncul sebagai kolom di tabel perbandingan.</p>
+        <form role="search" data-candidate-search>{% include "accounts/_field.html" with field=search_form.q %}</form>
+        <p class="sr-only" aria-live="polite" data-status></p>
+        <ul class="mt-3 divide-y divide-line rounded-xl ring-1 ring-line" data-candidates></ul>
+
+        <div class="mt-6 flex items-center justify-between">
+            <h3 class="text-sm font-bold">Produk di shelf ini</h3>
+            <span class="chip bg-surface" data-count>{{ items|length }} / {{ max_items }} produk</span>
+        </div>
+        <p class="mt-3 text-sm text-muted" data-empty {% if items %}hidden{% endif %}>Belum ada produk di shelf ini.</p>
+        <ul class="mt-3 space-y-2" data-items>
+            {% for item in items %}{% url 'shelves:item_remove' shelf.pk item.product_id as action %}{% include "shelves/_item_row.html" with product=item.product action=action %}{% endfor %}
+        </ul>
+        <template data-item-template>{% include "shelves/_item_row.html" with product=None action="" %}</template>
+        <template data-candidate-template>
+            <li class="flex items-center gap-3 px-3 py-2.5">
+                <span class="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-placeholder" data-thumb></span>
+                <span class="min-w-0 flex-1"><b class="block truncate text-sm" data-name></b><span class="block truncate text-xs text-muted" data-brand></span></span>
+                <button type="button" class="btn-white btn-small shrink-0 ring-1 ring-line disabled:opacity-50" data-add>+ Tambah</button>
+                <span class="shrink-0 px-2 text-xs font-semibold text-muted" data-added hidden>Ditambahkan</span>
+            </li>
+        </template>
+        <p class="mt-4 rounded-xl bg-[#fdf3dc] px-4 py-3 text-xs text-[#8a5a00]">Shelf maksimal {{ max_items }} produk agar tetap berfungsi sebagai kumpulan pilihan, bukan kategori.</p>
+    </section>
+
     <form method="post" action="{% url 'shelves:delete' shelf.pk %}" onsubmit="return confirm('Hapus shelf ini secara permanen?')"
           class="mt-6 flex flex-col gap-3 rounded-[20px] bg-[#fdecea] p-6 sm:flex-row sm:items-center sm:justify-between">
         {% csrf_token %}
@@ -51,4 +80,5 @@
     </form>
     {% endif %}
 </main>
+{% if shelf %}<script src="{% static 'js/shelves.js' %}" defer></script>{% endif %}
 {% endblock content %}
