@@ -130,3 +130,52 @@
     });
     load();
 })();
+
+(() => {
+    const form = document.querySelector('[data-compare-form]');
+    if (!form) return;
+    const max = Number(form.dataset.max);
+    const boxes = [...form.querySelectorAll('[name=banding]')];
+    const table = document.querySelector('[data-comparison]');
+    const status = document.querySelector('[data-compare-status]');
+    let controller;
+
+    function limit() {
+        const full = boxes.filter(box => box.checked).length >= max;
+        boxes.forEach(box => { box.disabled = full && !box.checked; });
+    }
+
+    async function load() {
+        if (controller) controller.abort();
+        const current = new AbortController();
+        controller = current;
+        const url = new URL(window.location.pathname, window.location.href);
+        boxes.filter(box => box.checked).forEach(box => url.searchParams.append('banding', box.value));
+        const partial = new URL(url);
+        partial.searchParams.set('partial', '1');
+        table.setAttribute('aria-busy', 'true');
+        try {
+            const response = await fetch(partial, {signal: current.signal});
+            if (!response.ok) throw new Error('request failed');
+            table.innerHTML = await response.text();
+            history.replaceState(null, '', url);
+            status.textContent = 'Tabel perbandingan diperbarui.';
+        } catch (error) {
+            if (error.name !== 'AbortError') status.textContent = 'Gagal memperbarui tabel. Coba lagi.';
+        } finally {
+            if (controller === current) table.removeAttribute('aria-busy');
+        }
+    }
+
+    form.querySelector('[data-compare-submit]').hidden = true;
+    form.addEventListener('change', event => {
+        if (!boxes.some(box => box.checked)) event.target.checked = true;
+        limit();
+        load();
+    });
+    form.addEventListener('submit', event => {
+        event.preventDefault();
+        load();
+    });
+    limit();
+})();

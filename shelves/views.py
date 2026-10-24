@@ -12,6 +12,7 @@ from django.views.decorators.http import require_POST
 
 from product_catalog.models import Product
 
+from .comparison import MAX_COMPARED, comparison_rows
 from .forms import CandidateSearchForm, ShelfForm, ShelfItemForm
 from .models import MAX_SHELF_ITEMS, Shelf, ShelfItem
 
@@ -84,13 +85,19 @@ def shelf_detail(request, pk):
     shelf = get_object_or_404(shelves_with_counts(), pk=pk)
     if shelf.is_private and shelf.owner_id != request.user.pk:
         raise Http404  # 404, bukan 403, supaya orang lain tidak tahu shelf ini ada
-    items = shelf.items.select_related("product").filter(product__is_active=True)
+    products = [i.product for i in shelf.items.select_related("product").filter(product__is_active=True)]
+    chosen = request.GET.getlist("banding")
+    compared = [p for p in products if str(p.pk) in chosen][:MAX_COMPARED] or products[:MAX_COMPARED]
+    rows = comparison_rows(compared)
     if wants_json(request):
-        return JsonResponse({**serialize_shelf(shelf),
-                             "products": [{"id": i.product_id, "name": i.product.product_name} for i in items]})
+        return JsonResponse({**serialize_shelf(shelf), "products": [product_card(p) for p in products],
+                             "compared": [p.pk for p in compared], "rows": rows})
+    context = {"shelf": shelf, "products": products, "compared": compared, "rows": rows,
+               "max_compared": MAX_COMPARED}
+    if request.GET.get("partial"):
+        return render(request, "shelves/_comparison.html", context)
     return render(request, "shelves/detail.html", {
-        "shelf": shelf, "items": items, "is_owner": shelf.owner_id == request.user.pk,
-        "owner_name": owner_name(shelf.owner),
+        **context, "is_owner": shelf.owner_id == request.user.pk, "owner_name": owner_name(shelf.owner),
     })
 
 

@@ -8,6 +8,7 @@ from django.urls import reverse
 
 from product_catalog.models import Product
 
+from .comparison import comparison_rows
 from .forms import DESCRIPTION_MAX, ShelfItemForm
 from .models import MAX_SHELF_ITEMS, SavedShelf, Shelf, ShelfItem
 
@@ -200,3 +201,51 @@ class ShelfItemViewTests(TestCase):
         url = reverse("shelves:item_remove", args=[self.shelf.pk, self.indomie.pk])
         self.assertEqual(self.client.post(url).status_code, 404)
         self.assertEqual(self.shelf.items.count(), 1)
+
+
+class ComparisonTests(TestCase):
+    def make(self, name, **fields):
+        return Product.objects.create(product_name=name, source="manual", **fields)
+
+    def best(self, rows, label):
+        row = next(r for r in rows if r["label"] == label)
+        return [cell["best"] for cell in row["cells"]]
+
+    def test_best_value_follows_row_direction(self):
+        a = self.make("A", nutrition_grade="c", proteins_100g=9, sugars_100g=7, sodium_100g=0.9)
+        b = self.make("B", nutrition_grade="b", proteins_100g=8, sugars_100g=6, sodium_100g=0.78)
+        rows = comparison_rows([a, b])
+        self.assertEqual(self.best(rows, "Nutri-Score"), [False, True])
+        self.assertEqual(self.best(rows, "Protein"), [True, False])
+        self.assertEqual(self.best(rows, "Gula"), [False, True])
+        self.assertEqual(self.best(rows, "Natrium"), [False, True])
+        self.assertEqual(self.best(rows, "Energi"), [False, False])
+
+    def test_needs_two_rankable_values(self):
+        a = self.make("A", nutrition_grade="b", environmental_grade="unknown", proteins_100g=9)
+        b = self.make("B", nutrition_grade="unknown", environmental_grade="not-applicable")
+        rows = comparison_rows([a, b])
+        self.assertEqual(self.best(rows, "Nutri-Score"), [False, False])
+        self.assertEqual(self.best(rows, "Protein"), [False, False])
+        green = next(r for r in rows if r["label"] == "Green-Score")["cells"]
+        self.assertEqual([(c["value"], c["rank"]) for c in green], [("unknown", None), ("not-applicable", None)])
+
+    def test_equal_values_are_not_marked(self):
+        rows = comparison_rows([self.make("A", nova_group=4), self.make("B", nova_group=4)])
+        self.assertEqual(self.best(rows, "NOVA"), [False, False])
+
+    def test_detail_compares_at_most_four_chosen_products(self):
+        owner = get_user_model().objects.create_user("rani@example.com", "rani@example.com", "pw-12345678")
+        shelf = Shelf.objects.create(name="Mie", owner=owner)
+        products = [self.make(f"P{i}") for i in range(6)]
+        for product in products:
+            ShelfItem.objects.create(shelf=shelf, product=product)
+        url = reverse("shelves:detail", args=[shelf.pk])
+        self.assertEqual(self.client.get(url, {"format": "json"}).json()["compared"], [p.pk for p in products[:4]])
+        chosen = [products[5].pk, products[4].pk] + [p.pk for p in products[:3]]
+        data = self.client.get(url, {"format": "json", "banding": chosen}).json()
+        self.assertEqual(data["compared"], [p.pk for p in products[:3]] + [products[4].pk])
+        response = self.client.get(url, {"partial": "1", "banding": [products[5].pk]})
+        self.assertTemplateUsed(response, "shelves/_comparison.html")
+        self.assertContains(response, "P5")
+        self.assertNotContains(response, ">P0<")
