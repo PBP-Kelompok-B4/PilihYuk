@@ -9,9 +9,9 @@ Status branch anggota lain dibaca dari riwayat Git saja, tanpa membuka atau menj
 | Branch | Isi | Posisi |
 |--------|-----|--------|
 | `main` (PWS) | Auth, Modul 1, halaman bersama, rename Rekomendasi | Ter-deploy 23 Okt. `seed_products` dijalankan manual |
-| `dev` | `main` ditambah CRUD shelf, perubahan login, dan dokumen ini | 175 tes lulus (24 Okt) |
+| `dev` | `main` ditambah Modul 2, perubahan login, favicon, dan dokumen ini | 196 tes lulus (24 Okt) |
 | `product_catalog` (Yasmin) | Katalog, lookup barcode, input manual, riwayat lihat, seeding 406 produk | Di `dev`. Dua commit (produk di landing, layout ponsel) belum masuk |
-| `shelves` (Daffaa) | Model dan CRUD shelf | Di `dev`. AJAX produk dan tabel pembanding belum |
+| `shelves` (Daffaa) | CRUD shelf, tambah dan keluarkan produk lewat AJAX, tabel pembanding, Simpan ke Shelf Saya | Di `dev` (24 Okt) |
 | `recommendations` (Rafael, per 23 Okt) | Model `Substitution`, form, view, template, tes, di folder `substitutions/` | Belum di `dev` |
 | `data_correction` (Rayyan, per 23 Okt) | Model, ajukan dan tinjau koreksi, antrean kurator dan kontribusi, JSON, tes | Belum di `dev`. `data_correction.js` belum diisi |
 | `preferences` (Jonathan, per 23 Okt) | Belum ada kode | `Shelf` sudah ada, jadi `Decision` bisa ditulis |
@@ -41,7 +41,7 @@ Template di `templates/<app>/`, JavaScript di `static/js/<app>.js`, semua halama
 
 ## Bonus (setelah bagian wajib beres)
 
-- Urutan tabel pembanding mengikuti preferensi pengguna (`preferences/ranking.py`). Paling diutamakan.
+- Urutan tabel pembanding mengikuti preferensi pengguna (`preferences/ranking.py`). Paling diutamakan. Baris tabel berasal dari `comparison_rows()` di `shelves/comparison.py`, jadi cukup urutkan ulang list itu.
 - Antrean kontribusi diurutkan dari produk yang paling sering masuk shelf.
 - Skor lingkungan estimasi.
 - Refresh data satu produk dari Open Food Facts.
@@ -58,10 +58,8 @@ Template di `templates/<app>/`, JavaScript di `static/js/<app>.js`, semua halama
 
 ### Daffaa (`shelves`, `accounts`, integrasi)
 
-- Tambah dan keluarkan produk lewat AJAX, dengan kandidat yang bisa difilter dan batas 12 produk.
-- Tabel pembanding: sampai 4 produk, skor, kemasan, asal, gizi utama, penanda nilai terbaik, dan `"unknown"` tanpa peringkat.
-- Simpan ke Shelf Saya lewat AJAX.
 - Isi `featured_shelves()` di landing setelah commit landing Yasmin masuk.
+- Penanda "Estimasi" untuk Green-Score di tabel pembanding.
 - Integrasi: `"unknown"` menaut ke koreksi Rayyan, dan tombol "Pilih produk ini" menyimpan `Decision` lewat view Jonathan.
 - Coba semua alur di PWS sebelum pengumpulan.
 - Reset password sudah jalan. Untuk PWS, isi `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` di environment. Bonus: urutan dari `preferences/ranking.py`.
@@ -94,7 +92,7 @@ Template di `templates/<app>/`, JavaScript di `static/js/<app>.js`, semua halama
 
 | Risiko | Penanganan |
 |--------|------------|
-| Modul 5 baru mulai, Modul 2 belum lengkap | Tujuh Aturan Khusus dulu, bonus belakangan |
+| Modul 5 baru mulai | Tujuh Aturan Khusus dulu, bonus belakangan |
 | Modul 3 dan 4 belum pernah digabung | PR ke `dev` secepatnya supaya konflik ketahuan lebih awal |
 | Konflik di `urls.py`, `base.html`, `pilihyuk/views.py` | Satu baris per app, merge cepat. `base.html` hanya diubah Daffaa |
 | Tailwind CDN butuh internet | Pastikan koneksi saat demo |
