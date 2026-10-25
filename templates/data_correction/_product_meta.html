@@ -1,0 +1,2 @@
+{# Baris kecil "merek · isi" satu produk. Bagian yang kosong tetap ditulis "tidak diketahui", tidak disembunyikan. Dipakai lewat include dengan variabel product (Product, atau baris antrean yang punya brand dan quantity). #}
+{% if product.brand and product.quantity %}{{ product.brand }} · {{ product.quantity }}{% elif product.brand %}{{ product.brand }} · isi tidak diketahui{% elif product.quantity %}Merek tidak diketahui · {{ product.quantity }}{% else %}Merek dan isi tidak diketahui{% endif %}

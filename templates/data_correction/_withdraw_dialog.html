@@ -1,0 +1,16 @@
+{# Tombol "Tarik pengajuan" dan konfirmasinya. Dipakai lewat include dengan variabel correction, hanya bila correction.is_withdrawable. Konfirmasi memakai atribut HTML popover, jadi tidak butuh JavaScript; form di dalamnya tetap POST biasa. Browser yang belum mengenal popover menampilkan kotak konfirmasi langsung di bawah tombol. #}
+<button type="button" popovertarget="tarik-{{ correction.pk }}" class="inline-flex items-center justify-center gap-2 rounded-[10px] px-4 py-2.5 text-[13px] font-semibold text-[#b42318] ring-1 ring-[#b42318]/40 hover:bg-[#fde7e4]">Tarik pengajuan</button>
+<div id="tarik-{{ correction.pk }}" popover role="dialog" aria-labelledby="tarik-{{ correction.pk }}-judul" class="m-auto w-[min(28rem,calc(100%-2rem))] rounded-[20px] bg-white p-6 text-left text-ink shadow-xl backdrop:bg-ink/40">
+    <div class="flex items-start gap-3">
+        <span class="icon-box h-10 w-10 shrink-0 bg-[#fde7e4] text-[#b42318]">{% include 'data_correction/_icon.html' with name='warning' css='h-5 w-5' %}</span>
+        <div class="min-w-0">
+            <h2 id="tarik-{{ correction.pk }}-judul" class="text-base font-bold">Tarik pengajuan ini?</h2>
+            <p class="mt-1 break-words text-sm text-muted">Pengajuan untuk {{ correction.product.product_name|default:'produk ini' }} akan dihapus beserta semua usulannya dan tidak bisa dikembalikan.</p>
+        </div>
+    </div>
+    <form method="post" action="{% url 'data_correction:withdraw' correction.pk %}" class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        {% csrf_token %}
+        <button type="button" popovertarget="tarik-{{ correction.pk }}" popovertargetaction="hide" autofocus class="btn-white btn-small ring-1 ring-line">Batal</button>
+        <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-[10px] bg-[#b42318] px-4 py-2.5 text-[13px] font-semibold text-white hover:bg-[#b42318]/90">Tarik Pengajuan</button>
+    </form>
+</div>
