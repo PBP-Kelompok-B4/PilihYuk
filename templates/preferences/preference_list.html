@@ -2,14 +2,16 @@
 {% load static %}
 {% block meta %}<title>Preferensi nutrisi · PilihYuk</title>{% endblock %}
 {% block content %}
-<main class="section w-full min-w-0 flex-1 py-10" data-preferences>
+<main class="section w-full min-w-0 flex-1 py-10" data-preferences data-preview-url="{% url 'preferences:preference_preview' %}">
     <p class="eyebrow">PENGATURAN PRIBADI</p>
     <h1 class="section-title">Preferensi nutrisi</h1>
     <p class="mt-2 text-sm text-muted">Aktifkan nutrien dan tentukan prioritas. Urutan mengikuti preferensimu.</p>
+    <p data-module-status role="status" class="mt-3 text-sm"></p>
     <a href="{% url 'preferences:decision_list' as history_url %}{{ history_url|default:'/profil/' }}" class="mt-4 inline-block text-brand underline">Aktivitasmu</a>
     {% if form.errors %}<div role="alert" class="mt-4 rounded-xl bg-warm p-4">{{ form.errors }}</div>{% endif %}
     <div class="mt-6 space-y-4">
         {% for row in rows %}{% include "preferences/_preference_row.html" %}{% endfor %}
     </div>
 </main>
+<script src="{% static 'js/preferences.js' %}" defer></script>
 {% endblock %}

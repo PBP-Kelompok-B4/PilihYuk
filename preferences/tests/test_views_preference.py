@@ -61,3 +61,38 @@ class PreferenceViewTests(TestCase):
         self.assertEqual(response.json(), {"ok": True, "ranked_count": 2, "total_active": 3,
                          "samples": [{"name": "Nol", "value": 0.0, "unit": "mg"},
                                      {"name": "Ada", "value": 123.4, "unit": "mg"}]})
+
+    def test_json_crud_and_validation_envelope(self):
+        self.client.force_login(self.user)
+        headers = {"HTTP_ACCEPT": "application/json"}
+        result = self.client.post(reverse("preferences:preference_create"),
+                                  {"nutrient": "fiber", "direction": "max", "weight": 2}, **headers)
+        self.assertEqual(result.status_code, 201)
+        item = result.json()["item"]
+        self.assertEqual(item, {"id": item["id"], "nutrient": "fiber", "nutrient_label": "Serat", "direction": "max", "weight": 2})
+        self.assertEqual(self.client.get(self.url, **headers).json()["items"], [item])
+        url = reverse("preferences:preference_update", args=[item["id"]])
+        updated = self.client.post(url, {"direction": "min", "weight": 3}, **headers)
+        self.assertEqual(updated.json()["item"]["direction"], "min")
+        invalid = self.client.post(url, {"direction": "max", "weight": 4}, **headers)
+        self.assertEqual(invalid.status_code, 400)
+        self.assertFalse(invalid.json()["ok"])
+        self.assertIn("weight", invalid.json()["errors"])
+        result = self.client.post(reverse("preferences:preference_delete", args=[item["id"]]), **headers)
+        self.assertTrue(result.json()["ok"])
+        self.assertEqual(self.client.get(self.url, **headers).json()["items"], [])
+
+    def test_preview_max_limit_errors_methods_and_guests(self):
+        url = "/preferensi/pratinjau/"
+        self.assertEqual(self.client.get(url).status_code, 302)
+        self.client.force_login(self.user)
+        for value in (1, 3, 2, 4):
+            make_product(product_name=str(value), proteins_100g=value)
+        result = self.client.get(url, {"nutrient": "protein", "direction": "max"}).json()
+        self.assertEqual([item["value"] for item in result["samples"]], [4.0, 3.0, 2.0])
+        for params in ({}, {"nutrient": "invalid", "direction": "max"}, {"nutrient": "protein", "direction": "invalid"}):
+            response = self.client.get(url, params)
+            self.assertEqual(response.status_code, 400)
+            self.assertFalse(response.json()["ok"])
+        self.assertEqual(self.client.post(url).status_code, 405)
+        self.assertFalse(self.client.get(reverse("preferences:preference_create"), HTTP_ACCEPT="application/json").json()["ok"])

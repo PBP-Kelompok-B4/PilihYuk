@@ -9,6 +9,19 @@ def wants_json(request):
             or "application/json" in request.headers.get("Accept", ""))
 
 
+def module_methods(*allowed):
+    def decorate(view):
+        @wraps(view)
+        def wrapped(request, *args, **kwargs):
+            if request.method not in allowed:
+                response = JsonResponse({"ok": False, "message": "Metode tidak diizinkan."}, status=405)
+                response["Allow"] = ", ".join(allowed)
+                return response
+            return view(request, *args, **kwargs)
+        return wrapped
+    return decorate
+
+
 def owner_required(model):
     def decorate(view):
         @wraps(view)

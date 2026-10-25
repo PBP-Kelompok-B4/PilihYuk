@@ -1,4 +1,4 @@
-<section class="card min-w-0" data-nutrient="{{ row.nutrient }}" data-id="{{ row.item.pk|default:'' }}" aria-labelledby="label-{{ row.nutrient }}">
+<section class="card min-w-0" data-nutrient="{{ row.nutrient }}" data-id="{{ row.item.pk|default:'' }}" data-direction="{{ row.direction }}" data-weight="{{ row.weight }}" aria-labelledby="label-{{ row.nutrient }}">
     <div class="grid min-w-0 gap-4 md:grid-cols-[1fr_auto_auto_auto] md:items-center">
         <h2 id="label-{{ row.nutrient }}" class="font-bold">{{ row.label }}</h2>
         <form method="post" action="{% if row.active %}{% url 'preferences:preference_update' row.item.pk %}{% else %}{% url 'preferences:preference_create' %}{% endif %}" class="contents" data-preference-save>
