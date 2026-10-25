@@ -3,33 +3,21 @@
 {% block meta %}<title>{% if selected %}Review pengajuan{% else %}Moderasi Data{% endif %} — PilihYuk</title>{% endblock meta %}
 {% block content %}
 <main class="section w-full flex-1 py-10">
-    {# Kepala halaman, statistik, dan tab. Di layar kecil disembunyikan saat panel review terbuka, karena wireframe mobile memisah antrean dan review. #}
-    <div class="{% if selected %}hidden lg:block{% endif %}">
+    {# Kepala halaman, statistik, dan tab. Di bawah 1280 px disembunyikan saat panel review terbuka, karena wireframe mobile memisah antrean dan review; dua kolom baru dipakai mulai 1280 px agar kolom tabel tidak terlalu sempit. #}
+    <div class="{% if selected %}hidden xl:block{% endif %}">
         <nav aria-label="Breadcrumb" class="text-[13px] text-muted">Admin › <span aria-current="page">Moderasi Data</span></nav>
         <h1 class="section-title">Moderasi Data</h1>
-        <p class="mt-2 max-w-2xl text-muted">Tinjau koreksi data produk dari pengguna, satu field per baris. Setujui untuk menulis nilai ke produk, atau tolak dengan catatan untuk pengaju.</p>
+        <p class="mt-2 max-w-2xl text-muted">Tinjau koreksi data produk hasil kontribusi pengguna. Setujui atau tolak per field.</p>
 
-        <dl class="mt-6 grid grid-cols-3 gap-3 sm:gap-4">
-            <div class="card min-w-0 p-4 sm:p-6">
-                <dt class="text-[13px] font-semibold">Menunggu review</dt>
-                <dd class="mt-1 text-2xl font-bold sm:text-3xl">{{ stats.pending }}</dd>
-                <dd class="text-xs text-muted">item koreksi</dd>
-            </div>
-            <div class="card min-w-0 p-4 sm:p-6">
-                <dt class="text-[13px] font-semibold">Disetujui</dt>
-                <dd class="mt-1 text-2xl font-bold sm:text-3xl">{{ stats.approved }}</dd>
-                <dd class="text-xs text-muted">total item</dd>
-            </div>
-            <div class="card min-w-0 p-4 sm:p-6">
-                <dt class="text-[13px] font-semibold">Ditolak</dt>
-                <dd class="mt-1 text-2xl font-bold sm:text-3xl">{{ stats.rejected }}</dd>
-                <dd class="text-xs text-muted">total item</dd>
-            </div>
-        </dl>
+        <ul class="mt-6 grid grid-cols-3 gap-3 sm:gap-4" aria-label="Ringkasan moderasi">
+            {% include 'data_correction/_stat_card.html' with icon='clock' tone='bg-surface text-ink' value=stats.pending|thousands title='Menunggu review' text='item koreksi' %}
+            {% include 'data_correction/_stat_card.html' with icon='check-circle' tone='bg-mint text-brand' value=stats.approved|thousands title='Disetujui' text='total item' %}
+            {% include 'data_correction/_stat_card.html' with icon='x-circle' tone='bg-[#fde7e4] text-[#b42318]' value=stats.rejected|thousands title='Ditolak' text='total item' %}
+        </ul>
 
-        <nav aria-label="Tab moderasi" class="mt-6 flex flex-wrap gap-2">
+        <nav aria-label="Tab moderasi" class="mt-6 flex flex-wrap gap-x-5 border-b border-line sm:gap-x-7">
             {% for tab in filters.tabs %}
-            <a href="{{ tab.url }}" class="rounded-full px-4 py-2 text-sm font-semibold {% if tab.active %}bg-ink text-white{% else %}bg-white text-ink ring-1 ring-line hover:text-brand{% endif %}"{% if tab.active %} aria-current="page"{% endif %}>{{ tab.label }}</a>
+            <a href="{{ tab.url }}" class="-mb-px border-b-2 pb-3 pt-1 text-[13px] font-semibold sm:text-sm {% if tab.active %}border-brand text-brand{% else %}border-transparent text-muted hover:text-ink{% endif %}"{% if tab.active %} aria-current="page"{% endif %}>{{ tab.label }}</a>
             {% endfor %}
         </nav>
     </div>
@@ -39,21 +27,21 @@
     {% else %}
 
     {% if selected %}
-    {# Hanya di layar kecil: judul halaman review. Di desktop judulnya ada di dalam panel. #}
-    <div class="lg:hidden">
+    {# Hanya di bawah 1280 px: judul halaman review. Di desktop lebar judulnya ada di dalam panel. #}
+    <div class="xl:hidden">
         <nav aria-label="Breadcrumb" class="text-[13px] text-muted">Admin › <a href="{{ back_url }}" class="hover:text-brand">Moderasi Data</a> › <span aria-current="page">Review</span></nav>
         <h1 class="section-title">Review pengajuan</h1>
     </div>
     {% endif %}
 
-    <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <section class="card min-w-0{% if selected %} hidden lg:block{% endif %}" aria-labelledby="judul-antrean">
+    <div class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <section class="card min-w-0{% if selected %} hidden xl:block{% endif %}" aria-labelledby="judul-antrean">
             <div class="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 id="judul-antrean" class="text-lg font-bold">{% if filters.tab == 'semua' %}Semua pengajuan{% else %}Antrean pengajuan{% endif %}</h2>
-                <p class="text-xs text-muted">{{ page_obj.paginator.count }} item</p>
+                <p class="text-xs text-muted">{{ page_obj.paginator.count|thousands }} item</p>
             </div>
             {% if missing_item %}
-            <p role="alert" class="mt-3 rounded-[10px] bg-warm px-4 py-3 text-[13px] font-semibold text-[#b42318]">Item yang dipilih tidak ditemukan. Mungkin pengajuannya sudah ditarik pengaju.</p>
+            <p role="alert" class="mt-3 rounded-[10px] bg-[#fde7e4] px-4 py-3 text-[13px] font-semibold text-[#b42318]">Item yang dipilih tidak ditemukan. Mungkin pengajuannya sudah ditarik pengaju.</p>
             {% endif %}
 
             <nav aria-label="Filter field" class="mt-4 flex flex-wrap gap-2">
@@ -65,29 +53,28 @@
             </nav>
             {% endif %}{% endwith %}
 
+            {% if rows %}
             {# Judul kolom hanya di desktop. Di setiap baris, label kolom tetap ada untuk pembaca layar (lg:sr-only). #}
-            <div aria-hidden="true" class="mt-5 hidden gap-3 px-4 text-xs font-semibold text-muted lg:grid lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_6.5rem_5.5rem]">
+            <div aria-hidden="true" class="mt-5 hidden gap-3 px-4 text-xs font-semibold text-muted lg:grid lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_6.5rem_7rem]">
                 <span>Produk</span><span>Field</span><span>Saat ini</span><span>Usulan</span><span>Status</span><span class="text-right">Aksi</span>
             </div>
             <ul class="mt-2 space-y-3">
                 {% for row in rows %}{% with item=row.item %}
-                <li class="grid grid-cols-1 gap-2 rounded-[14px] p-4 ring-1 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_6.5rem_5.5rem] lg:items-center lg:gap-3 {% if selected and selected.item.pk == item.pk %}bg-mint ring-brand/30{% else %}ring-line{% endif %}">
+                <li class="grid grid-cols-1 gap-2 rounded-[14px] p-4 ring-1 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_6.5rem_7rem] lg:items-center lg:gap-3 {% if selected and selected.item.pk == item.pk %}bg-mint ring-brand/30{% else %}ring-line{% endif %}">
                     <div class="min-w-0">
                         <p class="break-words font-semibold">{{ row.product.product_name|default:'Produk tanpa nama' }}</p>
-                        <p class="break-words text-xs text-muted">{{ row.product.brand|default:'Merek tidak diketahui' }}{% if row.product.quantity %} · {{ row.product.quantity }}{% endif %}</p>
+                        <p class="break-words text-xs text-muted">{% include 'data_correction/_product_meta.html' with product=row.product %}</p>
                         <p class="break-words text-xs text-muted">{{ row.submitter }} · {{ item.correction.created_at|ago }}</p>
                     </div>
                     <p class="min-w-0 break-words text-sm font-semibold"><span class="font-normal text-muted lg:sr-only">Field: </span>{{ item.get_field_name_display }}</p>
                     <p class="min-w-0 break-words text-sm text-muted"><span class="lg:sr-only">Saat ini: </span>{{ row.current|display_value:item.field_name }}</p>
                     <p class="min-w-0 break-words text-sm font-semibold text-brand"><span class="font-normal text-muted lg:sr-only">Usulan: </span>{{ item.proposed_value|display_value:item.field_name }}</p>
                     <div>{% include 'data_correction/_status_chip.html' with status=item.status label=item.get_status_display %}</div>
-                    <div class="text-sm font-semibold lg:text-right">
-                        {% if selected and selected.item.pk == item.pk %}<span class="text-brand">Sedang ditinjau</span>{% else %}<a href="{{ row.url }}" class="text-brand underline">{% if item.status == 'pending' %}Review{% else %}Lihat{% endif %}</a>{% endif %}
+                    <div class="text-[13px] font-semibold lg:text-right">
+                        {% if selected and selected.item.pk == item.pk %}<span class="text-brand">Sedang ditinjau</span>{% else %}<a href="{{ row.url }}" class="inline-flex items-center justify-center rounded-[10px] bg-mint px-4 py-2 text-brand hover:bg-faint">{% if item.status == 'pending' %}Review{% else %}Lihat{% endif %}</a>{% endif %}
                     </div>
                 </li>
-                {% endwith %}{% empty %}
-                <li class="rounded-[14px] bg-surface p-6 text-center text-sm text-muted">{% if filters.tab == 'semua' %}Belum ada item yang cocok dengan filter ini.{% else %}Tidak ada item yang menunggu review.{% endif %}</li>
-                {% endfor %}
+                {% endwith %}{% endfor %}
             </ul>
 
             {% if page_obj.paginator.num_pages > 1 %}
@@ -97,13 +84,21 @@
                 {% if page_links.next %}<a href="{{ page_links.next }}" class="btn-white btn-small ring-1 ring-line">Berikutnya</a>{% else %}<span></span>{% endif %}
             </nav>
             {% endif %}
+            {% elif filters.tab == 'semua' %}
+            {% include 'data_correction/_empty_state.html' with icon='search' title='Belum ada item yang cocok dengan filter ini.' text='Coba pilih field atau status lain.' %}
+            {% else %}
+            {% include 'data_correction/_empty_state.html' with icon='check-circle' title='Tidak ada pengajuan yang menunggu review.' text='Semua usulan sudah ditinjau. Usulan baru akan muncul di sini.' %}
+            {% endif %}
         </section>
 
         <div class="min-w-0">
             {% if selected %}
             {% include 'data_correction/_review_panel.html' with row=selected %}
             {% else %}
-            <p class="card hidden text-sm text-muted lg:block">Pilih <span class="font-semibold text-ink">Review</span> pada salah satu baris untuk meninjau usulannya di sini.</p>
+            <div class="card hidden text-center xl:block">
+                <span class="icon-box mx-auto bg-surface text-muted">{% include 'data_correction/_icon.html' with name='inbox' css='h-6 w-6' %}</span>
+                <p class="mt-4 text-sm text-muted">Pilih <span class="font-semibold text-ink">Review</span> pada salah satu baris untuk meninjau usulannya di sini.</p>
+            </div>
             {% endif %}
         </div>
     </div>
