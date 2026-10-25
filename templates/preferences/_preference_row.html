@@ -1,0 +1,31 @@
+<section class="card min-w-0" data-nutrient="{{ row.nutrient }}" data-id="{{ row.item.pk|default:'' }}" aria-labelledby="label-{{ row.nutrient }}">
+    <div class="grid min-w-0 gap-4 md:grid-cols-[1fr_auto_auto_auto] md:items-center">
+        <h2 id="label-{{ row.nutrient }}" class="font-bold">{{ row.label }}</h2>
+        <form method="post" action="{% if row.active %}{% url 'preferences:preference_update' row.item.pk %}{% else %}{% url 'preferences:preference_create' %}{% endif %}" class="contents" data-preference-save>
+            {% csrf_token %}<input type="hidden" name="nutrient" value="{{ row.nutrient }}">
+            <fieldset {% if not row.active %}disabled{% endif %} class="min-w-0" data-setting>
+                <legend class="mb-1 text-xs text-muted">Bobot {{ row.label }}</legend>
+                <div class="inline-flex rounded-xl bg-surface p-1">
+                {% for value,label in weight_choices %}
+                    <label class="cursor-pointer rounded-lg px-3 py-2 text-sm has-checked:bg-brand has-checked:text-white has-disabled:cursor-not-allowed has-disabled:opacity-50">
+                        <input type="radio" name="weight" value="{{ value }}" {% if row.weight == value %}checked{% endif %} class="mr-1 accent-brand">{{ label }}
+                    </label>
+                {% endfor %}
+                </div>
+            </fieldset>
+            <div class="min-w-0">
+                <label for="direction-{{ row.nutrient }}" class="mb-1 block text-xs text-muted">Arah {{ row.label }}</label>
+                <select name="direction" id="direction-{{ row.nutrient }}" {% if not row.active %}disabled{% endif %} data-setting class="w-full rounded-xl border border-line bg-white p-3 text-sm disabled:opacity-50">
+                {% for value,label in direction_choices %}<option value="{{ value }}" {% if row.direction == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                </select>
+            </div>
+            {% if row.active %}<button type="submit" class="btn-brand btn-small" data-save-button>Simpan</button>{% endif %}
+        </form>
+        <form method="post" action="{% if row.active %}{% url 'preferences:preference_delete' row.item.pk %}{% else %}{% url 'preferences:preference_create' %}{% endif %}" class="justify-self-end" data-preference-toggle>
+            {% csrf_token %}<input type="hidden" name="nutrient" value="{{ row.nutrient }}">
+            <input type="hidden" name="direction" value="{{ row.direction }}"><input type="hidden" name="weight" value="2">
+            <button type="submit" role="switch" aria-checked="{% if row.active %}true{% else %}false{% endif %}" aria-label="Aktifkan {{ row.label }}" class="btn-white btn-small ring-1 ring-line">{% if row.active %}Aktif{% else %}Nonaktif{% endif %}</button>
+        </form>
+    </div>
+    <div data-preview class="mt-3 text-sm text-muted" aria-live="polite"></div>
+</section>
