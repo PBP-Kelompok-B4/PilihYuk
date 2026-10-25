@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% load static %}
+{% block meta %}<title>Riwayat keputusan · PilihYuk</title>{% endblock %}
+{% block content %}
+<main class="section w-full min-w-0 flex-1 py-10" data-decisions>
+    <p class="eyebrow">CATATAN PRIBADI</p>
+    <h1 class="section-title">Riwayat keputusan</h1>
+    <p class="mt-2 text-sm text-muted">Catat produk yang kamu pilih dan alasannya.</p>
+    <a href="{% url 'preferences:preference_list' %}" class="mt-4 inline-block text-brand underline">Preferensi nutrisi</a>
+    <p data-module-status role="status" class="mt-3 text-sm"></p>
+    {% if errors %}<div role="alert" class="mt-4 rounded-xl bg-warm p-4">{{ errors }}</div>{% endif %}
+    <section class="card mt-6" aria-labelledby="create-title">
+        <h2 id="create-title" class="text-lg font-bold">Catat keputusan</h2>
+        <form method="post" action="{% url 'preferences:decision_create' %}" data-decision-create class="mt-4 space-y-4">
+            {% csrf_token %}
+            {% if form.errors %}<div role="alert">{{ form.errors }}</div>{% endif %}
+            {% for field in form %}<div><label for="{{ field.id_for_label }}" class="mb-1 block text-sm font-semibold">{{ field.label }}</label>{{ field }}</div>{% endfor %}
+            <button type="submit" class="btn-brand">Simpan keputusan</button>
+        </form>
+    </section>
+    <div data-decision-results class="mt-6 space-y-4">
+        {% include "preferences/_decision_results.html" %}
+    </div>
+</main>
+<script src="{% static 'js/preferences.js' %}" defer></script>
+{% endblock %}

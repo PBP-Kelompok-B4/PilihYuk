@@ -1,0 +1,13 @@
+<article class="card min-w-0" data-decision="{{ row.item.id }}">
+    <h2 class="break-words font-bold">{{ row.item.product_name }}</h2>
+    <p class="mt-1 break-words text-sm text-muted">{{ row.item.shelf_name }} · <time datetime="{{ row.item.created_at }}">{{ row.item.created_at }}</time></p>
+    <form method="post" action="{% url 'preferences:decision_update' row.item.id %}" data-decision-update class="mt-4 space-y-2">
+        {% csrf_token %}
+        <label for="note-{{ row.item.id }}" class="block text-sm font-semibold">Alasan (opsional)</label>
+        <textarea name="note" id="note-{{ row.item.id }}" maxlength="500" rows="2" class="w-full min-w-0 rounded-xl border border-line p-3 text-sm">{{ row.item.note }}</textarea>
+        <button type="submit" class="btn-brand btn-small">Simpan alasan</button>
+    </form>
+    <form method="post" action="{% url 'preferences:decision_delete' row.item.id %}" data-decision-delete class="mt-3">
+        {% csrf_token %}<button type="submit" class="btn-white btn-small ring-1 ring-line">Hapus keputusan</button>
+    </form>
+</article>

@@ -1,8 +1,8 @@
 from django.test import TestCase
 
-from preferences.forms import PreferenceForm
+from preferences.forms import DecisionForm, PreferenceForm
 from preferences.models import Preference
-from .helpers import make_user
+from .helpers import make_product, make_shelf, make_user
 
 
 class PreferenceFormTests(TestCase):
@@ -26,3 +26,26 @@ class PreferenceFormTests(TestCase):
         self.assertTrue(form.is_valid(), form.errors)
         saved = form.save()
         self.assertEqual((saved.nutrient, saved.user, saved.direction, saved.weight), ("protein", self.user, "min", 3))
+
+
+class DecisionFormTests(TestCase):
+    def setUp(self):
+        self.user = make_user()
+        self.product = make_product()
+        self.other = make_user("lain")
+
+    def test_optional_shelf_and_note_but_required_active_product(self):
+        self.assertTrue(DecisionForm({"product": self.product.pk}, user=self.user).is_valid())
+        inactive = make_product(is_active=False)
+        for data in ({}, {"product": inactive.pk}, {"product": self.product.pk, "note": "x" * 501}):
+            form = DecisionForm(data, user=self.user)
+            self.assertFalse(form.is_valid())
+
+    def test_shelf_visibility_and_product_membership(self):
+        own = make_shelf(self.user, self.product, is_private=True)
+        public = make_shelf(self.other, self.product)
+        private = make_shelf(self.other, self.product, is_private=True)
+        empty = make_shelf(self.user)
+        for shelf, expected in ((own, True), (public, True), (private, False), (empty, False)):
+            form = DecisionForm({"product": self.product.pk, "shelf": shelf.pk}, user=self.user)
+            self.assertEqual(form.is_valid(), expected, form.errors)
