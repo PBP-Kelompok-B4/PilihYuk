@@ -1,6 +1,8 @@
 from django import forms
 from django.contrib.auth import get_user_model
-from django.contrib.auth.forms import AuthenticationForm, BaseUserCreationForm, PasswordChangeForm
+from django.contrib.auth.forms import (
+    AuthenticationForm, BaseUserCreationForm, PasswordChangeForm, PasswordResetForm, SetPasswordForm,
+)
 
 User = get_user_model()
 
@@ -31,7 +33,7 @@ class Styled:
             else:
                 field.icon = self.icons.get(name)
                 left = "pl-11" if field.icon else "pl-4"
-                right = "pr-24" if widget.input_type == "password" else "pr-4"  # ruang tombol Tampilkan
+                right = "pr-24" if getattr(widget, "input_type", None) == "password" else "pr-4"  # ruang tombol Tampilkan; Textarea tanpa input_type
                 css = INPUT.replace("px-4", f"{left} {right}")
             widget.attrs["class"] = f"{widget.attrs.get('class', '')} {css}".strip()
 
@@ -39,16 +41,12 @@ class Styled:
 class RegisterForm(Styled, BaseUserCreationForm):
     display_name = forms.CharField(label="Nama tampilan", max_length=150)
     email = forms.EmailField(label="Email", max_length=150)
-    terms = forms.BooleanField(
-        label="Saya setuju dengan Ketentuan Layanan dan memahami PilihYuk bukan alat diagnosis medis.",
-        error_messages={"required": "Centang persetujuan untuk melanjutkan."},
-    )
 
     class Meta:
         model = User
         fields = ("email",)  # username dan first_name diisi di clean(); is_staff tidak pernah ikut
 
-    field_order = ["display_name", "email", "password1", "password2", "terms"]
+    field_order = ["display_name", "email", "password1", "password2"]
     icons = {"display_name": "user", "email": "mail", "password1": "lock", "password2": "lock"}
 
     def __init__(self, *args, **kwargs):
@@ -58,7 +56,7 @@ class RegisterForm(Styled, BaseUserCreationForm):
         self.fields["password1"].label = "Password"
         self.fields["password1"].help_text = ""
         self.fields["password2"].label = "Konfirmasi password"
-        self.fields["password2"].help_text = "Minimal 8 karakter. Gunakan kombinasi huruf dan angka."  # sesuai wireframe
+        self.fields["password2"].help_text = "Minimal 8 karakter, berisi huruf dan angka."
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()
@@ -75,24 +73,30 @@ class RegisterForm(Styled, BaseUserCreationForm):
 
 
 class LoginForm(Styled, AuthenticationForm):
-    username = forms.CharField(label="Email", max_length=150)
+    username = forms.CharField(label="Email atau username", max_length=150)
     remember = forms.BooleanField(label="Ingat saya selama 30 hari", required=False)
-    icons = {"username": "mail", "password": "lock"}
+    icons = {"username": "user", "password": "lock"}
     error_messages = {
         **AuthenticationForm.error_messages,
-        # Satu pesan untuk email salah maupun password salah (tanpa membocorkan akun mana yang ada).
-        "invalid_login": "Email atau password salah.",
+        # Satu pesan untuk akun salah maupun password salah (tanpa membocorkan akun mana yang ada).
+        "invalid_login": "Email, username, atau password salah.",
     }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["username"].widget.attrs.update(autocomplete="username", inputmode="email", autofocus=True)
+        self.fields["username"].widget.attrs.update(autocomplete="username", autofocus=True)
         self.fields["password"].label = "Password"
 
     def clean_username(self):
         value = self.cleaned_data["username"].strip()
-        # Email disimpan huruf kecil; username admin tanpa "@" dibiarkan apa adanya.
-        return value.lower() if "@" in value else value
+        if "@" not in value:
+            return value
+        value = value.lower()
+        if User.objects.filter(username=value).exists():
+            return value
+        # Akun dari createsuperuser bisa punya username selain email; masuk lewat emailnya tetap dicari.
+        usernames = list(User.objects.filter(email__iexact=value).values_list("username", flat=True)[:2])
+        return usernames[0] if len(usernames) == 1 else value
 
 
 class ProfileForm(Styled, forms.Form):
@@ -141,6 +145,25 @@ class StyledPasswordChangeForm(Styled, PasswordChangeForm):
         super().__init__(*args, **kwargs)
         self.fields["old_password"].label = "Password lama"
         self.fields["new_password1"].label = "Password baru"
-        self.fields["new_password1"].help_text = "Minimal 8 karakter. Gunakan kombinasi huruf dan angka."
+        self.fields["new_password1"].help_text = "Minimal 8 karakter, berisi huruf dan angka."
+        self.fields["new_password2"].label = "Konfirmasi password baru"
+        self.fields["new_password2"].help_text = ""
+
+
+class StyledPasswordResetForm(Styled, PasswordResetForm):
+    icons = {"email": "mail"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["email"].widget.attrs.update(autocomplete="email", autofocus=True)
+
+
+class StyledSetPasswordForm(Styled, SetPasswordForm):
+    icons = {"new_password1": "lock", "new_password2": "lock"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["new_password1"].label = "Password baru"
+        self.fields["new_password1"].help_text = "Minimal 8 karakter, berisi huruf dan angka."
         self.fields["new_password2"].label = "Konfirmasi password baru"
         self.fields["new_password2"].help_text = ""

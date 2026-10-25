@@ -38,10 +38,10 @@
             </div>
 
             <div class="overflow-x-auto">
-                <table class="w-full min-w-[880px] border-collapse text-left text-sm">
+                <table class="w-full min-w-[590px] border-collapse text-left text-sm sm:min-w-[880px]">
                     <thead>
                         <tr>
-                            <th scope="col" class="w-[196px] bg-surface px-5 py-3 align-top text-[11px] font-bold text-muted">Metrik<span class="block font-normal">Per 100 g</span></th>
+                            <th scope="col" class="sticky left-0 z-10 w-[110px] bg-surface px-3 py-3 align-top text-[11px] font-bold text-muted sm:w-[196px] sm:px-5">Metrik<span class="block font-normal">Per 100 g</span></th>
                             {% for p in shelf.products %}
                             <th scope="col" class="px-4 py-4 align-top font-normal">
                                 {% if p.image %}<img src="{{ p.image }}" alt="" class="h-[104px] w-full rounded-xl object-contain">{% else %}<div class="h-[104px] rounded-xl bg-placeholder"></div>{% endif %}
@@ -106,7 +106,7 @@
                                 <span class="text-[11px] text-muted">{{ row.unit }}</span>
                                 {% endif %}
                                 {% if cell.best %}<span class="ml-1 rounded-full bg-brand px-2 py-0.5 text-[9px] font-bold text-white">{% if row.best == "max" %}Tertinggi{% else %}Terendah{% endif %}</span>{% endif %}
-                                <div class="mt-1.5 h-1 w-24 rounded-full bg-track">
+                                <div class="mt-1.5 h-1 w-20 rounded-full bg-track sm:w-24">
                                     <div class="h-1 rounded-full {% if row.best %}bg-brand{% else %}bg-bar{% endif %}" style="width: {{ cell.pct }}%"></div>
                                 </div>
                             </td>
@@ -115,7 +115,7 @@
                         {% endfor %}
 
                         <tr class="border-t border-line bg-surface">
-                            <th scope="row" class="px-5 py-3 text-left text-xs font-bold text-muted">Aksi</th>
+                            <th scope="row" class="sticky left-0 z-10 bg-surface px-3 py-3 text-left text-xs font-bold text-muted sm:px-5">Aksi</th>
                             {% for p in shelf.products %}
                             <td class="px-4 py-2"><a href="{{ p.url|default:'#' }}" class="btn-white btn-small"><img src="{% static 'img/external-link.svg' %}" alt="">Detail</a></td>
                             {% endfor %}
