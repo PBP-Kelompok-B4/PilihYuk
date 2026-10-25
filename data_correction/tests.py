@@ -71,13 +71,14 @@ from .responses import (
 from .services import CorrectionError, approve_item, reject_item, submit_correction, withdraw_correction
 from .validators import get_current_value, parse_proposed_value, to_column_value, to_display, to_stored_text
 from .forms import CorrectionForm, help_text_for
-from .templatetags.data_correction_tags import ago, display_value
+from .templatetags.data_correction_tags import ago, display_value, is_known, thousands
 from .display import display_name
 from .moderation import QueueFilters, field_guide, find_item, queue_items, queue_row, queue_stats
 from .contribution import (
     ContributionFilters,
     contribution_stats,
     decorate,
+    page_images,
     pending_product_ids,
     queue_products,
 )
@@ -2135,7 +2136,7 @@ class ContributionQueueViewTests(ViewTestMixin, TestCase):
         with CaptureQueriesContext(connection) as many:
             self.client.get(CONTRIBUTION_URL)
         self.assertEqual(len(many), len(few))
-        self.assertEqual(len(few), 4)  # produk, produk dengan item pending, dan 2 query statistik
+        self.assertEqual(len(few), 5)  # produk, produk dengan item pending, dan 2 query statistik
 
     def test_logged_in_user_gets_a_link_to_own_corrections(self):
         self.client.force_login(self.user)
@@ -2148,3 +2149,188 @@ class ContributionQueueViewTests(ViewTestMixin, TestCase):
                 self.assertNotIn("TODO Tahap 6", source)
                 self.assertNotIn('href="/antrean/"', source)
                 self.assertIn("{% url 'data_correction:contribution_queue' %}", source)
+
+UNKNOWN_CHIP = '<span class="chip bg-[#fdf0c4] text-[#6b4d00]">Tidak diketahui</span>'
+OFF_IMAGE = "https://images.openfoodfacts.org/images/products/899/000/000/0001/front_id.3.400.jpg"
+
+class DisplayFilterTests(SimpleTestCase):
+    def test_thousands_uses_indonesian_grouping(self):
+        cases = ((0, "0"), (347, "347"), (1248, "1.248"), (1234567, "1.234.567"), (None, "0"))
+        for value, expected in cases:
+            with self.subTest(value=value):
+                self.assertEqual(thousands(value), expected)
+        template = Template("{% load data_correction_tags %}{{ total|thousands }} produk")
+        self.assertEqual(template.render(Context({"total": 1248})), "1.248 produk")
+
+    def test_is_known_treats_zero_as_data(self):
+        self.assertFalse(is_known(None, "fat_100g"))
+        self.assertFalse(is_known("  ", "brand"))
+        self.assertTrue(is_known(0.0, "fiber_100g"))  # nol bukan kosong
+        self.assertTrue(is_known("0.78", "sodium_100g"))
+
+
+class ContributionPagingTests(SimpleTestCase):
+    def test_numbered_pages_skip_far_pages_and_keep_filters(self):
+        links = ContributionFilters(missing="nutrition").page_links(Paginator(range(347), 20).get_page(9))
+        numbers = [entry.get("number", "…") for entry in links["pages"]]
+        self.assertEqual(numbers, [1, "…", 8, 9, 10, "…", 18])
+        current = [entry for entry in links["pages"] if entry.get("current")]
+        page_nine = {"number": 9, "url": "/antrean/?missing=nutrition&page=9", "current": True}
+        self.assertEqual(current, [page_nine])
+        self.assertEqual(links["pages"][0]["url"], "/antrean/?missing=nutrition&page=1")
+
+
+class ContributionQueuePageTests(TestCase):
+    def setUp(self):
+        self.fiber = make_complete_product(
+            product_name="Sarimi Isi 2 Goreng", fiber_100g=None, image_url=OFF_IMAGE
+        )
+        self.unknown = make_complete_product(
+            product_name="Teh Botol Sosro", brand="", quantity="", nova_group=None
+        )
+
+    def test_header_stats_and_guide(self):
+        response = self.client.get(CONTRIBUTION_URL)
+        texts = ('popovertarget="panduan-kontribusi"', 'id="panduan-kontribusi" popover',
+                 "Panduan kontribusi", "Kurator meninjau setiap usulan.", "Menunggu kontribusi",
+                 "Diajukan minggu ini", "Disetujui", "Rata-rata di shelf", "belum ada data shelf")
+        for text in texts:
+            self.assertContains(response, text)
+
+    def test_rows_show_image_meta_shelf_dash_and_actions(self):
+        response = self.client.get(CONTRIBUTION_URL)
+        images = {row["pk"]: row["image_url"] for row in response.context["rows"]}
+        self.assertEqual(images, {self.fiber.pk: OFF_IMAGE, self.unknown.pk: ""})  # "" = placeholder
+        self.assertContains(response, f'<img src="{OFF_IMAGE}" alt="" loading="lazy"', count=1)
+        self.assertContains(response, "Sarimi · 88 g")
+        self.assertContains(response, "Merek dan isi tidak diketahui")  # kosong tetap ditulis
+        self.assertContains(response, "<span>Frekuensi shelf</span>")
+        self.assertContains(response, '<span aria-hidden="true">—</span>', count=2)  # "—" sampai Tahap 10
+        self.assertContains(response, "</svg>Lengkapi Data</a>", count=2)  # tombol berikon pensil
+        self.assertEqual(page_images([self.unknown.pk]), {self.unknown.pk: ""})
+
+    def test_numbered_pagination_keeps_filters(self):
+        for number in range(45):
+            make_complete_product(product_name=f"Produk {number:02d}", fiber_100g=None)
+        response = self.client.get(CONTRIBUTION_URL + "?missing=nutrition&page=2")
+        pages = [(entry["number"], entry["current"]) for entry in response.context["page_links"]["pages"]]
+        self.assertEqual(pages, [(1, False), (2, True), (3, False)])
+        self.assertContains(response, '<span aria-current="page"')
+        self.assertContains(response, 'href="/antrean/?missing=nutrition&amp;page=3"')
+        self.assertContains(response, "Menampilkan 20 dari 46 produk yang perlu dilengkapi.")
+        self.assertContains(response, "Halaman 2 dari 3")
+
+
+class SubmitPageLayoutTests(ViewTestMixin, TestCase):
+    def setUp(self):
+        self.product = make_complete_product(product_name="Sarimi Isi 2 Goreng", fiber_100g=None)
+        self.url = reverse("data_correction:submit", args=[self.product.pk])
+        self.client.force_login(make_user())
+
+    def test_form_rows_follow_wireframe(self):
+        response = self.client.get(self.url)
+        texts = ("Ajukan koreksi data produk.", "Sarimi Isi 2 Goreng</span> · ", "Sarimi · 88 g",
+                 "<span>Field</span><span>Nilai saat ini</span><span>Usulan nilai</span>",
+                 "Usulan belum disetujui.",
+                 "Data produk tetap seperti sekarang sampai pengajuan ditinjau kurator.",
+                 ">Ajukan Koreksi</button>", ">Batal</a>")
+        for text in texts:
+            self.assertContains(response, text)
+        self.assertContains(response, UNKNOWN_CHIP, count=1)  # hanya serat yang NULL
+        self.assertContains(response, 'inputmode="decimal"', count=len(constants.NUTRITION_FIELDS))
+        self.assertContains(response, 'inputmode="numeric"', count=1)  # Grup NOVA
+
+    def test_field_error_sits_right_below_its_input(self):
+        response = self.client.post(self.url, {"nova_group": "5"})
+        self.assertContains(response, NOVA_MESSAGE, status_code=400)
+        html = response.content.decode()
+        markers = ('id="id_nova_group"', 'id="id_nova_group_error"', 'id="id_nova_group_helptext"')
+        positions = [html.index(marker) for marker in markers]
+        self.assertEqual(positions, sorted(positions))  # input, lalu error, lalu teks bantuan
+
+
+class SuccessPageLayoutTests(TestCase):
+    def setUp(self):
+        self.user = make_user()
+        self.product = make_complete_product(product_name="Sarimi Isi 2 Goreng", fiber_100g=None)
+        self.client.force_login(self.user)
+
+    def test_just_submitted_card(self):
+        url = reverse("data_correction:submit", args=[self.product.pk])
+        response = self.client.post(url, {"fiber_100g": "2,5"}, follow=True)
+        texts = ("Pengajuan berhasil dikirim", "<span>Nilai saat ini</span>", UNKNOWN_CHIP, "2,5",
+                 " · belum disetujui", "Usulan belum disetujui.", ">Kembali ke Antrean Data</a>",
+                 ">Lihat Produk</a>", "Tarik pengajuan ini?")
+        for text in texts:
+            self.assertContains(response, text)
+
+    def test_reviewed_detail_shows_value_at_submission(self):
+        correction = submit_correction(self.user, self.product, {"fiber_100g": "2,5"})
+        approve_item(make_staff(), correction.items.get())
+        response = self.client.get(reverse("data_correction:correction_detail", args=[correction.pk]))
+        self.assertContains(response, "<span>Nilai saat diajukan</span>")
+        self.assertContains(response, UNKNOWN_CHIP)  # serat masih kosong saat diajukan
+        for text in ("belum disetujui", "Tarik pengajuan"):
+            self.assertNotContains(response, text)
+
+
+class WithdrawDialogTests(TestCase):
+    def setUp(self):
+        self.user = make_user()
+        self.url = reverse("data_correction:my_corrections")
+        self.client.force_login(self.user)
+
+    def test_dialog_only_for_withdrawable_corrections(self):
+        product = make_product(product_name="Sarimi Isi 2 Goreng")
+        correction = make_correction(product, self.user, brand=PENDING)
+        withdraw_url = reverse("data_correction:withdraw", args=[correction.pk])
+        response = self.client.get(self.url)
+        texts = (f'popovertarget="tarik-{correction.pk}"', f'id="tarik-{correction.pk}" popover',
+                 "Tarik pengajuan ini?", "Pengajuan untuk Sarimi Isi 2 Goreng akan dihapus",
+                 f'<form method="post" action="{withdraw_url}"', ">Batal</button>",
+                 ">Tarik Pengajuan</button>")
+        for text in texts:
+            self.assertContains(response, text)
+        correction.items.update(status=REJECTED, review_note="Tidak sesuai label.")
+        response = self.client.get(self.url)
+        for text in ("Tarik pengajuan", "Tarik Pengajuan", withdraw_url):
+            self.assertNotContains(response, text)
+
+    def test_empty_state_links_to_contribution_queue(self):
+        response = self.client.get(self.url)
+        self.assertContains(response, "Belum ada pengajuan.")
+        link = f'<a href="{CONTRIBUTION_URL}" class="btn-brand btn-small mt-5">Buka Antrean Data</a>'
+        self.assertContains(response, link)
+
+
+class CuratorQueueLayoutTests(ViewTestMixin, TestCase):
+    def setUp(self):
+        self.curator = make_staff()
+        self.user = make_user()
+        self.product = make_complete_product(product_name="Sarimi Isi 2 Goreng", fiber_100g=None)
+        self.item = submit_items(self.product, self.user, fiber_100g="2,5")["fiber_100g"]
+        self.url = QUEUE_URL + f"?item={self.item.pk}"
+
+    def test_header_tabs_and_empty_state(self):
+        self.client.force_login(self.curator)
+        response = self.client.get(QUEUE_URL)
+        subtitle = "Tinjau koreksi data produk hasil kontribusi pengguna. Setujui atau tolak per field."
+        self.assertContains(response, subtitle)
+        for label in ("Antrean koreksi", "Semua pengajuan", "Panduan field"):
+            self.assertContains(response, f">{label}</a>")
+        self.assertNotContains(response, "Riwayat review saya")  # tab riwayat dihapus (keputusan Tahap 0)
+        response = self.client.get(QUEUE_URL + "?field=brand")
+        self.assertContains(response, "Tidak ada pengajuan yang menunggu review.")
+
+    def test_review_panel_only_for_staff(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.url.startswith("/masuk/?next=/moderasi/"))
+        self.client.force_login(self.user)
+        self.assertNotContains(self.client.get(self.url), "Catatan untuk pengaju", status_code=403)
+        self.client.force_login(self.curator)
+        response = self.client.get(self.url)
+        texts = ('aria-label="Review item koreksi"', "Review pengajuan", "Catatan untuk pengaju",
+                 ">Setujui</button>", ">Tolak</button>", "Sedang ditinjau")
+        for text in texts:
+            self.assertContains(response, text)
