@@ -1,18 +1,20 @@
 # Dokumen tim PilihYuk
 
-Semua dokumen kerja bersama ada di `pilihyuk-docs/`. Folder ini ikut di-commit, jadi cukup `git pull`.
+Semua dokumen kerja bersama ada di folder ini dan ikut di-commit.
 
 | Berkas | Isi |
 |--------|-----|
-| `pilihyuk-docs/PRD.md` | Kebutuhan produk, model data, risiko, dan semua keputusan (bagian 13) |
-| `pilihyuk-docs/HANDOFF.md` | Ringkasan kondisi proyek, tempat file, jebakan yang sudah pernah terjadi, dan butir yang masih terbuka (bahasa Inggris) |
-| `pilihyuk-docs/first-brief.md` | Agenda rapat 4 Oktober: keputusan yang perlu diambil (seeding, Tailwind, ERD, `DEBUG`, wajib dan bonus) dan catatan teknis |
-| `pilihyuk-docs/timeline.md` | Sumber utama untuk jadwal, pembagian modul, aturan kerja dan Git, tugas per orang, dan risiko |
-| `pilihyuk-docs/erd/` | ERD (`pilihyuk-erd.md`, `pilihyuk.drawio`, dan gambar PNG-nya) |
-| `pilihyuk-docs/off-api-findings.md` | Hasil uji API Open Food Facts (bukti ada di `off-samples/`) |
-| `pilihyuk-docs/off-sdk-evaluation.md` | Perbandingan SDK Open Food Facts dengan klien `requests` tipis |
-| `pilihyuk-docs/off-samples/` | Respons mentah API dan keluaran skrip yang dirujuk dokumen di atas |
-| `pilihyuk-docs/tools/check_off_encodings.py` | Skrip pengecekan data OFF (`--selftest` menjalankan tes bawaannya) |
-| `pilihyuk-docs/drafts/product_catalog/` | Draf klien OFF dan tesnya, belum ada di aplikasi (cara memasang ada di README-nya) |
+| `PRD.md` | Kebutuhan, model data, risiko, dan semua keputusan (bagian 13) |
+| `timeline.md` | Tenggat, status tiap branch, pembagian modul, aturan kerja, dan sisa tugas per orang |
+| `HANDOFF.md` | Kondisi proyek, catatan yang tidak ada di tempat lain, dan butir terbuka (bahasa Inggris) |
+| `reset-password-plan.md` | Rencana fitur reset password |
+| `off-api-findings.md` | Hasil uji API Open Food Facts |
+| `off-sdk-evaluation.md` | Alasan memakai klien `requests` tipis, dan kontrak JSON untuk Flutter |
+| `first-brief.md` | Arsip hasil rapat 4 Oktober |
+| `erd/` | ERD (`pilihyuk.drawio`, gambar PNG, dan versi Mermaid) |
+| `off-samples/` | Respons mentah API yang dirujuk `off-api-findings.md` |
+| `tools/check_off_encodings.py` | Skrip riset data OFF (`--selftest` menjalankan tesnya) |
 
-Panduan menjalankan proyek, daftar modul, dan setup Tailwind ada di `../README.md`.
+`off-samples/q1_v2_search_sample.json` juga dibaca tes Modul 1 (`product_catalog/fixture_data.py`), jadi jangan dipindah tanpa mengubah path di sana.
+
+Panduan menjalankan proyek ada di `../README.md`.

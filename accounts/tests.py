@@ -1,7 +1,9 @@
+import re
 from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core import mail
 from django.db import IntegrityError
 from django.test import Client, TestCase
 from django.urls import reverse
@@ -16,7 +18,6 @@ def register_data(**over):
         "email": "rani@email.com",
         "password1": PASSWORD,
         "password2": PASSWORD,
-        "terms": "on",
     }
     data.update(over)
     return data
@@ -49,7 +50,7 @@ class RegisterTests(TestCase):
         for bad in (
             {"password1": "12345678", "password2": "12345678"},  # numeric / common
             {"password2": "lain-Lain-123"},  # mismatch
-            {"terms": ""},  # terms unchecked
+            {"password1": "HanyaHurufSaja", "password2": "HanyaHurufSaja"},  # tanpa angka
             {"email": "bukan-email"},
             {"display_name": ""},
         ):
@@ -90,6 +91,13 @@ class LoginLogoutTests(TestCase):
 
     def test_login_email_is_case_insensitive(self):
         self.assertRedirects(self.login(username="Rani@Email.com"), reverse("home_page"))
+
+    def test_admin_logs_in_with_username_or_email(self):
+        User.objects.create_superuser("Admin", "Admin@Contoh.com", PASSWORD)
+        for name in ("Admin", "admin@contoh.com"):
+            with self.subTest(name=name):
+                self.assertRedirects(self.login(username=name), reverse("home_page"))
+                self.client.logout()
 
     def test_wrong_password_is_generic(self):
         wrong_pw = self.login(password="salah")
@@ -304,3 +312,44 @@ class HeaderTests(TestCase):
         self.assertContains(r, "/keluar/")
         self.assertContains(r, "/profil/")
         self.assertNotContains(r, "rani@email.com")
+
+
+class PasswordResetTests(TestCase):
+    NEW = "Sandi-Baru-2468"
+
+    def setUp(self):
+        self.user = make_user()
+
+    def request_link(self, email="rani@email.com"):
+        return self.client.post(reverse("accounts:password_reset"), {"email": email})
+
+    def reset_url(self):
+        return re.search(r"http://testserver(/lupa-password/\S+/)", mail.outbox[-1].body).group(1)
+
+    def test_known_and_unknown_email_look_the_same(self):
+        known = self.request_link()
+        unknown = self.request_link("tidakada@email.com")
+        self.assertRedirects(known, reverse("accounts:password_reset_done"))
+        self.assertRedirects(unknown, reverse("accounts:password_reset_done"))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["rani@email.com"])
+
+    def test_link_sets_new_password_once(self):
+        self.request_link()
+        form_url = self.client.get(self.reset_url()).url
+        r = self.client.post(form_url, {"new_password1": self.NEW, "new_password2": self.NEW})
+        self.assertRedirects(r, reverse("accounts:password_reset_complete"))
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password(self.NEW))
+        self.assertFalse(self.client.get(self.reset_url(), follow=True).context["validlink"])
+
+    def test_new_password_needs_a_digit(self):
+        self.request_link()
+        form_url = self.client.get(self.reset_url()).url
+        r = self.client.post(form_url, {"new_password1": "TanpaAngkaSama", "new_password2": "TanpaAngkaSama"})
+        self.assertEqual(r.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password(PASSWORD))
+
+    def test_login_page_links_to_reset(self):
+        self.assertContains(self.client.get(reverse("accounts:login")), reverse("accounts:password_reset"))
