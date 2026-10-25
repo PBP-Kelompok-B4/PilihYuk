@@ -2,7 +2,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from preferences.models import Preference
-from .helpers import make_user
+from .helpers import make_product, make_user
 
 
 class PreferenceViewTests(TestCase):
@@ -49,3 +49,15 @@ class PreferenceViewTests(TestCase):
         other = make_user("lain")
         self.client.force_login(other)
         self.assertTrue(all(not row["active"] for row in self.client.get(self.url).context["rows"]))
+
+    def test_preview_counts_known_active_values_and_scales_sodium(self):
+        self.client.force_login(self.user)
+        make_product(product_name="Nol", sodium_100g=0)
+        make_product(product_name="Ada", sodium_100g=0.1234)
+        make_product(sodium_100g=None)
+        make_product(sodium_100g=9, is_active=False)
+        response = self.client.get("/preferensi/pratinjau/", {"nutrient": "sodium", "direction": "min"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"ok": True, "ranked_count": 2, "total_active": 3,
+                         "samples": [{"name": "Nol", "value": 0.0, "unit": "mg"},
+                                     {"name": "Ada", "value": 123.4, "unit": "mg"}]})
