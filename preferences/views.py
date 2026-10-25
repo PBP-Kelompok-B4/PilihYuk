@@ -1,9 +1,10 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
 from .constants import DEFAULT_DIRECTION, DEFAULT_WEIGHT, DIRECTION_CHOICES, NUTRIENT_FIELDS, WEIGHT_CHOICES
+from .decorators import owner_required
 from .forms import PreferenceForm
 from .models import Preference
 
@@ -38,8 +39,8 @@ def preference_create(request):
 
 @login_required
 @require_POST
-def preference_update(request, pk):
-    item = get_object_or_404(Preference, pk=pk, user=request.user)
+@owner_required(Preference)
+def preference_update(request, item):
     form = PreferenceForm(request.POST, user=request.user, instance=item)
     if form.is_valid():
         form.save()
@@ -50,8 +51,8 @@ def preference_update(request, pk):
 
 @login_required
 @require_POST
-def preference_delete(request, pk):
-    item = get_object_or_404(Preference, pk=pk, user=request.user)
+@owner_required(Preference)
+def preference_delete(request, item):
     item.delete()
     messages.success(request, "Preferensi dihapus.")
     return redirect("preferences:preference_list")
