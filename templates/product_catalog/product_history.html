@@ -1,15 +1,17 @@
-{% extends 'base.html' %}
-{% block meta %}<title>Riwayat produk — PilihYuk</title>{% endblock %}
+{% extends 'product_catalog/base.html' %}
+{% block catalog_meta %}<title>Riwayat produk — PilihYuk</title>{% endblock %}
 {% block content %}
-<main class="section w-full flex-1 py-10">
+<main class="catalog-page section w-full flex-1 py-10">
     <h1 class="section-title">Riwayat produk yang Anda lihat</h1>
     <ul class="mt-5 space-y-3">{% for row in page_obj %}<li class="card">
-        {% if row.product.is_active %}<a class="text-brand underline" href="{% url 'product_catalog:product_detail' row.product_id %}">{{ row.product.product_name }}</a>{% else %}{{ row.product.product_name }} (tidak aktif){% endif %}
-        <p>{{ row.viewed_at }}</p>
+        {% if row.product.is_active %}<a class="catalog-history-link text-brand underline" href="{% url 'product_catalog:product_detail' row.product_id %}">{{ row.product.product_name }}</a>{% else %}{{ row.product.product_name }} (tidak aktif){% endif %}
+        <time datetime="{{ row.viewed_at|date:'c' }}">{{ row.viewed_at }}</time>
     </li>{% empty %}<li>Belum ada riwayat.</li>{% endfor %}</ul>
-    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">Sebelumnya</a>{% endif %}
-    <span>Halaman {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
-    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">Berikutnya</a>{% endif %}
+    <nav class="catalog-pagination" aria-label="Paginasi riwayat">
+        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">Sebelumnya</a>{% endif %}
+        <span class="catalog-page-number">Halaman {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">Berikutnya</a>{% endif %}
+    </nav>
     <p class="mt-5"><a href="{% url 'product_catalog:product_list' %}">Kembali ke katalog</a></p>
 </main>
 {% endblock %}

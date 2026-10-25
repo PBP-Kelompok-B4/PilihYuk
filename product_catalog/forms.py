@@ -15,7 +15,10 @@ def has_valid_gtin(barcode):
 
 
 class BarcodeLookupForm(forms.Form):
-    barcode = forms.CharField(label="Barcode", max_length=40)
+    barcode = forms.CharField(
+        label="Barcode", max_length=40,
+        widget=forms.TextInput(attrs={"inputmode": "numeric", "autocomplete": "off", "spellcheck": "false"}),
+    )
 
     def clean_barcode(self):
         raw = self.cleaned_data["barcode"]
@@ -43,6 +46,8 @@ class ManualProductForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
+            if isinstance(field.widget, forms.Textarea):
+                field.widget.attrs["rows"] = 4
             if not isinstance(field.widget, forms.CheckboxInput):
                 existing = field.widget.attrs.get("class", "")
                 field.widget.attrs["class"] = (
