@@ -5,12 +5,14 @@ Notes:
 - Isinya hanya pembungkus tipis validators.to_display, supaya aturan tampilan angka
   (natrium dalam mg, koma desimal, paling banyak 3 desimal) tetap di satu tempat.
 - Nama berkas sengaja diberi akhiran _tags agar tidak tertukar dengan nama app.
+- thousands ada karena django.contrib.humanize tidak dipasang di proyek ini.
 """
 from datetime import timedelta
 
 from django import template
 from django.utils import timezone
 from django.utils.timesince import timesince
+from django.utils.formats import number_format
 
 from ..validators import to_display
 
@@ -53,3 +55,28 @@ def ago(value):
     if timezone.now() - value < timedelta(minutes=1):
         return "baru saja"
     return f"{timesince(value, depth=1)} lalu"
+
+@register.filter
+def is_known(value, field_name):
+    """True kalau nilai bisa ditampilkan, False kalau tampilannya "Tidak diketahui".
+    Dipakai template untuk memilih antara teks biasa dan chip "Tidak diketahui".
+
+    Contoh hasil:
+        (None, "fat_100g")    -> False
+        ("", "brand")         -> False
+        (0.0, "fiber_100g")   -> True    (nol bukan kosong)
+        ("Sarimi", "brand")   -> True
+    """
+    return to_display(field_name, value) is not None
+
+
+@register.filter
+def thousands(value):
+    """Bilangan bulat dengan pemisah ribuan format Indonesia, untuk angka di kartu dan daftar.
+
+    Contoh hasil:
+        1248     -> "1.248"
+        347      -> "347"
+        None     -> "0"
+    """
+    return number_format(value or 0, decimal_pos=0, force_grouping=True)

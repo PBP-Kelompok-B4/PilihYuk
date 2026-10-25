@@ -8,7 +8,7 @@ Notes:
 Daftar isi:
 1. ContributionFilters : membaca ?sort=, ?missing=, ?page= dan menyusun URL antrean.
 2. queue_products, sort_rows : produk belum lengkap, sudah disaring dan diurutkan.
-3. pending_product_ids, decorate : status per produk, tautan "Lengkapi Data" dan "Detail".
+3. pending_product_ids, page_images, decorate : status, gambar, dan tautan per baris.
 4. contribution_stats : kartu statistik.
 """
 from dataclasses import dataclass
@@ -114,13 +114,24 @@ class ContributionFilters:
         return chips
 
     def page_links(self, page):
-        """URL halaman sebelum dan sesudah (None kalau tidak ada), dengan filter yang sama.
+        """URL halaman sebelum dan sesudah (None kalau tidak ada) serta nomor halaman, dengan
+        filter yang sama. Nomor halaman yang jauh diganti "…" (Paginator.get_elided_page_range).
 
-        Contoh (halaman 2 dari 3): {"previous": "/antrean/?page=1", "next": "/antrean/?page=3"}
+        Contoh (halaman 9 dari 18):
+            {"previous": "/antrean/?page=8", "next": "/antrean/?page=10",
+             "pages": [{"number": 1, "url": "/antrean/?page=1", "current": False},
+                       {"ellipsis": True}, ..., {"number": 18, ...}]}   -> 1, …, 8, 9, 10, …, 18
         """
+        pages = []
+        for number in page.paginator.get_elided_page_range(page.number, on_each_side=1, on_ends=1):
+            if number == page.paginator.ELLIPSIS:
+                pages.append({"ellipsis": True})
+                continue
+            pages.append({"number": number, "url": self.url(page=number), "current": number == page.number})
         return {
             "previous": self.url(page=page.previous_page_number()) if page.has_previous() else None,
             "next": self.url(page=page.next_page_number()) if page.has_next() else None,
+            "pages": pages,
         }
 
 
@@ -165,9 +176,18 @@ def pending_product_ids(product_ids):
         .values_list("correction__product_id", flat=True)
     )
 
+def page_images(product_ids):
+    """URL gambar produk untuk satu halaman antrean (kotak gambar di tabel). Satu query.
+    Produk tanpa gambar mendapat "" dan template menampilkan placeholder.
 
-def decorate(row, pending_ids):
-    """Satu baris siap tampil: tambah status, status_label, submit_url, dan detail_url.
+    Contoh: page_images([6, 7]) -> {6: "https://images.openfoodfacts.org/...jpg", 7: ""}
+    """
+    return dict(Product.objects.filter(pk__in=product_ids).values_list("pk", "image_url"))
+
+
+def decorate(row, pending_ids, images=None):
+    """Satu baris siap tampil: tambah status, status_label, submit_url, detail_url, dan
+    image_url (dari page_images; kosong kalau tidak diberikan).
 
     - status     : "needs_verification" kalau produk sudah punya item pending,
                    selain itu "needs_contribution".
@@ -181,7 +201,7 @@ def decorate(row, pending_ids):
         serat dan natrium kosong, belum ada pengajuan
             -> {..., "status": "needs_contribution", "status_label": "Perlu kontribusi",
                 "submit_url": "/antrean/produk/7/ajukan/?field=fiber_100g&field=sodium_100g",
-                "detail_url": "/katalog/7/"}
+                "detail_url": "/katalog/7/", "image_url": "https://images.openfoodfacts.org/..."}
     """
     empty = {field for entry in row["missing"] for field in entry["fields"]}
     fields = [name for name in CORRECTABLE_FIELDS if name in empty]
@@ -195,6 +215,7 @@ def decorate(row, pending_ids):
         "status_label": STATUS_LABELS[status],
         "submit_url": submit_url,
         "detail_url": reverse("product_catalog:product_detail", args=[row["pk"]]),
+        "image_url": (images or {}).get(row["pk"], ""),
     }
 
 

@@ -482,8 +482,10 @@ def contribution_queue(request):
     filters = contribution.ContributionFilters.from_query(request.GET)
     rows, categories, total = contribution.queue_products(filters)
     page = Paginator(rows, CONTRIBUTION_PAGE_SIZE).get_page(filters.page)
-    pending = contribution.pending_product_ids([row["pk"] for row in page])
-    page_rows = [contribution.decorate(row, pending) for row in page]
+    product_ids = [row["pk"] for row in page]
+    pending = contribution.pending_product_ids(product_ids)
+    images = contribution.page_images(product_ids)
+    page_rows = [contribution.decorate(row, pending, images) for row in page]
     stats = contribution.contribution_stats(total)
     return render_or_json(
         request,
