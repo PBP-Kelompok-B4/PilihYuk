@@ -173,3 +173,71 @@ Toggle berubah secara visual saat request dikirim; bobot/arah yang baru dipilih 
 **`NOTES.md`** adalah panduan kontrak, demo, validasi, dan disclosure untuk pemilik modul. Dokumen kelompok dan instruksi pribadi di root tidak ikut diubah.
 
 Alur request contoh: pengguna mengubah bobot Protein → event change mengirim form lewat fetch dengan CSRF → Django memeriksa sesi/metode/pemilik/rate limit → PreferenceForm memvalidasi arah/bobot → ORM memperbarui Preference → view mengirim item dan partial HTML → JavaScript mengganti baris, memulihkan fokus, dan menampilkan toast. Bila validasi/request gagal, JavaScript mengembalikan keadaan kontrol tersimpan. Tanpa JavaScript, form POST tetap diproses dan diarahkan kembali ke halaman.
+
+## Verifikasi dan cara menjalankan tes
+
+Gunakan Python dari environment proyek; `.env` lokal tetap milik pengguna dan tidak di-commit. Sinkronisasi terakhir terhadap `origin/dev` tidak membawa perubahan baru. Dependency requirements sudah tersedia, migrasi tidak tertinggal, dan seed ulang menambah 0 produk sambil mempertahankan data yang ada.
+
+```powershell
+.\env\Scripts\python.exe manage.py check
+.\env\Scripts\python.exe manage.py makemigrations --check --dry-run
+.\env\Scripts\python.exe manage.py test preferences
+.\env\Scripts\python.exe manage.py test
+```
+
+Pengukuran cakupan (tidak mengikutsertakan migrasi dan tes dalam laporan):
+
+```powershell
+$env:COVERAGE_FILE = Join-Path $env:TEMP 'pilihyuk-coverage'
+.\env\Scripts\python.exe -m coverage run --source=preferences manage.py test preferences
+.\env\Scripts\python.exe -m coverage report -m --omit='preferences/migrations/*,preferences/tests/*'
+```
+
+Hasil pada sesi penutup, 26 Oktober 2026:
+
+| Pemeriksaan | Hasil |
+|---|---|
+| Django check | Tanpa error; satu check axes sengaja disenyapkan oleh konfigurasi proyek |
+| Makemigrations check | Tidak ada perubahan model yang belum dimigrasi |
+| Tes modul | 45 ditemukan: 42 lulus, 3 browser dilewati pada run standar |
+| Tes seluruh proyek | 241 ditemukan: 237 lulus, 4 dilewati |
+| Tes browser terpisah | 3 lulus dengan Chrome headless |
+| `models.py` | Cakupan baris 100% |
+| `forms.py` | Cakupan baris 100% |
+| `views.py` | Cakupan baris 100% |
+| `ranking.py` | Cakupan baris 100% |
+| `decorators.py` | Cakupan baris 95%; jalur kedaluwarsa cache di antara add/incr belum dipicu |
+| Total modul | Cakupan baris 99% |
+
+Playwright 1.64.1 dan coverage 7.17.0 dipasang hanya untuk pengembangan lokal. Tidak ada penambahan di requirements. Browser menggunakan Chrome yang sudah terpasang; tidak mengunduh browser atau Tailwind CLI. Tes browser opsional memakai StaticLiveServerTestCase dan Playwright, menggantikan opsi Selenium dalam rencana awal. Tes otomatis dilewati bila opt-in, paket, atau Chrome tidak tersedia.
+
+```powershell
+$env:PILIHYUK_BROWSER_TESTS = '1'
+.\env\Scripts\python.exe manage.py test preferences.tests.test_functional
+$env:PILIHYUK_BROWSER_TESTS = '0'
+```
+
+Browser menguji CRUD/filter/paginasi tanpa navigasi ulang; layout 390, 768, 1024, dan 1440 px tanpa overflow; label dengan ID unik; keyboard dan pemulihan fokus; rollback perubahan preferensi/alasan; serta penghapusan massal optimistik yang ditolak 403 dan toggle yang ditolak 429. Test database dibuat oleh Django, terpisah dari SQLite pengguna. Tidak ada tes yang memanggil Open Food Facts.
+
+Tes penuh masih mengeluarkan warning lama tentang folder staticfiles lokal dan urutan paginasi shelf; keduanya berada di luar modul ini dan tidak membuat tes gagal. Pemeriksaan browser berjalan lokal, belum membuktikan perilaku pada proxy/worker PWS. Cakupan baris tidak sama dengan pembuktian bahwa semua kemungkinan race atau kegagalan jaringan sudah diuji.
+
+## Langkah manual pemilik dan integrasi tim
+
+1. Tinjau kode dan catatan demo; lengkapi disclosure manual di bawah.
+2. Push branch `preferences` dan penanda `feat/preferences-*` yang belum dipublikasikan. Codex tidak melakukan push atau membuka PR.
+3. Buka PR berurutan ke `dev`, mulai dari slice yang belum digabung. Gunakan merge commit, bukan squash, agar riwayat tes-dulu dan batas slice tetap terlihat. Minta teman kelompok meninjau.
+4. Minta Daffaa memasang tombol “Pilih produk ini” serta pemakaian fungsi ranking di view/template Shelf, sesuai kontrak di atas. File Modul 2 tidak diubah dalam pengerjaan ini.
+5. Coba alur pengguna dan logout/login di PWS setelah integrasi. Rilis proyek sudah menjalankan migrate/collectstatic; tidak ada build Tailwind. Pastikan CDN dapat diakses saat demo.
+6. Bila tim membutuhkan kuota rate limit global antar-worker, sepakati cache bersama dengan pemilik settings. Implementasi saat ini tetap cache memori bawaan tanpa dependency baru.
+
+## AI disclosure
+
+**Alat dan tujuan.** Modul ini dikerjakan dengan bantuan Codex di VS Code untuk menyusun implementasi Django/JavaScript, menulis tes, memeriksa hasil command, serta menyusun panduan kontrak dan demo. Pemilik modul tetap perlu memahami, meninjau, dan dapat menjelaskan kode saat demo/live coding. AI tidak menggantikan pemeriksaan integrasi oleh kelompok.
+
+**Strategi prompt.** AGENTS.md pribadi menjadi spesifikasi terperinci: batas kepemilikan file, model, URL, JSON, slice berurutan, dan Definition of Done. Pengerjaan S1–S6 diawali tes gagal yang di-commit, diikuti implementasi sampai hijau. S8 dan S9 juga dimulai dari tes perilaku. Instruksi lanjutan mengarahkan pemeriksaan dokumen terbaru di `.claude` dan menyelesaikan perbedaan informasi Tailwind. Tes memakai antarmuka model/form/HTTP serta browser nyata; tidak memakai API OFF atau fixture produksi. Commit dan penanda lokal menjaga hasil tiap slice dapat ditinjau terpisah.
+
+**Keterbatasan dan koreksi selama sesi.** Pada pemeriksaan pertama Shelf belum tersedia; pekerjaan tidak membuat model pengganti, melainkan menunggu sinkronisasi model asli. Rencana awal mengikuti instruksi CLI Tailwind yang tertinggal; setelah diarahkan ke PRD keputusan 28 dan kode base, dokumentasi dikoreksi menjadi CDN tanpa build. Tes model menemukan `TextField(max_length=500)` belum membatasi `full_clean()` sebagaimana diasumsikan, sehingga ditambahkan MaxLengthValidator. Pemeriksaan label menemukan ID shelf yang sama pada form pencatatan dan filter, lalu diperbaiki. Pemeriksaan browser memperbaiki susunan kontrol responsif dan hilangnya fokus saat DOM diganti lewat AJAX. Pembatasan Git/network sandbox memerlukan persetujuan tool untuk operasi terkait; tidak diatasi dengan mengubah konfigurasi keamanan.
+
+**Batas hasil AI.** Dokumen status `.claude` dan beberapa kalimat README lebih lama daripada kode aktual; status modul dibuktikan lewat Git dan tes, tanpa menulis ulang file kelompok. Rate limit memori belum bersifat global pada produksi, integrasi ranking/tombol Shelf masih perlu pemilik Modul 2, dan proxy PWS belum diuji. Belum ada klaim bahwa pemilik telah melakukan perbaikan manual; koreksi yang dijelaskan di atas adalah hasil inspeksi dan tes selama sesi Codex. Tidak ada pesan yang dikirim kepada anggota kelompok secara otomatis.
+
+TODO(Jonathan): tambahkan perbaikan manual
