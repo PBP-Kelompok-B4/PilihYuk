@@ -18,6 +18,14 @@
             <button type="submit" class="btn-brand">Simpan keputusan</button>
         </form>
     </section>
+    <section class="card mt-6" aria-labelledby="filter-title">
+        <h2 id="filter-title" class="text-lg font-bold">Filter riwayat</h2>
+        <form method="get" action="{% url 'preferences:decision_list' %}" data-decision-filter class="mt-4 grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {% for field in filter_form %}<div class="min-w-0"><label for="{{ field.id_for_label }}" class="mb-1 block text-sm font-semibold">{{ field.label }}</label>{{ field }}</div>{% endfor %}
+            <button type="submit" class="btn-brand justify-self-start">Terapkan filter</button>
+            <a href="{% url 'preferences:decision_list' %}" data-filter-reset class="self-center text-brand underline">Hapus filter</a>
+        </form>
+    </section>
     <div data-decision-results class="mt-6 space-y-4">
         {% include "preferences/_decision_results.html" %}
     </div>

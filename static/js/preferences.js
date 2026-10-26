@@ -88,4 +88,86 @@
             row.dataset.weight = row.querySelector('[type="radio"]:checked').value;
         });
     }
+    const decisions = document.querySelector('[data-decisions]');
+    if (decisions) {
+        const results = decisions.querySelector('[data-decision-results]');
+        const filterForm = decisions.querySelector('[data-decision-filter]');
+        let latestLoad = 0;
+        let filterTimer;
+
+        async function loadHistory(url) {
+            const loadId = ++latestLoad;
+            results.setAttribute('aria-busy', 'true');
+            try {
+                const data = await request(url);
+                if (loadId !== latestLoad) return false;
+                results.innerHTML = data.html;
+                history.replaceState(null, '', data.url);
+                return true;
+            } catch (error) {
+                if (loadId === latestLoad) notify(`Riwayat belum diperbarui. ${error.message}`, 'error');
+                return false;
+            } finally {
+                if (loadId === latestLoad) results.removeAttribute('aria-busy');
+            }
+        }
+
+        function applyFilters() {
+            clearTimeout(filterTimer);
+            const params = new URLSearchParams(new FormData(filterForm));
+            loadHistory(`${filterForm.action}?${params}`);
+        }
+
+        decisions.addEventListener('submit', async event => {
+            const form = event.target;
+            if (form === filterForm) {
+                event.preventDefault();
+                applyFilters();
+                return;
+            }
+            if (!form.matches('[data-decision-create], [data-decision-update], [data-decision-delete]')) return;
+            event.preventDefault();
+            if (form.dataset.busy) return;
+            clearTimeout(filterTimer);
+            form.dataset.busy = 'true';
+            form.setAttribute('aria-busy', 'true');
+            const buttons = form.querySelectorAll('button');
+            buttons.forEach(button => { button.disabled = true; });
+            let data;
+            try {
+                data = await post(form);
+            } catch (error) {
+                notify(error.message, 'error');
+                return;
+            } finally {
+                delete form.dataset.busy;
+                form.removeAttribute('aria-busy');
+                buttons.forEach(button => { button.disabled = false; });
+            }
+            if (form.matches('[data-decision-create]')) form.reset();
+            const refreshed = await loadHistory(window.location.href);
+            notify(refreshed ? data.message : `${data.message} Muat ulang daftar untuk melihat perubahan.`, refreshed ? 'success' : 'normal');
+        });
+
+        decisions.addEventListener('click', event => {
+            const link = event.target.closest('[data-page], [data-filter-reset]');
+            if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
+            event.preventDefault();
+            clearTimeout(filterTimer);
+            if (link.matches('[data-filter-reset]')) {
+                for (const control of filterForm.elements) {
+                    if (control.name) control.value = '';
+                }
+            }
+            loadHistory(link.href);
+        });
+        filterForm.addEventListener('input', event => {
+            if (event.target.name !== 'q') return;
+            clearTimeout(filterTimer);
+            filterTimer = setTimeout(applyFilters, 300);
+        });
+        filterForm.addEventListener('change', event => {
+            if (event.target.name !== 'q') applyFilters();
+        });
+    }
 })();

@@ -2,14 +2,16 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.core.paginator import Paginator
+from django.db.models import Q
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
+from django.urls import reverse
 
 from product_catalog.models import Product
 
 from .constants import DEFAULT_DIRECTION, DEFAULT_WEIGHT, DIRECTION_CHOICES, NUTRIENT_FIELDS, WEIGHT_CHOICES
 from .decorators import module_methods, owner_required, wants_json
-from .forms import DecisionForm, PreferenceForm
+from .forms import DecisionFilterForm, DecisionForm, PreferenceForm
 from .models import Decision, Preference
 
 
@@ -109,9 +111,30 @@ def decision_item(item):
 
 def decision_context(request, form=None):
     queryset = Decision.objects.filter(user=request.user).select_related("shelf").order_by("-created_at", "-pk")
+    filters = DecisionFilterForm(request.GET, user=request.user)
+    filters.is_valid()
+    data = filters.cleaned_data
+    if data.get("q"):
+        queryset = queryset.filter(Q(product__product_name__icontains=data["q"]) | Q(product__brand__icontains=data["q"]),
+                                   product__is_active=True)
+    if data.get("shelf"):
+        queryset = queryset.filter(shelf=data["shelf"])
+    if data.get("dari"):
+        queryset = queryset.filter(created_at__date__gte=data["dari"])
+    if data.get("sampai"):
+        queryset = queryset.filter(created_at__date__lte=data["sampai"])
+    notices = [f"Filter {filters.fields[key].label.lower()} tidak valid dan diabaikan." for key in filters.errors]
     page = Paginator(queryset, 10).get_page(request.GET.get("page"))
     rows = [{"item": decision_item(item)} for item in page]
-    return {"rows": rows, "page_obj": page, "form": form if form is not None else DecisionForm(user=request.user)}
+    params = request.GET.copy()
+    params["page"] = page.number
+    current_url = reverse("preferences:decision_list") + "?" + params.urlencode()
+    links = {}
+    for key, number in (("previous_url", page.number - 1), ("next_url", page.number + 1)):
+        params["page"] = number
+        links[key] = "?" + params.urlencode()
+    return {"rows": rows, "page_obj": page, "form": form if form is not None else DecisionForm(user=request.user),
+            "filter_form": filters, "notices": notices, "current_url": current_url, **links}
 
 
 @login_required
@@ -119,7 +142,11 @@ def decision_context(request, form=None):
 def decision_list(request):
     context = decision_context(request)
     if wants_json(request):
-        return JsonResponse({"ok": True, "items": [row["item"] for row in context["rows"]]})
+        html = render_to_string("preferences/_decision_results.html", context, request=request)
+        page = context["page_obj"]
+        return JsonResponse({"ok": True, "items": [row["item"] for row in context["rows"]],
+                             "page": page.number, "pages": page.paginator.num_pages, "total": page.paginator.count,
+                             "notices": context["notices"], "url": context["current_url"], "html": html})
     return render(request, "preferences/decision_list.html", context)
 
 

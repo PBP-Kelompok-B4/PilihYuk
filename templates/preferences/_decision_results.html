@@ -1,7 +1,9 @@
+{% for notice in notices %}<p role="status" class="rounded-xl bg-warm p-4 text-sm">{{ notice }}</p>{% endfor %}
+<p class="text-sm text-muted">{{ page_obj.paginator.count }} keputusan</p>
 {% for row in rows %}{% include "preferences/_decision_row.html" %}
 {% empty %}<p class="card">Belum ada keputusan yang cocok.</p>{% endfor %}
 <nav aria-label="Halaman riwayat" class="flex flex-wrap items-center gap-4">
-    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="text-brand underline" data-page>Sebelumnya</a>{% endif %}
+    {% if page_obj.has_previous %}<a href="{{ previous_url }}" class="text-brand underline" data-page>Sebelumnya</a>{% endif %}
     <span class="text-sm">Halaman {{ page_obj.number }} dari {{ page_obj.paginator.num_pages }}</span>
-    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="text-brand underline" data-page>Berikutnya</a>{% endif %}
+    {% if page_obj.has_next %}<a href="{{ next_url }}" class="text-brand underline" data-page>Berikutnya</a>{% endif %}
 </nav>

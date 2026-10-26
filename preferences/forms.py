@@ -62,3 +62,19 @@ class DecisionForm(forms.ModelForm):
         if product and shelf and not shelf.items.filter(product=product, product__is_active=True).exists():
             self.add_error("shelf", "Produk tidak ada di shelf ini.")
         return data
+
+
+class DecisionFilterForm(forms.Form):
+    q = forms.CharField(required=False, label="Nama produk atau merek", max_length=255)
+    shelf = forms.ModelChoiceField(queryset=Shelf.objects.none(), required=False, label="Shelf",
+                                   empty_label="Semua shelf")
+    dari = forms.DateField(required=False, label="Dari tanggal", input_formats=["%Y-%m-%d"],
+                           widget=forms.DateInput(attrs={"type": "date"}))
+    sampai = forms.DateField(required=False, label="Sampai tanggal", input_formats=["%Y-%m-%d"],
+                             widget=forms.DateInput(attrs={"type": "date"}))
+
+    def __init__(self, *args, user, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["shelf"].queryset = Shelf.objects.filter(Q(owner=user) | Q(is_private=False)).order_by("name", "pk")
+        for field in self.fields.values():
+            field.widget.attrs["class"] = "w-full min-w-0 rounded-xl border border-line bg-white p-3 text-sm focus-visible:outline-brand"
