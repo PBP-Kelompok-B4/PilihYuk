@@ -3,12 +3,13 @@
 import importlib.util
 import os
 import re
+from pathlib import Path
 import unittest
 
 from django.conf import settings
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 
-from preferences.models import Decision
+from preferences.models import Decision, Preference
 from .helpers import make_product, make_user
 
 
@@ -59,4 +60,65 @@ class DecisionBrowserTests(StaticLiveServerTestCase):
             expect(page.locator("textarea", has_text="Alasan diperbarui")).to_have_count(0)
             self.assertEqual(page.evaluate("window.modulePage"), "same-page")
             self.assertEqual(errors, [])
+            browser.close()
+
+    def test_responsive_pages_keyboard_focus_and_failed_preference_rollback(self):
+        from playwright.sync_api import expect, sync_playwright
+
+        user = make_user()
+        product = make_product(product_name="Produk" * 40, brand="Contoh", proteins_100g=2)
+        Decision.objects.create(user=user, product=product, note="Alasan" * 80)
+        Preference.objects.create(user=user, nutrient="protein", direction="max", weight=3)
+        self.client.force_login(user)
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(channel="chrome", headless=True)
+            context = browser.new_context()
+            context.add_cookies([{"name": settings.SESSION_COOKIE_NAME,
+                                 "value": self.client.cookies[settings.SESSION_COOKIE_NAME].value,
+                                 "url": self.live_server_url}])
+            page = context.new_page()
+            for width in (390, 768, 1024, 1440):
+                page.set_viewport_size({"width": width, "height": 900})
+                for path in ("/preferensi/", "/riwayat/"):
+                    page.goto(self.live_server_url + path)
+                    page.wait_for_function("getComputedStyle(document.querySelector('.card')).borderRadius === '20px'")
+                    self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"), width)
+                    self.assertLessEqual(page.locator("main").evaluate("element => element.scrollWidth"),
+                                         page.locator("main").evaluate("element => element.clientWidth"))
+                    if os.getenv("PILIHYUK_SCREENSHOT_DIR"):
+                        directory = Path(os.environ["PILIHYUK_SCREENSHOT_DIR"])
+                        directory.mkdir(parents=True, exist_ok=True)
+                        page.screenshot(path=str(directory / f"{path.strip('/')}-{width}.png"), full_page=True)
+
+            page.set_viewport_size({"width": 390, "height": 900})
+            page.goto(self.live_server_url + "/preferensi/")
+            expect(page.locator("#direction-energy")).to_be_disabled()
+            page.locator("#weight-protein-3").focus()
+            page.keyboard.press("ArrowLeft")
+            expect(page.locator("[data-module-status]")).to_have_text("Preferensi disimpan.")
+            expect(page.locator("#weight-protein-2")).to_be_checked()
+            expect(page.locator("#weight-protein-2")).to_be_focused()
+            page.locator("#direction-protein").select_option("min")
+            expect(page.locator('[data-nutrient="protein"]')).to_have_attribute("data-direction", "min")
+            expect(page.locator('[data-nutrient="protein"] [data-preview]')).to_contain_text("1 dari 1")
+
+            page.route("**/preferensi/*/ubah/", lambda route: route.fulfill(status=400, json={"ok": False, "message": "Simpan gagal."}))
+            page.locator("label", has=page.locator("#weight-protein-1")).click()
+            expect(page.locator("[data-module-status]")).to_have_text("Simpan gagal.")
+            expect(page.locator("#weight-protein-2")).to_be_checked()
+            expect(page.locator("#direction-protein")).to_have_value("min")
+            page.unroute("**/preferensi/*/ubah/")
+            page.reload()
+            expect(page.locator("#weight-protein-2")).to_be_checked()
+            expect(page.locator("#direction-protein")).to_have_value("min")
+
+            page.locator("#active-protein").click()
+            expect(page.locator("#active-protein")).to_have_attribute("aria-checked", "false")
+            expect(page.locator("#active-protein")).to_be_focused()
+            expect(page.locator("#direction-protein")).to_be_disabled()
+            expect(page.locator("#weight-protein-2")).to_be_disabled()
+            page.locator("#active-protein").click()
+            expect(page.locator("#active-protein")).to_have_attribute("aria-checked", "true")
+            expect(page.locator("#weight-protein-2")).to_be_checked()
+            self.assertEqual(page.evaluate("document.documentElement.scrollWidth"), 390)
             browser.close()
