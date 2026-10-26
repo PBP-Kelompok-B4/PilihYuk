@@ -7,6 +7,7 @@ from pathlib import Path
 import unittest
 
 from django.conf import settings
+from django.core.cache import cache
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 
 from preferences.models import Decision, Preference
@@ -16,6 +17,68 @@ from .helpers import make_product, make_user
 @unittest.skipUnless(os.getenv("PILIHYUK_BROWSER_TESTS") == "1" and importlib.util.find_spec("playwright"),
                      "Tes browser memerlukan opt-in dan Playwright lokal.")
 class DecisionBrowserTests(StaticLiveServerTestCase):
+    def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+    def test_optimistic_bulk_delete_and_toggle_restore_on_failure(self):
+        from playwright.sync_api import expect, sync_playwright
+
+        user = make_user()
+        product = make_product()
+        for index in range(2):
+            Decision.objects.create(user=user, product=product, note=f"Tersimpan {index}")
+        self.client.force_login(user)
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(channel="chrome", headless=True)
+            context = browser.new_context(viewport={"width": 390, "height": 900})
+            context.add_cookies([{"name": settings.SESSION_COOKIE_NAME,
+                                 "value": self.client.cookies[settings.SESSION_COOKIE_NAME].value,
+                                 "url": self.live_server_url}])
+            page = context.new_page()
+            page.goto(self.live_server_url + "/riwayat/")
+            page.evaluate("window.modulePage = 'same-page'")
+            page.locator('[data-decision-bulk] button').click()
+            expect(page.locator('[data-module-status]')).to_have_text('Pilih setidaknya satu keputusan.')
+            for checkbox in page.locator('[data-decision] [name=ids]').all():
+                checkbox.check()
+            held = []
+            page.route("**/riwayat/hapus-massal/", lambda route: held.append(route))
+            page.locator('[data-decision-bulk] button').click()
+            expect(page.locator('[data-decision]:visible')).to_have_count(0)
+            self.assertEqual(len(held), 1)
+            held.pop().fulfill(status=403, json={"ok": False, "message": "Penghapusan gagal."})
+            expect(page.locator('[data-decision]:visible')).to_have_count(2)
+            expect(page.locator('[data-module-status]')).to_have_text('Penghapusan gagal.')
+            page.unroute("**/riwayat/hapus-massal/")
+
+            page.route("**/riwayat/*/ubah/", lambda route: route.fulfill(status=400, json={"ok": False, "message": "Alasan gagal."}))
+            note = page.locator('[data-decision] textarea').first
+            original = note.input_value()
+            note.fill('Perubahan yang ditolak')
+            page.locator('[data-decision-update] button').first.click()
+            expect(note).to_have_value(original)
+            page.unroute("**/riwayat/*/ubah/")
+            page.locator('[data-decision-bulk] button').click()
+            expect(page.locator('[data-module-status]')).to_have_text('2 keputusan dihapus.')
+            expect(page.locator('[data-decision]')).to_have_count(0)
+            self.assertEqual(page.evaluate("window.modulePage"), "same-page")
+
+            page.goto(self.live_server_url + "/preferensi/")
+            page.route("**/preferensi/tambah/", lambda route: held.append(route))
+            page.locator('#active-fiber').click()
+            expect(page.locator('#active-fiber')).to_have_attribute('aria-checked', 'true')
+            expect(page.locator('#active-fiber')).to_be_disabled()
+            self.assertEqual(len(held), 1)
+            held.pop().fulfill(status=429, json={"ok": False, "message": "Batas request."})
+            expect(page.locator('#active-fiber')).to_have_attribute('aria-checked', 'false')
+            expect(page.locator('[data-module-status]')).to_have_text('Batas request.')
+            page.unroute("**/preferensi/tambah/")
+            page.locator('#active-fiber').click()
+            expect(page.locator('#active-fiber')).to_have_attribute('aria-checked', 'true')
+            expect(page.locator('#direction-fiber')).to_be_enabled()
+            browser.close()
+
     def test_ajax_crud_filters_and_pagination_without_navigation(self):
         from playwright.sync_api import expect, sync_playwright
 

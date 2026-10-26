@@ -63,6 +63,14 @@
             row.setAttribute('aria-busy', 'true');
             try {
                 const pending = post(form);
+                if (form.matches('[data-preference-toggle]')) {
+                    const active = !row.dataset.id;
+                    row.querySelector('[role="switch"]').setAttribute('aria-checked', String(active));
+                    row.querySelector('[data-active-label]').textContent = active ? 'Aktif' : 'Nonaktif';
+                    row.querySelector('[data-toggle-track]').classList.toggle('bg-brand', active);
+                    row.querySelector('[data-toggle-track]').classList.toggle('bg-track', !active);
+                    row.querySelector('[data-toggle-thumb]').classList.toggle('translate-x-4', active);
+                }
                 row.querySelectorAll('button, input, select').forEach(control => { control.disabled = true; });
                 const data = await pending;
                 const updated = fragment(data.html);
@@ -97,6 +105,7 @@
         const filterForm = decisions.querySelector('[data-decision-filter]');
         let latestLoad = 0;
         let filterTimer;
+        let writing = false;
 
         async function loadHistory(url) {
             const loadId = ++latestLoad;
@@ -120,6 +129,7 @@
 
         function applyFilters() {
             clearTimeout(filterTimer);
+            if (writing) return;
             const params = new URLSearchParams(new FormData(filterForm));
             loadHistory(`${filterForm.action}?${params}`);
         }
@@ -131,34 +141,58 @@
                 applyFilters();
                 return;
             }
-            if (!form.matches('[data-decision-create], [data-decision-update], [data-decision-delete]')) return;
+            if (!form.matches('[data-decision-create], [data-decision-update], [data-decision-delete], [data-decision-bulk]')) return;
             event.preventDefault();
-            if (form.dataset.busy) return;
-            clearTimeout(filterTimer);
-            form.dataset.busy = 'true';
-            form.setAttribute('aria-busy', 'true');
-            const buttons = form.querySelectorAll('button');
-            buttons.forEach(button => { button.disabled = true; });
-            let data;
-            try {
-                data = await post(form);
-            } catch (error) {
-                notify(error.message, 'error');
-                return;
-            } finally {
-                delete form.dataset.busy;
-                form.removeAttribute('aria-busy');
-                buttons.forEach(button => { button.disabled = false; });
+            if (writing) return;
+            let removed = [];
+            if (form.matches('[data-decision-bulk]')) {
+                const selected = new Set(new FormData(form).getAll('ids'));
+                if (!selected.size) {
+                    notify('Pilih setidaknya satu keputusan.', 'error');
+                    return;
+                }
+                removed = [...results.querySelectorAll('[data-decision]')].filter(row => selected.has(row.dataset.decision));
+            } else if (form.matches('[data-decision-delete]')) {
+                removed = [form.closest('[data-decision]')];
             }
-            if (form.matches('[data-decision-create]')) form.reset();
-            const refreshed = await loadHistory(window.location.href);
-            notify(refreshed ? data.message : `${data.message} Muat ulang daftar untuk melihat perubahan.`, refreshed ? 'success' : 'normal');
+            clearTimeout(filterTimer);
+            writing = true;
+            ++latestLoad;
+            results.setAttribute('aria-busy', 'true');
+            const focused = document.activeElement;
+            const controls = [...decisions.querySelectorAll('input, select, textarea, button')].filter(control => !control.disabled);
+            try {
+                const pending = post(form);
+                controls.forEach(control => { control.disabled = true; });
+                removed.forEach(row => { row.hidden = true; });
+                let data;
+                try {
+                    data = await pending;
+                } catch (error) {
+                    removed.forEach(row => { row.hidden = false; });
+                    const note = form.matches('[data-decision-update]') ? form.querySelector('textarea') : null;
+                    if (note) note.value = note.defaultValue;
+                    notify(error.message, 'error');
+                    return;
+                }
+                if (form.matches('[data-decision-create]')) form.reset();
+                const refreshed = await loadHistory(window.location.href);
+                if (!refreshed) removed.forEach(row => { row.remove(); });
+                notify(refreshed ? data.message : `${data.message} Muat ulang daftar untuk melihat perubahan.`, refreshed ? 'success' : 'normal');
+            } finally {
+                writing = false;
+                results.removeAttribute('aria-busy');
+                controls.forEach(control => { control.disabled = false; });
+                if (focused && decisions.contains(focused)) focused.focus({preventScroll: true});
+                else (document.getElementById(focused?.id) || results).focus({preventScroll: true});
+            }
         });
 
         decisions.addEventListener('click', event => {
             const link = event.target.closest('[data-page], [data-filter-reset]');
             if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
             event.preventDefault();
+            if (writing) return;
             clearTimeout(filterTimer);
             if (link.matches('[data-filter-reset]')) {
                 for (const control of filterForm.elements) {
