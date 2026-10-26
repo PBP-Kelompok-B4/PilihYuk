@@ -63,3 +63,17 @@ class DecisionViewTests(TestCase):
         self.assertIsNone(result.json()["item"]["product_id"])
         self.assertIsNone(result.json()["item"]["shelf_id"])
         self.assertEqual(self.client.post(f"/riwayat/{decision.pk}/hapus/", HTTP_ACCEPT="application/json").status_code, 200)
+
+    def test_filter_search_and_pagination_json(self):
+        self.client.force_login(self.user)
+        for index in range(12):
+            Decision.objects.create(user=self.user, product=self.product, shelf=self.shelf, note=str(index))
+        other_product = make_product(product_name="Pilihan lain", brand="Merek lain")
+        Decision.objects.create(user=self.user, product=other_product)
+        response = self.client.get("/riwayat/", {"q": "MEREK LAIN"}, HTTP_ACCEPT="application/json")
+        self.assertEqual(len(response.json()["items"]), 1)
+        self.assertEqual(response.json()["items"][0]["product_name"], "Pilihan lain")
+        response = self.client.get("/riwayat/", {"shelf": self.shelf.pk, "page": 2}, HTTP_ACCEPT="application/json")
+        self.assertEqual(len(response.json()["items"]), 2)
+        self.assertEqual(response.json()["page"], 2)
+        self.assertIn("html", response.json())
