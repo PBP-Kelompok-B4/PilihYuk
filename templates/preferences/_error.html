@@ -5,6 +5,7 @@
     <section class="card">
         <h1 class="text-2xl font-bold">{{ title }}</h1>
         <p role="alert" class="mt-3">{{ message }}</p>
+        {% if errors %}<div class="mt-3 text-sm">{{ errors }}</div>{% endif %}
         <a href="{% url 'accounts:profile' %}" class="btn-brand mt-6 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">Kembali ke profil</a>
     </section>
 </main>

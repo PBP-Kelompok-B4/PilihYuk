@@ -11,6 +11,7 @@ urlpatterns = [
     path("preferensi/<int:pk>/hapus/", views.preference_delete, name="preference_delete"),
     path("riwayat/", views.decision_list, name="decision_list"),
     path("riwayat/tambah/", views.decision_create, name="decision_create"),
+    path("riwayat/hapus-massal/", views.decision_bulk_delete, name="decision_bulk_delete"),
     path("riwayat/<int:pk>/ubah/", views.decision_update, name="decision_update"),
     path("riwayat/<int:pk>/hapus/", views.decision_delete, name="decision_delete"),
 ]

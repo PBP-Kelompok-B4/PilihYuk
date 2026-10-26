@@ -1,5 +1,12 @@
 {% for notice in notices %}<p role="status" class="rounded-xl bg-warm p-4 text-sm">{{ notice }}</p>{% endfor %}
 <p class="text-sm text-muted">{{ page_obj.paginator.count }} keputusan</p>
+{% if rows %}
+<form id="decision-bulk-delete" method="post" action="{% url 'preferences:decision_bulk_delete' %}" data-decision-bulk class="flex flex-wrap items-center gap-3">
+    {% csrf_token %}
+    <button type="submit" class="btn-white min-h-11 ring-1 ring-line focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">Hapus yang dipilih</button>
+    <p class="text-sm text-muted">Centang keputusan pada halaman ini untuk menghapus beberapa sekaligus.</p>
+</form>
+{% endif %}
 {% for row in rows %}{% include "preferences/_decision_row.html" %}
 {% empty %}<p class="card">Belum ada keputusan yang cocok.</p>{% endfor %}
 <nav aria-label="Halaman riwayat" class="flex flex-wrap items-center gap-4">

@@ -1,4 +1,8 @@
 <article class="card min-w-0" data-decision="{{ row.item.id }}" aria-labelledby="decision-title-{{ row.item.id }}">
+    <label class="mb-3 inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm" for="select-decision-{{ row.item.id }}">
+        <input id="select-decision-{{ row.item.id }}" type="checkbox" name="ids" value="{{ row.item.id }}" form="decision-bulk-delete" class="h-5 w-5 accent-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+        Pilih keputusan ini<span class="sr-only">: {{ row.item.product_name }}</span>
+    </label>
     <h2 id="decision-title-{{ row.item.id }}" class="break-words font-bold">{{ row.item.product_name }}</h2>
     <p class="mt-1 break-words text-sm text-muted">{{ row.item.shelf_name }} · <time datetime="{{ row.item.created_at }}">{{ row.created_at|date:"d M Y, H:i" }}</time></p>
     <form method="post" action="{% url 'preferences:decision_update' row.item.id %}" data-decision-update class="mt-4 space-y-2">

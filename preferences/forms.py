@@ -79,3 +79,14 @@ class DecisionFilterForm(forms.Form):
         for name, field in self.fields.items():
             field.widget.attrs["id"] = f"filter-{name}"
             field.widget.attrs["class"] = "w-full min-w-0 rounded-xl border border-line bg-white p-3 text-sm focus-visible:outline-brand"
+
+
+class DecisionBulkDeleteForm(forms.Form):
+    ids = forms.Field(widget=forms.SelectMultiple, label="Keputusan yang dipilih")
+
+    def clean_ids(self):
+        values = self.cleaned_data["ids"]
+        if len(values) > 100:
+            raise forms.ValidationError("Pilih maksimal 100 keputusan sekaligus.")
+        identifier = forms.IntegerField(min_value=1, max_value=9223372036854775807)
+        return list(dict.fromkeys(identifier.clean(value) for value in values))

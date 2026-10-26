@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.core.paginator import Paginator
 from django.db.models import Q
+from django.db import transaction
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -11,7 +12,7 @@ from product_catalog.models import Product
 
 from .constants import DEFAULT_DIRECTION, DEFAULT_WEIGHT, DIRECTION_CHOICES, NUTRIENT_FIELDS, WEIGHT_CHOICES
 from .decorators import module_methods, owner_required, rate_limit, wants_json
-from .forms import DecisionFilterForm, DecisionForm, PreferenceForm
+from .forms import DecisionBulkDeleteForm, DecisionFilterForm, DecisionForm, PreferenceForm
 from .models import Decision, Preference
 
 
@@ -199,4 +200,36 @@ def decision_delete(request, item):
     if wants_json(request):
         return JsonResponse({"ok": True, "message": "Keputusan dihapus.", "item": result})
     messages.success(request, "Keputusan dihapus.")
+    return redirect("preferences:decision_list")
+
+
+def error_response(request, message, status, errors=None):
+    if wants_json(request):
+        data = {"ok": False, "message": message}
+        if errors:
+            data["errors"] = errors
+        return JsonResponse(data, status=status)
+    return render(request, "preferences/_error.html", {"title": "Perubahan tidak tersimpan", "message": message,
+                                                       "errors": errors}, status=status)
+
+
+@login_required
+@module_methods("POST")
+@rate_limit
+def decision_bulk_delete(request):
+    form = DecisionBulkDeleteForm(request.POST)
+    if not form.is_valid():
+        return error_response(request, "Periksa kembali pilihan keputusan.", 400, form.errors)
+    ids = form.cleaned_data["ids"]
+    with transaction.atomic():
+        items = list(Decision.objects.select_for_update().filter(pk__in=ids))
+        if any(item.user_id != request.user.pk for item in items):
+            return error_response(request, "Kamu tidak punya akses ke data ini.", 403)
+        if len(items) != len(ids):
+            return error_response(request, "Data tidak ditemukan.", 404)
+        Decision.objects.filter(user=request.user, pk__in=ids).delete()
+    message = f"{len(ids)} keputusan dihapus."
+    if wants_json(request):
+        return JsonResponse({"ok": True, "message": message, "deleted_ids": ids})
+    messages.success(request, message)
     return redirect("preferences:decision_list")
