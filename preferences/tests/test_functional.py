@@ -3,6 +3,7 @@
 import importlib.util
 import os
 import re
+import shutil
 from pathlib import Path
 import unittest
 
@@ -14,8 +15,14 @@ from preferences.models import Decision, Preference
 from .helpers import make_product, make_user
 
 
-@unittest.skipUnless(os.getenv("PILIHYUK_BROWSER_TESTS") == "1" and importlib.util.find_spec("playwright"),
-                     "Tes browser memerlukan opt-in dan Playwright lokal.")
+CHROME_AVAILABLE = bool(shutil.which("google-chrome") or shutil.which("chrome")) or any(
+    (Path(root) / "Google/Chrome/Application/chrome.exe").is_file()
+    for root in (os.getenv("PROGRAMFILES", "C:/Program Files"), os.getenv("PROGRAMFILES(X86)", "C:/Program Files (x86)"))
+)
+
+
+@unittest.skipUnless(os.getenv("PILIHYUK_BROWSER_TESTS") == "1" and importlib.util.find_spec("playwright") and CHROME_AVAILABLE,
+                     "Tes browser memerlukan opt-in, Playwright, dan Chrome lokal.")
 class DecisionBrowserTests(StaticLiveServerTestCase):
     def setUp(self):
         cache.clear()
