@@ -1,7 +1,7 @@
 {% load data_correction_tags %}
 {# Panel review satu item. Dipakai lewat include dengan variabel row (hasil moderation.queue_row); review_form dan back_url ikut dari konteks halaman. Di bawah 1280 px panel ini tampil sebagai halaman "Review pengajuan" tersendiri. #}
 {% with item=row.item product=row.product %}
-<section class="card min-w-0 xl:sticky xl:top-[92px]" aria-label="Review item koreksi">
+<section class="card min-w-0 xl:sticky xl:top-[92px]" aria-label="Review item koreksi" tabindex="-1" data-review-panel data-product-name="{{ product.product_name|default:'produk ini' }}">
     <div class="flex flex-wrap items-center justify-between gap-2">
         {% include 'data_correction/_status_chip.html' with status=item.status label=item.get_status_display %}
         <a href="{{ back_url }}" class="hidden text-sm font-semibold text-muted hover:text-brand xl:inline">Tutup</a>
@@ -39,17 +39,34 @@
     {% endif %}
 
     {% if item.status == 'pending' %}
-    <form method="post" action="{% url 'data_correction:review_item' item.pk %}" class="mt-4">
+    {# data-note-required sama dengan pesan field review_note dari services.reject_item (dijaga oleh tes). #}
+    <form method="post" action="{% url 'data_correction:review_item' item.pk %}" class="mt-4" data-review-form data-note-required="Tulis alasan penolakan untuk pengaju.">
         {% csrf_token %}
         <input type="hidden" name="next" value="{{ back_url }}">
         <label for="{{ review_form.review_note.id_for_label }}" class="mb-1.5 block text-[13px] font-semibold">Catatan untuk pengaju</label>
         {{ review_form.review_note }}
         <p id="{{ review_form.review_note.auto_id }}_helptext" class="mt-1.5 text-xs text-muted">{{ review_form.review_note.help_text }}</p>
         <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {% if product.is_active %}<button type="submit" name="action" value="approve" class="btn-brand">{% include 'data_correction/_icon.html' with name='check' %}Setujui</button>{% endif %}
-            <button type="submit" name="action" value="reject" class="inline-flex items-center justify-center gap-2 rounded-[10px] bg-[#b42318] px-5 py-3 text-sm font-semibold text-white hover:bg-[#b42318]/90">{% include 'data_correction/_icon.html' with name='x' %}Tolak</button>
+            {% if product.is_active %}<button type="submit" name="action" value="approve" class="btn-brand disabled:cursor-wait disabled:opacity-60">{% include 'data_correction/_icon.html' with name='check' %}Setujui</button>{% endif %}
+            <button type="button" popovertarget="tolak-{{ item.pk }}" class="inline-flex items-center justify-center gap-2 rounded-[10px] bg-[#b42318] px-5 py-3 text-sm font-semibold text-white hover:bg-[#b42318]/90 disabled:cursor-wait disabled:opacity-60" data-reject-trigger>{% include 'data_correction/_icon.html' with name='x' %}Tolak</button>
         </div>
         {% if not product.is_active %}<p class="mt-2 text-xs text-muted">Usulan untuk produk nonaktif hanya bisa ditolak.</p>{% endif %}
+
+        {# Konfirmasi Tolak. Atribut popover membukanya tanpa JavaScript; tombol di dalamnya mengirim form ini dengan action=reject. #}
+        <div id="tolak-{{ item.pk }}" popover role="dialog" aria-labelledby="tolak-{{ item.pk }}-judul" class="m-auto w-[min(28rem,calc(100%-2rem))] rounded-[20px] bg-white p-6 text-left text-ink shadow-xl backdrop:bg-ink/40" data-reject-dialog>
+            <div class="flex items-start gap-3">
+                <span class="icon-box h-10 w-10 shrink-0 bg-[#fde7e4] text-[#b42318]">{% include 'data_correction/_icon.html' with name='x' css='h-5 w-5' %}</span>
+                <div class="min-w-0">
+                    <h2 id="tolak-{{ item.pk }}-judul" class="text-base font-bold">Tolak usulan ini?</h2>
+                    <p class="mt-1 break-words text-sm text-muted">Usulan {{ item.get_field_name_display }} untuk {{ product.product_name|default:'produk ini' }} tidak dipakai. Catatanmu dikirim ke pengaju.</p>
+                </div>
+            </div>
+            <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button type="button" popovertarget="tolak-{{ item.pk }}" popovertargetaction="hide" autofocus class="btn-white btn-small ring-1 ring-line">Batal</button>
+                <button type="submit" name="action" value="reject" class="inline-flex items-center justify-center gap-2 rounded-[10px] bg-[#b42318] px-4 py-2.5 text-[13px] font-semibold text-white hover:bg-[#b42318]/90 disabled:cursor-wait disabled:opacity-60">Tolak Usulan</button>
+            </div>
+        </div>
+        <template data-error-template><p class="mt-1.5 break-words text-xs font-semibold text-[#b42318]"></p></template>
     </form>
     {% else %}
     <div class="mt-4 rounded-[10px] bg-surface px-4 py-3 text-sm">

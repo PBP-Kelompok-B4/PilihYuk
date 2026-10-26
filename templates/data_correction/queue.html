@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load data_correction_tags %}
+{% load static data_correction_tags %}
 {% block meta %}<title>{% if selected %}Review pengajuan{% else %}Moderasi Data{% endif %} — PilihYuk</title>{% endblock meta %}
 {% block content %}
 <main class="section w-full flex-1 py-10">
@@ -10,9 +10,9 @@
         <p class="mt-2 max-w-2xl text-muted">Tinjau koreksi data produk hasil kontribusi pengguna. Setujui atau tolak per field.</p>
 
         <ul class="mt-6 grid grid-cols-3 gap-3 sm:gap-4" aria-label="Ringkasan moderasi">
-            {% include 'data_correction/_stat_card.html' with icon='clock' tone='bg-surface text-ink' value=stats.pending|thousands title='Menunggu review' text='item koreksi' %}
-            {% include 'data_correction/_stat_card.html' with icon='check-circle' tone='bg-mint text-brand' value=stats.approved|thousands title='Disetujui' text='total item' %}
-            {% include 'data_correction/_stat_card.html' with icon='x-circle' tone='bg-[#fde7e4] text-[#b42318]' value=stats.rejected|thousands title='Ditolak' text='total item' %}
+            {% include 'data_correction/_stat_card.html' with icon='clock' tone='bg-surface text-ink' value=stats.pending|thousands stat='pending' title='Menunggu review' text='item koreksi' %}
+            {% include 'data_correction/_stat_card.html' with icon='check-circle' tone='bg-mint text-brand' value=stats.approved|thousands stat='approved' title='Disetujui' text='total item' %}
+            {% include 'data_correction/_stat_card.html' with icon='x-circle' tone='bg-[#fde7e4] text-[#b42318]' value=stats.rejected|thousands stat='rejected' title='Ditolak' text='total item' %}
         </ul>
 
         <nav aria-label="Tab moderasi" class="mt-6 flex flex-wrap gap-x-5 border-b border-line sm:gap-x-7">
@@ -60,7 +60,7 @@
             </div>
             <ul class="mt-2 space-y-3">
                 {% for row in rows %}{% with item=row.item %}
-                <li class="grid grid-cols-1 gap-2 rounded-[14px] p-4 ring-1 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_6.5rem_7rem] lg:items-center lg:gap-3 {% if selected and selected.item.pk == item.pk %}bg-mint ring-brand/30{% else %}ring-line{% endif %}">
+                <li class="grid grid-cols-1 gap-2 rounded-[14px] p-4 ring-1 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_6.5rem_7rem] lg:items-center lg:gap-3 {% if selected and selected.item.pk == item.pk %}bg-mint ring-brand/30{% else %}ring-line{% endif %}" data-queue-row data-item-id="{{ item.pk }}" data-status="{{ item.status }}" data-review-url="{{ row.url }}"></li>
                     <div class="min-w-0">
                         <p class="break-words font-semibold">{{ row.product.product_name|default:'Produk tanpa nama' }}</p>
                         <p class="break-words text-xs text-muted">{% include 'data_correction/_product_meta.html' with product=row.product %}</p>
@@ -69,13 +69,16 @@
                     <p class="min-w-0 break-words text-sm font-semibold"><span class="font-normal text-muted lg:sr-only">Field: </span>{{ item.get_field_name_display }}</p>
                     <p class="min-w-0 break-words text-sm text-muted"><span class="lg:sr-only">Saat ini: </span>{{ row.current|display_value:item.field_name }}</p>
                     <p class="min-w-0 break-words text-sm font-semibold text-brand"><span class="font-normal text-muted lg:sr-only">Usulan: </span>{{ item.proposed_value|display_value:item.field_name }}</p>
-                    <div>{% include 'data_correction/_status_chip.html' with status=item.status label=item.get_status_display %}</div>
+                    <div data-row-status>{% include 'data_correction/_status_chip.html' with status=item.status label=item.get_status_display %}</div>
                     <div class="text-[13px] font-semibold lg:text-right">
                         {% if selected and selected.item.pk == item.pk %}<span class="text-brand">Sedang ditinjau</span>{% else %}<a href="{{ row.url }}" class="inline-flex items-center justify-center rounded-[10px] bg-mint px-4 py-2 text-brand hover:bg-faint">{% if item.status == 'pending' %}Review{% else %}Lihat{% endif %}</a>{% endif %}
                     </div>
                 </li>
                 {% endwith %}{% endfor %}
             </ul>
+            {# Chip pengganti sesudah ditinjau lewat data_correction.js; teksnya diisi dari JSON. #}
+            <template data-chip-template="approved">{% include 'data_correction/_status_chip.html' with status='approved' label='Disetujui' %}</template>
+            <template data-chip-template="rejected">{% include 'data_correction/_status_chip.html' with status='rejected' label='Ditolak' %}</template>
 
             {% if page_obj.paginator.num_pages > 1 %}
             <nav aria-label="Halaman" class="mt-4 flex items-center justify-between gap-3 text-sm">
@@ -104,4 +107,5 @@
     </div>
     {% endif %}
 </main>
+<script src="{% static 'js/data_correction.js' %}" defer data-login-url="{% url 'accounts:login' %}"></script>
 {% endblock content %}
