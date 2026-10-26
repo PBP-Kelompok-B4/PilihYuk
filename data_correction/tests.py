@@ -1,68 +1,91 @@
 """Tes Modul 4 (Antrean Data).
 
-Tahap 2: model, constraint, status turunan, system check, dan admin. Helper membuat data
-seperti aslinya: username berisi email huruf kecil dan nama tampilan di first_name
-(keputusan 38). Product cukup diisi `source`, satu-satunya field wajib tanpa nilai bawaan
-(temuan Tahap 0), ditambah barcode 13 digit yang unik dan nama produk.
+Helper membuat data seperti aslinya: username berisi email huruf kecil dan nama tampilan di
+first_name. Product cukup diisi `source`, satu-satunya field wajib tanpa nilai
+bawaan, ditambah barcode 13 digit yang unik dan nama produk.
 
 Notes:
 - Cara menjalankan: `python manage.py test data_correction`
-- Django membuat database tes sementara yang kosong, lalu
-  menghapusnya setelah selesai. Data asli tidak tersentuh.
+- Django membuat database tes sementara yang kosong, lalu menghapusnya setelah selesai.
+  Data asli tidak tersentuh, dan tidak ada tes yang memakai jaringan.
 - TestCase       : tes yang memakai database. Setiap tes dibungkus transaksi yang
                    dibatalkan di akhir, jadi data satu tes tidak bocor ke tes lain.
 - SimpleTestCase : tes tanpa database (lebih cepat), untuk konstanta dan system check.
 - setUp()        : dijalankan sebelum SETIAP method test_... di kelas itu.
 - subTest()      : menjalankan beberapa kasus dalam satu tes. Kalau satu kasus gagal,
                    laporan menyebut kasus yang mana, dan kasus lain tetap diuji.
-- Isi file:
-  1. DataCorrectionModelTests : model, constraint, dan efek on_delete
-  2. DerivedStatusTests       : status turunan dan is_withdrawable
-  3. ConstantsTests           : isi constants.py sesuai PRD
-  4. SystemCheckTests         : checks.py menangkap ketidakcocokan
-  5. AdminTests               : admin hanya-baca dan tidak membocorkan email
+- Urutan         : daftar yang dibandingkan urutannya selalu berasal dari order_by atau
+                   Meta.ordering (dengan pk sebagai pemutus seri), jadi hasilnya sama di
+                   SQLite dan PostgreSQL.
+- Pemeriksaan HTML memakai teks, atribut data-*, dan kelas komponen (chip), bukan kelas
+  warna Tailwind, kecuali JsTemplateHookTests yang menjaga kait data_correction.js.
+
+Daftar isi:
+A. Helper bersama   : pembuat data, pesan, URL, pemeriksa HTML (chip_texts, links_of,
+                      unbalanced_tags), ViewTestMixin
+B. Model            : DataCorrectionModelTests, DerivedStatusTests, ConstantsTests,
+                      SystemCheckTests, AdminTests
+C. Validasi & form  : ValidatorTests, CorrectionFormTests
+D. Service          : SubmitCorrectionTests, ReviewTests, WithdrawCorrectionTests
+E. Helper kecil     : ResponseHelperTests, DisplayValueFilterTests, DisplayFilterTests,
+                      DisplayNameAndAgoTests
+F. Halaman pengguna : SubmitViewTests, SubmitPageLayoutTests, SuccessPageLayoutTests,
+                      MyCorrectionsViewTests, CorrectionDetailViewTests, WithdrawViewTests,
+                      WithdrawDialogTests
+G. Antrean kontribusi : IncompleteDataTests, ContributionFiltersTests, ContributionPagingTests,
+                      ContributionQueueDataTests, ContributionQueueViewTests,
+                      ContributionQueuePageTests
+H. Moderasi         : QueueFiltersTests, ModerationDataTests, CuratorQueueViewTests,
+                      CuratorQueueLayoutTests, ReviewItemViewTests
+I. Lintas halaman   : HttpMethodTests, PageStructureTests
+J. Kontrak JS       : JsJsonContractTests, JsTemplateHookTests
 """
 import json
 import re
+from datetime import timedelta
+from html.parser import HTMLParser
 from itertools import count
 from unittest import mock
-from datetime import timedelta
 
+from django import forms
 from django.apps import apps
 from django.contrib.auth import get_user_model
-from django.core.checks.registry import registry
-from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
-from django.db.models.deletion import ProtectedError
-from django.template.loader import get_template
+from django.contrib.auth.models import AnonymousUser
+from django.contrib.messages import get_messages
 from django.contrib.staticfiles import finders
+from django.core.checks.registry import registry
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.paginator import Paginator
+from django.db import IntegrityError, connection, models, transaction
+from django.db.models.deletion import ProtectedError
+from django.http import HttpResponse, QueryDict
+from django.template import Context, Template
+from django.template.loader import get_template
 from django.templatetags.static import static
-from django.test import Client
-from django.test import SimpleTestCase, TestCase
+from django.test import Client, RequestFactory, SimpleTestCase, TestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
-from django import forms
-from django.contrib.auth.models import AnonymousUser
-from django.core.exceptions import PermissionDenied
-from django.core.paginator import Paginator
-from django.db import models
-from django.http import HttpResponse
-from django.test import RequestFactory
-from django.contrib.messages import get_messages
-from django.db import connection
-from django.http import QueryDict
-from django.template import Context, Template
-from django.test.utils import CaptureQueriesContext
 from django.utils.dateparse import parse_datetime
-from django.template.loader import get_template
 
 from product_catalog.models import Product
 
 from . import constants
 from .checks import check_correctable_fields
 from .constants import APPROVED, CORRECTION_STATUS_LABELS, PARTIAL, PENDING, REJECTED
-from .models import DataCorrection, DataCorrectionItem
+from .contribution import (
+    ContributionFilters,
+    contribution_stats,
+    decorate,
+    page_images,
+    pending_product_ids,
+    queue_products,
+)
+from .display import display_name
+from .forms import CorrectionForm, help_text_for
 from .incomplete import incomplete_products, missing_count, missing_data
+from .models import DataCorrection, DataCorrectionItem
+from .moderation import QueueFilters, field_guide, find_item, queue_items, queue_row, queue_stats
 from .responses import (
     field_errors,
     json_error,
@@ -74,21 +97,41 @@ from .responses import (
     wants_json,
 )
 from .services import CorrectionError, approve_item, reject_item, submit_correction, withdraw_correction
-from .validators import get_current_value, parse_proposed_value, to_column_value, to_display, to_stored_text
-from .forms import CorrectionForm, help_text_for
 from .templatetags.data_correction_tags import ago, display_value, is_known, thousands
-from .display import display_name
-from .moderation import QueueFilters, field_guide, find_item, queue_items, queue_row, queue_stats
-from .contribution import (
-    ContributionFilters,
-    contribution_stats,
-    decorate,
-    page_images,
-    pending_product_ids,
-    queue_products,
-)
+from .validators import get_current_value, parse_proposed_value, to_column_value, to_display, to_stored_text
 
 _barcodes = count(1)
+
+COMPLETE_FIELDS = {
+    "brand": "Sarimi", "quantity": "88 g", "category": "Mi instan", "origin": "Indonesia",
+    "nova_group": 4, "energy_kcal_100g": 460.0, "proteins_100g": 8.0, "fat_100g": 19.0,
+    "saturated_fat_100g": 9.0, "carbohydrates_100g": 63.0, "sugars_100g": 4.0,
+    "fiber_100g": 2.0, "sodium_100g": 0.78,
+}
+PACKAGING_TAGS = ["en:packagings-not-complete"]
+OFF_IMAGE = "https://images.openfoodfacts.org/images/products/899/000/000/0001/front_id.3.400.jpg"
+
+CONTRIBUTION_URL = "/antrean/"
+QUEUE_URL = "/moderasi/"
+
+NUMBER_MESSAGE = "Masukkan angka, misalnya 7,5."
+SEPARATOR_MESSAGE = "Tulis angka tanpa pemisah ribuan, misalnya 1234,5 (bukan 1.234,5)."
+NOVA_MESSAGE = "Grup NOVA harus bilangan bulat 1 sampai 4."
+EMPTY_MESSAGE = "Pilih minimal satu field untuk dikoreksi."
+FORBIDDEN_MESSAGE = "Field ini tidak boleh dikoreksi."
+DUPLICATE_MESSAGE = "Field ini diajukan lebih dari sekali."
+SUBMITTED_MESSAGE = "Pengajuan koreksi terkirim dan menunggu tinjauan kurator."
+WITHDRAWN_MESSAGE = "Pengajuan berhasil ditarik."
+NOT_WITHDRAWABLE_MESSAGE = "Pengajuan ini sudah mulai ditinjau sehingga tidak bisa ditarik."
+ACTION_MESSAGE = "Pilih aksi approve atau reject."
+NOTE_REQUIRED_MESSAGE = "Catatan wajib diisi saat menolak."
+ALREADY_REVIEWED_MESSAGE = "Item ini sudah ditinjau."
+
+VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta",
+             "source", "track", "wbr"}
+CHIP = re.compile(r'<(span|li|a)\b[^>]*\bclass="(?:[^"]*\s)?chip(?:\s[^"]*)?"[^>]*>(.*?)</\1>', re.S)
+LINK = re.compile(r'<a\b[^>]*\bhref="([^"]*)"[^>]*>(.*?)</a>', re.S)
+TAG = re.compile(r"<[^>]+>")
 
 
 def make_user(email="pengaju@email.com", name="Budi", **extra):
@@ -111,6 +154,11 @@ def make_product(**fields):
     return Product.objects.create(**data)
 
 
+def make_complete_product(**fields):
+    """Produk tanpa data kosong; ganti kolom lewat argumen untuk menguji deteksi."""
+    return make_product(**{**COMPLETE_FIELDS, **fields})
+
+
 def make_correction(product, user, **statuses):
     """Pengajuan dengan satu item per field, misalnya make_correction(p, u, brand=PENDING)."""
     correction = DataCorrection.objects.create(product=product, submitted_by=user)
@@ -119,6 +167,102 @@ def make_correction(product, user, **statuses):
             correction=correction, field_name=field_name, proposed_value="1", status=status
         )
     return correction
+
+
+def submit_items(product, user, **changes):
+    """Ajukan koreksi lewat service (nilai lama dan usulan seperti aslinya); hasil: item per field."""
+    correction = submit_correction(user, product, changes)
+    return {item.field_name: item for item in correction.items.all()}
+
+
+def set_created_at(item, **delta):
+    """Mundurkan waktu pengajuan milik item, mis. set_created_at(item, hours=2)."""
+    created_at = timezone.now() - timedelta(**delta)
+    DataCorrection.objects.filter(pk=item.correction_id).update(created_at=created_at)
+
+
+def error_of(action):
+    """Jalankan aksi yang harus gagal, kembalikan CorrectionError-nya."""
+    try:
+        action()
+    except CorrectionError as error:
+        return error
+    raise AssertionError("CorrectionError tidak terjadi")  # pragma: no cover (hanya saat tes gagal)
+
+
+def queue_ids(filters=None):
+    """Id produk di antrean kontribusi, sesuai urutannya."""
+    rows, _, _ = queue_products(filters or ContributionFilters())
+    return [row["pk"] for row in rows]
+
+
+def json_of(response):
+    return json.loads(response.content)
+
+
+def messages_of(response):
+    """Pesan django.contrib.messages yang ditambahkan selama permintaan itu."""
+    return [str(message) for message in get_messages(response.wsgi_request)]
+
+
+def chip_texts(response):
+    """Teks setiap chip (elemen berkelas "chip"), tanpa bergantung pada kelas warnanya.
+
+    Contoh: <span class="chip bg-[#fdf0c4] text-[#6b4d00]">Tidak diketahui</span> -> "Tidak diketahui"
+    """
+    return [TAG.sub("", inner).strip() for _, inner in CHIP.findall(response.content.decode())]
+
+
+def links_of(response):
+    """Pasangan (href, teks) setiap tautan di halaman, tanpa bergantung pada kelasnya."""
+    return [(href, TAG.sub("", text).strip()) for href, text in LINK.findall(response.content.decode())]
+
+
+class TagBalance(HTMLParser):
+    """Mencatat tag penutup yang tidak cocok dengan tag pembuka terakhir."""
+
+    def __init__(self):
+        super().__init__()
+        self.open_tags, self.problems = [], []
+
+    def handle_starttag(self, tag, attrs):
+        if tag not in VOID_TAGS:
+            self.open_tags.append((tag, self.getpos()[0]))
+
+    def handle_startendtag(self, tag, attrs):
+        pass  # <path ... /> sudah tertutup sendiri
+
+    def handle_endtag(self, tag):
+        if self.open_tags and self.open_tags[-1][0] == tag:
+            self.open_tags.pop()
+        else:
+            opened = self.open_tags[-1][0] if self.open_tags else "-"
+            self.problems.append(f"baris {self.getpos()[0]}: </{tag}> padahal yang terbuka <{opened}>")
+
+
+def unbalanced_tags(response):
+    """Masalah susunan tag di dalam <main>; daftar kosong berarti setiap tag ditutup berurutan.
+
+    Contoh: '<ul><li></li><div>isi</div></li></ul>' -> ["baris 1: </li> padahal yang terbuka <ul>"]
+    """
+    html = response.content.decode()
+    parser = TagBalance()
+    parser.feed(html[html.index("<main"):html.index("</main>") + len("</main>")])
+    parser.close()
+    return parser.problems + [f"<{tag}> di baris {line} tidak ditutup" for tag, line in parser.open_tags]
+
+
+class ViewTestMixin:
+    """Pemeriksaan yang berulang di tes view Tahap 4."""
+
+    def assertRedirectsTo(self, response, url):
+        self.assertRedirects(response, url, fetch_redirect_response=False)
+
+    def assertLoginRedirect(self, response, next_url):
+        self.assertRedirectsTo(response, f"/masuk/?next={next_url}")
+
+    def assertJsonError(self, response, status, error_id):
+        self.assertEqual((response.status_code, json_of(response)["error"]["id"]), (status, error_id))
 
 
 class DataCorrectionModelTests(TestCase):
@@ -431,31 +575,6 @@ class AdminTests(TestCase):
         self.assertFalse(DataCorrectionItem.objects.exists())
 
 
-COMPLETE_FIELDS = {
-    "brand": "Sarimi", "quantity": "88 g", "category": "Mi instan", "origin": "Indonesia",
-    "nova_group": 4, "energy_kcal_100g": 460.0, "proteins_100g": 8.0, "fat_100g": 19.0,
-    "saturated_fat_100g": 9.0, "carbohydrates_100g": 63.0, "sugars_100g": 4.0,
-    "fiber_100g": 2.0, "sodium_100g": 0.78,
-}
-NUMBER_MESSAGE = "Masukkan angka, misalnya 7,5."
-SEPARATOR_MESSAGE = "Tulis angka tanpa pemisah ribuan, misalnya 1234,5 (bukan 1.234,5)."
-NOVA_MESSAGE = "Grup NOVA harus bilangan bulat 1 sampai 4."
-
-
-def make_complete_product(**fields):
-    """Produk tanpa data kosong; ganti kolom lewat argumen untuk menguji deteksi."""
-    return make_product(**{**COMPLETE_FIELDS, **fields})
-
-
-def error_of(action):
-    """Jalankan aksi yang harus gagal, kembalikan CorrectionError-nya."""
-    try:
-        action()
-    except CorrectionError as error:
-        return error
-    raise AssertionError("CorrectionError tidak terjadi")
-
-
 class ValidatorTests(SimpleTestCase):
     def assertAccepted(self, field_name, raw, expected, **kwargs):
         value, error = parse_proposed_value(field_name, raw, **kwargs)
@@ -584,6 +703,112 @@ class ValidatorTests(SimpleTestCase):
         for (field_name, value), expected in shown.items():
             with self.subTest(field_name=field_name, value=value):
                 self.assertEqual(to_display(field_name, value), expected)
+
+
+class CorrectionFormTests(SimpleTestCase):
+    """Form tanpa database: Product cukup objek yang tidak disimpan."""
+
+    def setUp(self):
+        self.product = Product(
+            product_name="Sarimi Isi 2 Goreng", brand="", nova_group=4, sodium_100g=0.3976, fiber_100g=None
+        )
+
+    def form(self, data=None, **kwargs):
+        return CorrectionForm(data, product=self.product, **kwargs)
+
+    def test_one_optional_text_field_per_correctable_field(self):
+        form = self.form()
+        self.assertEqual(list(form.fields), list(constants.CORRECTABLE_FIELDS))
+        for name, field in form.fields.items():
+            with self.subTest(field=name):
+                self.assertIs(type(field), forms.CharField)  # bukan FloatField/IntegerField
+                self.assertFalse(field.required)
+                self.assertEqual(field.label, constants.FIELD_LABELS[name])
+        groups = form.groups()
+        titles = [group["title"] for group in groups]
+        self.assertEqual(titles, ["Info produk", "Tingkat pemrosesan", "Gizi per 100 g"])
+        names = [row["field"].name for group in groups for row in group["rows"]]
+        self.assertEqual(names, list(constants.CORRECTABLE_FIELDS))
+
+    def test_inputs_use_inputmode_instead_of_number_type(self):
+        form = self.form()
+        for name in constants.CORRECTABLE_FIELDS:
+            with self.subTest(field=name):
+                html = str(form[name])
+                self.assertIn('type="text"', html)
+                self.assertNotIn('type="number"', html)
+        for name in constants.NUTRITION_FIELDS:
+            self.assertIn('inputmode="decimal"', str(form[name]))
+        self.assertIn('inputmode="numeric"', str(form["nova_group"]))
+        self.assertNotIn("inputmode", str(form["brand"]))
+        self.assertIn('maxlength="255"', str(form["brand"]))  # dari model Product
+        self.assertIn('maxlength="100"', str(form["quantity"]))
+
+    def test_help_texts_name_unit_and_forbid_thousand_separators(self):
+        for name in constants.NUTRITION_FIELDS:
+            self.assertIn("tanpa pemisah ribuan", help_text_for(name))
+        self.assertIn("dalam mg per 100 g", help_text_for("sodium_100g"))
+        self.assertIn("dalam kkal per 100 g", help_text_for("energy_kcal_100g"))
+        self.assertIn("dalam g per 100 g", help_text_for("fat_100g"))
+        self.assertIn("1 sampai 4", help_text_for("nova_group"))
+        self.assertEqual(help_text_for("brand"), "Maksimal 255 karakter.")
+        self.assertEqual(self.form().fields["fiber_100g"].help_text, help_text_for("fiber_100g"))
+
+    def test_focus_from_query_marks_fields_and_ignores_unknown_names(self):
+        form = self.form(focus=["code", "proteins_100g", "fiber_100g", "proteins_100g"])
+        self.assertEqual(form.focus, ["proteins_100g", "fiber_100g"])
+        self.assertIn("autofocus", str(form["proteins_100g"]))  # hanya field pertama
+        self.assertNotIn("autofocus", str(form["fiber_100g"]))
+        rows = {row["field"].name: row for group in form.groups() for row in group["rows"]}
+        self.assertTrue(rows["fiber_100g"]["focus"])
+        self.assertFalse(rows["brand"]["focus"])
+        self.assertEqual(rows["sodium_100g"]["value"], 0.3976)  # nilai kolom; template yang mengubah ke mg
+        self.assertNotIn("autofocus", str(self.form()["proteins_100g"]))
+
+    def test_changes_reads_raw_post_and_skips_empty_boxes(self):
+        data = QueryDict(
+            "csrfmiddlewaretoken=x&brand=+Sarimi+&fat_100g=&sugars_100g=+++&code=123&nova_group=3"
+        )
+        expected = [("brand", " Sarimi "), ("code", "123"), ("nova_group", "3")]
+        self.assertEqual(self.form(data).changes(), expected)
+        self.assertEqual(self.form({"brand": "Sarimi", "fat_100g": ""}).changes(), [("brand", "Sarimi")])
+
+    def test_changes_keeps_every_value_of_a_repeated_field(self):
+        data = QueryDict("brand=A&brand=B&fat_100g=&fat_100g=7")
+        expected = [("brand", "A"), ("brand", "B"), ("fat_100g", ""), ("fat_100g", "7")]
+        self.assertEqual(self.form(data).changes(), expected)
+
+    def test_changes_stops_on_null_character(self):
+        form = self.form(QueryDict("brand=Sari%00mi"))
+        error = error_of(form.changes)
+        self.assertEqual((error.error_id, error.status), ("validation_error", 400))
+        self.assertEqual(list(error.fields), ["brand"])
+        form.add_correction_error(error)  # pesan yang sama tidak dipasang dua kali
+        self.assertEqual(len(form.errors["brand"]), 1)
+
+    def test_add_correction_error(self):
+        form = self.form(QueryDict("nova_group=5&code=1"))
+        form.add_correction_error(CorrectionError(
+            "validation_error", "Periksa kembali isian koreksi.",
+            fields={"nova_group": [NOVA_MESSAGE], "code": [FORBIDDEN_MESSAGE]},
+        ))
+        self.assertEqual(form.errors["nova_group"], [NOVA_MESSAGE])
+        self.assertEqual(form.non_field_errors(), [f"code: {FORBIDDEN_MESSAGE}"])
+        form = self.form(QueryDict(""))
+        form.add_correction_error(CorrectionError("validation_error", EMPTY_MESSAGE))
+        self.assertEqual(form.non_field_errors(), [EMPTY_MESSAGE])
+
+    def test_json_fields_use_column_units(self):
+        fields = {entry["field_name"]: entry for entry in self.form().json_fields()}
+        self.assertEqual(list(fields), list(constants.CORRECTABLE_FIELDS))
+        self.assertEqual(fields["sodium_100g"], {
+            "field_name": "sodium_100g", "label": "Natrium (mg/100 g)", "type": "number",
+            "current_value": 0.3976, "display_factor": 1000, "help_text": help_text_for("sodium_100g"),
+        })
+        brand, nova, fiber = fields["brand"], fields["nova_group"], fields["fiber_100g"]
+        self.assertEqual((brand["type"], brand["current_value"]), ("text", None))  # "" = tidak diketahui
+        self.assertEqual((nova["type"], nova["current_value"]), ("integer", 4))
+        self.assertEqual((fiber["current_value"], fiber["display_factor"]), (None, 1))
 
 
 class SubmitCorrectionTests(TestCase):
@@ -782,6 +1007,603 @@ class WithdrawCorrectionTests(TestCase):
         self.assertEqual(error.error_id, "correction_not_found")
 
 
+class ResponseHelperTests(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+
+    def request(self, user=None, path="/moderasi/", **headers):
+        request = self.factory.get(path, **headers)
+        request.user = user or AnonymousUser()
+        return request
+
+    def test_wants_json(self):
+        self.assertTrue(wants_json(self.request(path="/antrean/?format=json")))
+        self.assertTrue(wants_json(self.request(HTTP_ACCEPT="application/json")))
+        self.assertTrue(wants_json(self.request(HTTP_ACCEPT="text/html, application/json;q=0.9")))
+        self.assertFalse(wants_json(self.request(HTTP_ACCEPT="text/html,application/xhtml+xml")))
+        self.assertFalse(wants_json(self.request(path="/antrean/?format=html")))
+        self.assertFalse(wants_json(self.request()))
+
+    def test_json_ok_and_json_error_shapes(self):
+        response = json_ok({"id": 3}, status=201)
+        self.assertEqual((response.status_code, json.loads(response.content)), (201, {"id": 3}))
+        errors = {"nova_group": [NOVA_MESSAGE], "brand": "Isian ini wajib diisi."}
+        response = json_error("Periksa kembali isian koreksi.", errors)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(json.loads(response.content), {
+            "error": {"id": "validation_error", "message": "Periksa kembali isian koreksi."},
+            "fields": {
+                "nova_group": [{"message": NOVA_MESSAGE, "code": "invalid"}],
+                "brand": [{"message": "Isian ini wajib diisi.", "code": "invalid"}],
+            },
+        })
+        response = json_error("Item ini sudah ditinjau.", status=409, error_id="already_reviewed")
+        self.assertEqual(json.loads(response.content),
+                         {"error": {"id": "already_reviewed", "message": "Item ini sudah ditinjau."}})
+
+    def test_field_errors_accepts_form_errors(self):
+        class BrandForm(forms.Form):
+            brand = forms.CharField()
+
+        form = BrandForm(data={})
+        self.assertFalse(form.is_valid())
+        self.assertEqual(field_errors(form.errors), form.errors.get_json_data())
+        self.assertEqual(field_errors(form.errors)["brand"][0]["code"], "required")
+        self.assertEqual(field_errors({"brand": [{"message": "x", "code": "y"}]}),
+                         {"brand": [{"message": "x", "code": "y"}]})
+
+    def test_page_payload(self):
+        page = Paginator(list(range(30)), 12).page(2)
+        self.assertEqual(page_payload(page, ({"n": n} for n in page)), {
+            "count": 30, "page": 2, "page_size": 12, "results": [{"n": n} for n in range(12, 24)],
+        })
+
+    def test_render_or_json(self):
+        build = mock.Mock(return_value={"id": 1})
+        response = render_or_json(self.request(path="/x/?format=json"), "tidak/dipakai.html", {}, build)
+        self.assertEqual(json.loads(response.content), {"id": 1})
+        with mock.patch("data_correction.responses.render", return_value=HttpResponse("html")) as render:
+            response = render_or_json(self.request(path="/x/"), "data_correction/queue.html", {"a": 1}, build)
+        self.assertEqual(response.content, b"html")
+        self.assertEqual(render.call_args.args[1:3], ("data_correction/queue.html", {"a": 1}))
+        build.assert_called_once()  # data JSON tidak disusun untuk permintaan HTML
+        response = render_or_json(self.request(path="/x/?format=json"), "x.html", {}, {"id": 2}, status=201)
+        self.assertEqual((response.status_code, json.loads(response.content)), (201, {"id": 2}))
+
+    def test_login_required_json(self):
+        view = login_required_json(lambda request: HttpResponse("ok"))
+        response = view(self.request(path="/antrean/saya/"))
+        self.assertEqual((response.status_code, response.url), (302, "/masuk/?next=/antrean/saya/"))
+        response = view(self.request(path="/antrean/saya/?format=json"))
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(json.loads(response.content)["error"]["id"], "authentication_required")
+        self.assertEqual(view(self.request(make_user())).content, b"ok")
+
+    def test_staff_required(self):
+        view = staff_required(lambda request: HttpResponse("ok"))
+        self.assertEqual(view(self.request()).url, "/masuk/?next=/moderasi/")
+        self.assertEqual(view(self.request(path="/moderasi/?format=json")).status_code, 401)
+        with self.assertRaises(PermissionDenied):
+            view(self.request(make_user()))
+        response = view(self.request(make_user("sari@email.com", "Sari"), path="/moderasi/?format=json"))
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(json.loads(response.content)["error"]["id"], "forbidden")
+        self.assertEqual(view(self.request(make_staff())).content, b"ok")
+
+    def test_decorators_keep_view_name(self):
+        def curator_queue(request):
+            return HttpResponse("ok")
+
+        self.assertEqual(staff_required(curator_queue).__name__, "curator_queue")
+        self.assertEqual(login_required_json(curator_queue).__name__, "curator_queue")
+        self.assertEqual(staff_required(curator_queue)(self.request(make_staff())).content, b"ok")
+
+
+class DisplayValueFilterTests(SimpleTestCase):
+    def test_display_value(self):
+        cases = [
+            ("0.78", "sodium_100g", "780"),
+            (0.3976, "sodium_100g", "397,6"),
+            ("0", "fiber_100g", "0"),
+            ("3", "nova_group", "3"),
+            ("Sarimi", "brand", "Sarimi"),
+            (None, "fat_100g", "Tidak diketahui"),
+            ("", "brand", "Tidak diketahui"),
+        ]
+        for value, field_name, expected in cases:
+            with self.subTest(value=value, field=field_name):
+                self.assertEqual(display_value(value, field_name), expected)
+
+    def test_filter_is_registered(self):
+        template = Template("{% load data_correction_tags %}{{ value|display_value:field }}")
+        self.assertEqual(template.render(Context({"value": "0.78", "field": "sodium_100g"})), "780")
+
+
+class DisplayFilterTests(SimpleTestCase):
+    def test_thousands_uses_indonesian_grouping(self):
+        cases = ((0, "0"), (347, "347"), (1248, "1.248"), (1234567, "1.234.567"), (None, "0"))
+        for value, expected in cases:
+            with self.subTest(value=value):
+                self.assertEqual(thousands(value), expected)
+        template = Template("{% load data_correction_tags %}{{ total|thousands }} produk")
+        self.assertEqual(template.render(Context({"total": 1248})), "1.248 produk")
+
+    def test_is_known_treats_zero_as_data(self):
+        self.assertFalse(is_known(None, "fat_100g"))
+        self.assertFalse(is_known("  ", "brand"))
+        self.assertTrue(is_known(0.0, "fiber_100g"))  # nol bukan kosong
+        self.assertTrue(is_known("0.78", "sodium_100g"))
+
+
+class DisplayNameAndAgoTests(SimpleTestCase):
+    def test_display_name_never_uses_username(self):
+        User = get_user_model()
+        self.assertEqual(display_name(User(username="budi@email.com", first_name="Budi")), "Budi")
+        self.assertEqual(display_name(User(username="sari@email.com", first_name="  ")), "Pengguna")
+        self.assertEqual(display_name(None), "-")
+
+    def test_ago_uses_a_single_unit(self):
+        now = timezone.now()
+        self.assertEqual(ago(now - timedelta(seconds=20)), "baru saja")
+        self.assertEqual(ago(now - timedelta(hours=2, minutes=40)), "2\xa0jam lalu")
+        self.assertEqual(ago(now - timedelta(days=3, hours=4)), "3\xa0hari lalu")
+        self.assertEqual(ago(None), "")
+
+
+class SubmitViewTests(ViewTestMixin, TestCase):
+    def setUp(self):
+        self.user = make_user()
+        self.product = make_product(brand="Sarimi", nova_group=4, sodium_100g=0.3976)  # protein NULL
+        self.url = reverse("data_correction:submit", args=[self.product.pk])
+
+    def test_url_is_stable(self):
+        self.assertEqual(self.url, f"/antrean/produk/{self.product.pk}/ajukan/")
+
+    def test_visitor_is_sent_to_login_or_gets_401(self):
+        self.assertLoginRedirect(self.client.get(self.url), self.url)
+        self.assertLoginRedirect(self.client.post(self.url, {"brand": "Sarimi Baru"}), self.url)
+        response = self.client.post(self.url + "?format=json", {"brand": "Sarimi Baru"})
+        self.assertJsonError(response, 401, "authentication_required")
+        self.assertFalse(DataCorrection.objects.exists())
+
+    def test_get_shows_form_with_current_values(self):
+        self.client.force_login(self.user)
+        response = self.client.get(self.url + "?field=proteins_100g")
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "data_correction/submit.html")
+        self.assertContains(response, "csrfmiddlewaretoken")
+        self.assertContains(response, "397,6")  # natrium 0.3976 g tampil dalam mg
+        self.assertContains(response, "Tidak diketahui")  # protein NULL
+        self.assertContains(response, 'inputmode="decimal"')
+        self.assertNotContains(response, 'type="number"')
+        self.assertContains(response, reverse("product_catalog:product_detail", args=[self.product.pk]))
+        self.assertEqual(response.context["form"].focus, ["proteins_100g"])
+        self.assertIn("autofocus", str(response.context["form"]["proteins_100g"]))
+
+    def test_get_json_lists_correctable_fields(self):
+        self.client.force_login(self.user)
+        response = self.client.get(self.url, HTTP_ACCEPT="application/json")
+        self.assertEqual(response.status_code, 200)
+        data = json_of(response)
+        self.assertEqual(data["product"], {"id": self.product.pk, "product_name": self.product.product_name})
+        fields = {entry["field_name"]: entry for entry in data["correctable_fields"]}
+        self.assertEqual(list(fields), list(constants.CORRECTABLE_FIELDS))
+        self.assertEqual(fields["sodium_100g"]["current_value"], 0.3976)
+        self.assertIsNone(fields["proteins_100g"]["current_value"])
+
+    def test_post_creates_correction_and_redirects_to_success_page(self):
+        self.client.force_login(self.user)
+        response = self.client.post(self.url, {"proteins_100g": "8,5", "sodium_100g": "780", "brand": ""})
+        correction = DataCorrection.objects.get()
+        detail = reverse("data_correction:correction_detail", args=[correction.pk])
+        self.assertRedirectsTo(response, f"{detail}?terkirim=1")
+        self.assertEqual(messages_of(response), [SUBMITTED_MESSAGE])
+        self.assertEqual(correction.submitted_by, self.user)
+        items = {item.field_name: item for item in correction.items.all()}
+        self.assertEqual(set(items), {"proteins_100g", "sodium_100g"})
+        protein, sodium = items["proteins_100g"], items["sodium_100g"]
+        self.assertEqual((protein.old_value, protein.proposed_value), (None, "8.5"))
+        self.assertEqual((sodium.old_value, sodium.proposed_value), ("0.3976", "0.78"))  # mg -> g
+        self.product.refresh_from_db()
+        self.assertIsNone(self.product.proteins_100g)  # Product baru berubah setelah disetujui kurator
+
+    def test_success_page_after_redirect(self):
+        self.client.force_login(self.user)
+        response = self.client.post(self.url, {"sodium_100g": "780"}, follow=True)
+        self.assertTemplateUsed(response, "data_correction/submit_success.html")
+        self.assertContains(response, "Pengajuan berhasil dikirim")
+        self.assertContains(response, SUBMITTED_MESSAGE)  # toast
+        self.assertContains(response, "780")
+
+    def test_post_json_returns_201(self):
+        self.client.force_login(self.user)
+        response = self.client.post(self.url + "?format=json", {"sodium_100g": "780", "nova_group": "3"})
+        self.assertEqual(response.status_code, 201)
+        correction = DataCorrection.objects.get()
+        data = json_of(response)
+        created = correction.created_at
+        expected_time = created.replace(microsecond=created.microsecond // 1000 * 1000)  # JSON: milidetik
+        self.assertEqual(parse_datetime(data.pop("created_at")), expected_time)
+        pending = {"status": PENDING, "status_label": "Menunggu", "review_note": ""}
+        self.assertEqual(data, {
+            "id": correction.pk,
+            "product": {"id": self.product.pk, "product_name": self.product.product_name},
+            "status": PENDING,
+            "status_label": "Menunggu",
+            "is_withdrawable": True,
+            "detail_url": f"/antrean/saya/{correction.pk}/",
+            "items": [
+                {"field_name": "nova_group", "label": "Grup NOVA", "old_value": 4, "proposed_value": 3,
+                 **pending},
+                {"field_name": "sodium_100g", "label": "Natrium (mg/100 g)", "old_value": 0.3976,
+                 "proposed_value": 0.78, **pending},
+            ],
+        })
+
+    def test_invalid_values_show_errors_and_keep_input(self):
+        self.client.force_login(self.user)
+        response = self.client.post(self.url, {"nova_group": "5", "fat_100g": "1.234,5"})
+        self.assertEqual(response.status_code, 400)
+        form = response.context["form"]
+        self.assertEqual(form.errors["nova_group"], [NOVA_MESSAGE])
+        self.assertEqual(form.errors["fat_100g"], [SEPARATOR_MESSAGE])
+        self.assertContains(response, "Periksa kembali isian koreksi.", status_code=400)
+        self.assertContains(response, 'value="1.234,5"', status_code=400)  # isian tidak hilang
+        self.assertContains(response, 'aria-invalid="true"', status_code=400)
+        response = self.client.post(self.url + "?format=json", {"nova_group": "5"})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(json_of(response), {
+            "error": {"id": "validation_error", "message": "Periksa kembali isian koreksi."},
+            "fields": {"nova_group": [{"message": NOVA_MESSAGE, "code": "invalid"}]},
+        })
+        self.assertFalse(DataCorrection.objects.exists())
+
+    def test_empty_submission_is_rejected(self):
+        self.client.force_login(self.user)
+        response = self.client.post(self.url, {"brand": "  ", "fat_100g": ""})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.context["form"].non_field_errors(), [EMPTY_MESSAGE])
+        response = self.client.post(self.url + "?format=json", {})
+        self.assertJsonError(response, 400, "validation_error")
+        self.assertEqual(json_of(response)["error"]["message"], EMPTY_MESSAGE)
+        self.assertFalse(DataCorrection.objects.exists())
+
+    def test_forbidden_field_from_manual_post_is_rejected(self):
+        self.client.force_login(self.user)
+        code = self.product.code
+        response = self.client.post(self.url, {"code": "1234567890123", "brand": "Sarimi Baru"})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.context["form"].non_field_errors(), [f"code: {FORBIDDEN_MESSAGE}"])
+        response = self.client.post(self.url + "?format=json", {"is_active": "false"})
+        self.assertJsonError(response, 400, "validation_error")
+        expected = {"is_active": [{"message": FORBIDDEN_MESSAGE, "code": "invalid"}]}
+        self.assertEqual(json_of(response)["fields"], expected)
+        self.assertFalse(DataCorrection.objects.exists())
+        self.product.refresh_from_db()
+        self.assertEqual((self.product.code, self.product.brand), (code, "Sarimi"))
+        self.assertTrue(self.product.is_active)
+
+    def test_duplicate_field_is_rejected(self):
+        self.client.force_login(self.user)
+        response = self.client.post(self.url, {"fat_100g": ["7", "8"]})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.context["form"].errors["fat_100g"], [DUPLICATE_MESSAGE])
+        response = self.client.post(self.url + "?format=json", {"fat_100g": ["7", ""]})
+        self.assertJsonError(response, 400, "validation_error")
+        self.assertEqual(json_of(response)["fields"]["fat_100g"][0]["message"], DUPLICATE_MESSAGE)
+        self.assertFalse(DataCorrection.objects.exists())
+
+    def test_unchanged_value_and_null_character_are_rejected(self):
+        self.client.force_login(self.user)
+        response = self.client.post(self.url, {"brand": "Sarimi"})
+        self.assertEqual(response.context["form"].errors["brand"], ["Usulan sama dengan nilai saat ini."])
+        response = self.client.post(self.url, {"brand": "Sari\x00mi"})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(len(response.context["form"].errors["brand"]), 1)
+        response = self.client.post(self.url + "?format=json", {"brand": "Sari\x00mi"})
+        self.assertJsonError(response, 400, "validation_error")
+        self.assertEqual(list(json_of(response)["fields"]), ["brand"])
+        self.assertFalse(DataCorrection.objects.exists())
+
+    def test_inactive_or_missing_product_is_404(self):
+        self.client.force_login(self.user)
+        inactive = make_product(is_active=False)
+        for pk in (inactive.pk, 999999):
+            url = reverse("data_correction:submit", args=[pk])
+            with self.subTest(pk=pk):
+                self.assertEqual(self.client.get(url).status_code, 404)
+                self.assertEqual(self.client.post(url, {"brand": "Baru"}).status_code, 404)
+                response = self.client.post(url + "?format=json", {"brand": "Baru"})
+                self.assertJsonError(response, 404, "product_not_found")
+        self.assertFalse(DataCorrection.objects.exists())
+
+    def test_only_get_and_post_are_allowed(self):
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.put(self.url).status_code, 405)
+        self.assertEqual(self.client.delete(self.url).status_code, 405)
+
+    def test_raw_json_body_is_not_read(self):
+        """Isi POST dibaca dari data form, sama seperti form HTML dan data_correction.js.
+        Body JSON mentah tidak dibaca, jadi field terlarang di dalamnya tidak pernah sampai
+        ke Product; klien JSON (Flutter) mengirim data form dengan Accept: application/json."""
+        self.client.force_login(self.user)
+        body = {"code": "1234567890123", "is_active": False, "brand": "Sarimi Baru"}
+        response = self.client.post(
+            self.url, body, content_type="application/json", HTTP_ACCEPT="application/json"
+        )
+        self.assertJsonError(response, 400, "validation_error")
+        self.assertEqual(json_of(response)["error"]["message"], EMPTY_MESSAGE)
+        self.assertFalse(DataCorrection.objects.exists())
+        self.product.refresh_from_db()
+        self.assertEqual((self.product.brand, self.product.is_active), ("Sarimi", True))
+
+
+class SubmitPageLayoutTests(ViewTestMixin, TestCase):
+    def setUp(self):
+        self.product = make_complete_product(product_name="Sarimi Isi 2 Goreng", fiber_100g=None)
+        self.url = reverse("data_correction:submit", args=[self.product.pk])
+        self.client.force_login(make_user())
+
+    def test_form_rows_follow_wireframe(self):
+        response = self.client.get(self.url)
+        texts = ("Ajukan koreksi data produk.", "Sarimi Isi 2 Goreng</span> · ", "Sarimi · 88 g",
+                 "<span>Field</span><span>Nilai saat ini</span><span>Usulan nilai</span>",
+                 "Usulan belum disetujui.",
+                 "Data produk tetap seperti sekarang sampai pengajuan ditinjau kurator.",
+                 ">Ajukan Koreksi</button>", ">Batal</a>")
+        for text in texts:
+            self.assertContains(response, text)
+        # Baris serat (satu-satunya yang NULL) + <template> yang disalin data_correction.js.
+        self.assertEqual(chip_texts(response).count("Tidak diketahui"), 2)
+        self.assertContains(response, 'inputmode="decimal"', count=len(constants.NUTRITION_FIELDS))
+        self.assertContains(response, 'inputmode="numeric"', count=1)  # Grup NOVA
+
+    def test_field_error_sits_right_below_its_input(self):
+        response = self.client.post(self.url, {"nova_group": "5"})
+        self.assertContains(response, NOVA_MESSAGE, status_code=400)
+        html = response.content.decode()
+        markers = ('id="id_nova_group"', 'id="id_nova_group_error"', 'id="id_nova_group_helptext"')
+        positions = [html.index(marker) for marker in markers]
+        self.assertEqual(positions, sorted(positions))  # input, lalu error, lalu teks bantuan
+
+
+class SuccessPageLayoutTests(TestCase):
+    def setUp(self):
+        self.user = make_user()
+        self.product = make_complete_product(product_name="Sarimi Isi 2 Goreng", fiber_100g=None)
+        self.client.force_login(self.user)
+
+    def test_just_submitted_card(self):
+        url = reverse("data_correction:submit", args=[self.product.pk])
+        response = self.client.post(url, {"fiber_100g": "2,5"}, follow=True)
+        texts = ("Pengajuan berhasil dikirim", "<span>Nilai saat ini</span>", "2,5",
+                 " · belum disetujui", "Usulan belum disetujui.", ">Kembali ke Antrean Data</a>",
+                 ">Lihat Produk</a>", "Tarik pengajuan ini?")
+        for text in texts:
+            self.assertContains(response, text)
+        self.assertIn("Tidak diketahui", chip_texts(response))  # serat kosong saat diajukan
+
+    def test_reviewed_detail_shows_value_at_submission(self):
+        correction = submit_correction(self.user, self.product, {"fiber_100g": "2,5"})
+        approve_item(make_staff(), correction.items.get())
+        response = self.client.get(reverse("data_correction:correction_detail", args=[correction.pk]))
+        self.assertContains(response, "<span>Nilai saat diajukan</span>")
+        self.assertIn("Tidak diketahui", chip_texts(response))  # serat masih kosong saat diajukan
+        for text in ("belum disetujui", "Tarik pengajuan"):
+            self.assertNotContains(response, text)
+
+
+class MyCorrectionsViewTests(ViewTestMixin, TestCase):
+    def setUp(self):
+        self.user = make_user()
+        self.other = make_user("sari@email.com", "Sari")
+        self.product = make_product(product_name="Sarimi Isi 2 Goreng")
+        self.url = reverse("data_correction:my_corrections")
+
+    def test_visitor_is_sent_to_login_or_gets_401(self):
+        self.assertLoginRedirect(self.client.get(self.url), "/antrean/saya/")
+        response = self.client.get(self.url, HTTP_ACCEPT="application/json")
+        self.assertJsonError(response, 401, "authentication_required")
+
+    def test_lists_only_own_corrections_newest_first(self):
+        older = make_correction(self.product, self.user, brand=PENDING)
+        newer = make_correction(self.product, self.user, fat_100g=APPROVED)
+        theirs = make_correction(make_product(product_name="Produk Milik Sari"), self.other, brand=PENDING)
+        self.client.force_login(self.user)
+        response = self.client.get(self.url)
+        self.assertTemplateUsed(response, "data_correction/my_corrections.html")
+        self.assertEqual(list(response.context["page_obj"]), [newer, older])
+        self.assertNotContains(response, "Produk Milik Sari")
+        self.assertNotContains(response, reverse("data_correction:correction_detail", args=[theirs.pk]))
+        data = json_of(self.client.get(self.url + "?format=json"))
+        self.assertEqual((data["count"], data["page"], data["page_size"]), (2, 1, 10))
+        self.assertEqual([row["id"] for row in data["results"]], [newer.pk, older.pk])
+
+    def test_shows_derived_status_item_status_and_curator_note(self):
+        correction = make_correction(self.product, self.user, fat_100g=APPROVED, fiber_100g=REJECTED)
+        correction.items.filter(field_name="fiber_100g").update(
+            proposed_value="2.5", review_note="Tidak sesuai label."
+        )
+        self.client.force_login(self.user)
+        response = self.client.get(self.url)
+        texts = ("Sebagian disetujui", "Disetujui", "Ditolak", "Catatan kurator: Tidak sesuai label.", "2,5")
+        for text in texts:
+            self.assertContains(response, text)
+        self.assertNotContains(response, reverse("data_correction:withdraw", args=[correction.pk]))
+        row = json_of(self.client.get(self.url + "?format=json"))["results"][0]
+        summary = (row["status"], row["status_label"], row["is_withdrawable"])
+        self.assertEqual(summary, (PARTIAL, "Sebagian disetujui", False))
+        self.assertEqual(row["items"][1], {
+            "field_name": "fiber_100g", "label": "Serat (g/100 g)", "old_value": None, "proposed_value": 2.5,
+            "status": REJECTED, "status_label": "Ditolak", "review_note": "Tidak sesuai label.",
+        })
+
+    def test_withdraw_button_only_for_unreviewed_corrections(self):
+        pending = make_correction(self.product, self.user, brand=PENDING, fat_100g=PENDING)
+        reviewed = make_correction(self.product, self.user, brand=PENDING, fat_100g=REJECTED)
+        self.client.force_login(self.user)
+        response = self.client.get(self.url)
+        self.assertContains(response, reverse("data_correction:withdraw", args=[pending.pk]))
+        self.assertNotContains(response, reverse("data_correction:withdraw", args=[reviewed.pk]))
+
+    def test_empty_state_and_pagination(self):
+        self.client.force_login(self.user)
+        self.assertContains(self.client.get(self.url), "Belum ada pengajuan.")
+        for _ in range(12):
+            make_correction(self.product, self.user, brand=PENDING)
+        data = json_of(self.client.get(self.url + "?format=json&page=2"))
+        self.assertEqual((data["count"], data["page"], len(data["results"])), (12, 2, 2))
+        self.assertContains(self.client.get(self.url + "?page=2"), "Halaman 2 dari 2")
+
+    def test_query_count_does_not_grow_with_corrections(self):
+        self.client.force_login(self.user)
+        make_correction(self.product, self.user, brand=PENDING)
+        with CaptureQueriesContext(connection) as few:
+            self.client.get(self.url)
+        for _ in range(5):
+            make_correction(make_product(), self.user, brand=PENDING, fat_100g=APPROVED)
+        with CaptureQueriesContext(connection) as many:
+            self.client.get(self.url)
+        self.assertEqual(len(many), len(few))
+        with CaptureQueriesContext(connection) as many_json:
+            self.client.get(self.url + "?format=json")
+        self.assertEqual(len(many_json), len(few))
+
+    def test_query_count_is_fixed(self):
+        for _ in range(6):
+            make_correction(make_product(), self.user, brand=PENDING, fat_100g=REJECTED)
+        self.client.force_login(self.user)
+        # sesi, pengguna, jumlah pengajuan, pengajuan + produk, item (prefetch)
+        for url in (self.url, self.url + "?format=json"):
+            with self.subTest(url=url), self.assertNumQueries(5):
+                self.client.get(url)
+
+
+class CorrectionDetailViewTests(ViewTestMixin, TestCase):
+    def setUp(self):
+        self.user = make_user()
+        self.other = make_user("sari@email.com", "Sari")
+        self.product = make_product()
+        self.correction = make_correction(self.product, self.user, sodium_100g=PENDING)  # usulan "1" g
+        self.url = reverse("data_correction:correction_detail", args=[self.correction.pk])
+
+    def test_url_and_visitor(self):
+        self.assertEqual(self.url, f"/antrean/saya/{self.correction.pk}/")
+        self.assertLoginRedirect(self.client.get(self.url), self.url)
+        self.assertJsonError(self.client.get(self.url + "?format=json"), 401, "authentication_required")
+
+    def test_own_detail_html_and_json(self):
+        self.client.force_login(self.user)
+        response = self.client.get(self.url)
+        self.assertContains(response, "Detail pengajuan")
+        self.assertNotContains(response, "Pengajuan berhasil dikirim")
+        self.assertContains(response, "1000")  # 1 g natrium tampil 1000 mg
+        self.assertContains(response, reverse("data_correction:withdraw", args=[self.correction.pk]))
+        self.assertContains(response, reverse("product_catalog:product_detail", args=[self.product.pk]))
+        self.assertContains(self.client.get(self.url + "?terkirim=1"), "Pengajuan berhasil dikirim")
+        data = json_of(self.client.get(self.url + "?format=json"))
+        self.assertEqual((data["id"], data["status"]), (self.correction.pk, PENDING))
+        self.assertEqual(data["items"][0]["proposed_value"], 1.0)
+
+    def test_someone_elses_correction_is_404(self):
+        self.client.force_login(self.other)
+        self.assertEqual(self.client.get(self.url).status_code, 404)
+        self.assertJsonError(self.client.get(self.url + "?format=json"), 404, "correction_not_found")
+
+    def test_no_product_link_or_withdraw_for_inactive_product_and_reviewed_item(self):
+        Product.objects.filter(pk=self.product.pk).update(is_active=False)
+        self.correction.items.update(status=APPROVED)
+        self.client.force_login(self.user)
+        response = self.client.get(self.url)
+        self.assertNotContains(response, reverse("product_catalog:product_detail", args=[self.product.pk]))
+        self.assertNotContains(response, reverse("data_correction:withdraw", args=[self.correction.pk]))
+        self.assertContains(response, "Disetujui")
+
+
+class WithdrawViewTests(ViewTestMixin, TestCase):
+    def setUp(self):
+        self.user = make_user()
+        self.other = make_user("sari@email.com", "Sari")
+        self.correction = make_correction(make_product(), self.user, brand=PENDING, fat_100g=PENDING)
+        self.url = reverse("data_correction:withdraw", args=[self.correction.pk])
+        self.list_url = reverse("data_correction:my_corrections")
+
+    def assertStillExists(self):
+        self.assertTrue(DataCorrection.objects.filter(pk=self.correction.pk).exists())
+        self.assertEqual(DataCorrectionItem.objects.filter(correction_id=self.correction.pk).count(), 2)
+
+    def test_url_visitor_and_get(self):
+        self.assertEqual(self.url, f"/antrean/saya/{self.correction.pk}/tarik/")
+        self.assertLoginRedirect(self.client.post(self.url), self.url)
+        self.assertJsonError(self.client.post(self.url + "?format=json"), 401, "authentication_required")
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.get(self.url).status_code, 405)  # wajib POST
+        self.assertStillExists()
+
+    def test_withdraw_own_pending_correction(self):
+        self.client.force_login(self.user)
+        response = self.client.post(self.url)
+        self.assertRedirectsTo(response, self.list_url)
+        self.assertEqual(messages_of(response), [WITHDRAWN_MESSAGE])
+        self.assertFalse(DataCorrection.objects.exists())
+        self.assertFalse(DataCorrectionItem.objects.exists())
+
+    def test_withdraw_json(self):
+        self.client.force_login(self.user)
+        response = self.client.post(self.url + "?format=json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(json_of(response), {"deleted": True, "id": self.correction.pk})
+        response = self.client.post(self.url + "?format=json")  # sudah tidak ada
+        self.assertJsonError(response, 404, "correction_not_found")
+
+    def test_cannot_withdraw_someone_elses_correction(self):
+        self.client.force_login(self.other)
+        self.assertEqual(self.client.post(self.url).status_code, 404)
+        response = self.client.post(self.url, HTTP_ACCEPT="application/json")
+        self.assertJsonError(response, 404, "correction_not_found")
+        self.assertStillExists()
+
+    def test_cannot_withdraw_after_any_review(self):
+        reviewed = self.correction.items.filter(field_name="fat_100g")
+        reviewed.update(status=REJECTED, review_note="Tidak sesuai.")
+        self.client.force_login(self.user)
+        response = self.client.post(self.url)
+        self.assertRedirectsTo(response, self.list_url)
+        self.assertEqual(messages_of(response), [NOT_WITHDRAWABLE_MESSAGE])
+        response = self.client.post(self.url + "?format=json")
+        self.assertJsonError(response, 409, "not_withdrawable")
+        self.assertEqual(json_of(response)["error"]["message"], NOT_WITHDRAWABLE_MESSAGE)
+        self.assertStillExists()
+
+
+class WithdrawDialogTests(TestCase):
+    def setUp(self):
+        self.user = make_user()
+        self.url = reverse("data_correction:my_corrections")
+        self.client.force_login(self.user)
+
+    def test_dialog_only_for_withdrawable_corrections(self):
+        product = make_product(product_name="Sarimi Isi 2 Goreng")
+        correction = make_correction(product, self.user, brand=PENDING)
+        withdraw_url = reverse("data_correction:withdraw", args=[correction.pk])
+        response = self.client.get(self.url)
+        texts = (f'popovertarget="tarik-{correction.pk}"', f'id="tarik-{correction.pk}" popover',
+                 "Tarik pengajuan ini?", "Pengajuan untuk Sarimi Isi 2 Goreng akan dihapus",
+                 f'<form method="post" action="{withdraw_url}"', ">Batal</button>",
+                 ">Tarik Pengajuan</button>")
+        for text in texts:
+            self.assertContains(response, text)
+        correction.items.update(status=REJECTED, review_note="Tidak sesuai label.")
+        response = self.client.get(self.url)
+        for text in ("Tarik pengajuan", "Tarik Pengajuan", withdraw_url):
+            self.assertNotContains(response, text)
+
+    def test_empty_state_links_to_contribution_queue(self):
+        response = self.client.get(self.url)
+        self.assertContains(response, "Belum ada pengajuan.")
+        self.assertIn((CONTRIBUTION_URL, "Buka Antrean Data"), links_of(response))
+
+
 class IncompleteDataTests(TestCase):
     def summary(self, product):
         return [(entry["key"], entry["correctable"], entry["fields"]) for entry in missing_data(product)]
@@ -881,630 +1703,279 @@ class IncompleteDataTests(TestCase):
         self.assertEqual([row["pk"] for row in incomplete_products(own_queryset)], [one.pk])
 
 
-class ResponseHelperTests(TestCase):
-    def setUp(self):
-        self.factory = RequestFactory()
+class ContributionFiltersTests(SimpleTestCase):
+    def test_unknown_values_fall_back_to_defaults(self):
+        self.assertEqual(ContributionFilters.from_query({}), ContributionFilters())
+        query = {"sort": "acak", "missing": "code", "page": "3"}
+        self.assertEqual(ContributionFilters.from_query(query), ContributionFilters(page="3"))
+        self.assertEqual(ContributionFilters.from_query({"sort": "shelf"}).sort, "kosong")  # sampai Tahap 10
+        filters = ContributionFilters.from_query({"sort": "terbaru", "missing": "packaging"})
+        self.assertEqual((filters.sort, filters.missing), ("terbaru", "packaging"))
 
-    def request(self, user=None, path="/moderasi/", **headers):
-        request = self.factory.get(path, **headers)
-        request.user = user or AnonymousUser()
-        return request
-
-    def test_wants_json(self):
-        self.assertTrue(wants_json(self.request(path="/antrean/?format=json")))
-        self.assertTrue(wants_json(self.request(HTTP_ACCEPT="application/json")))
-        self.assertTrue(wants_json(self.request(HTTP_ACCEPT="text/html, application/json;q=0.9")))
-        self.assertFalse(wants_json(self.request(HTTP_ACCEPT="text/html,application/xhtml+xml")))
-        self.assertFalse(wants_json(self.request(path="/antrean/?format=html")))
-        self.assertFalse(wants_json(self.request()))
-
-    def test_json_ok_and_json_error_shapes(self):
-        response = json_ok({"id": 3}, status=201)
-        self.assertEqual((response.status_code, json.loads(response.content)), (201, {"id": 3}))
-        errors = {"nova_group": [NOVA_MESSAGE], "brand": "Isian ini wajib diisi."}
-        response = json_error("Periksa kembali isian koreksi.", errors)
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(json.loads(response.content), {
-            "error": {"id": "validation_error", "message": "Periksa kembali isian koreksi."},
-            "fields": {
-                "nova_group": [{"message": NOVA_MESSAGE, "code": "invalid"}],
-                "brand": [{"message": "Isian ini wajib diisi.", "code": "invalid"}],
-            },
-        })
-        response = json_error("Item ini sudah ditinjau.", status=409, error_id="already_reviewed")
-        self.assertEqual(json.loads(response.content),
-                         {"error": {"id": "already_reviewed", "message": "Item ini sudah ditinjau."}})
-
-    def test_field_errors_accepts_form_errors(self):
-        class BrandForm(forms.Form):
-            brand = forms.CharField()
-
-        form = BrandForm(data={})
-        self.assertFalse(form.is_valid())
-        self.assertEqual(field_errors(form.errors), form.errors.get_json_data())
-        self.assertEqual(field_errors(form.errors)["brand"][0]["code"], "required")
-        self.assertEqual(field_errors({"brand": [{"message": "x", "code": "y"}]}),
-                         {"brand": [{"message": "x", "code": "y"}]})
-
-    def test_page_payload(self):
-        page = Paginator(list(range(30)), 12).page(2)
-        self.assertEqual(page_payload(page, ({"n": n} for n in page)), {
-            "count": 30, "page": 2, "page_size": 12, "results": [{"n": n} for n in range(12, 24)],
-        })
-
-    def test_render_or_json(self):
-        build = mock.Mock(return_value={"id": 1})
-        response = render_or_json(self.request(path="/x/?format=json"), "tidak/dipakai.html", {}, build)
-        self.assertEqual(json.loads(response.content), {"id": 1})
-        with mock.patch("data_correction.responses.render", return_value=HttpResponse("html")) as render:
-            response = render_or_json(self.request(path="/x/"), "data_correction/queue.html", {"a": 1}, build)
-        self.assertEqual(response.content, b"html")
-        self.assertEqual(render.call_args.args[1:3], ("data_correction/queue.html", {"a": 1}))
-        build.assert_called_once()  # data JSON tidak disusun untuk permintaan HTML
-        response = render_or_json(self.request(path="/x/?format=json"), "x.html", {}, {"id": 2}, status=201)
-        self.assertEqual((response.status_code, json.loads(response.content)), (201, {"id": 2}))
-
-    def test_login_required_json(self):
-        view = login_required_json(lambda request: HttpResponse("ok"))
-        response = view(self.request(path="/antrean/saya/"))
-        self.assertEqual((response.status_code, response.url), (302, "/masuk/?next=/antrean/saya/"))
-        response = view(self.request(path="/antrean/saya/?format=json"))
-        self.assertEqual(response.status_code, 401)
-        self.assertEqual(json.loads(response.content)["error"]["id"], "authentication_required")
-        self.assertEqual(view(self.request(make_user())).content, b"ok")
-
-    def test_staff_required(self):
-        view = staff_required(lambda request: HttpResponse("ok"))
-        self.assertEqual(view(self.request()).url, "/masuk/?next=/moderasi/")
-        self.assertEqual(view(self.request(path="/moderasi/?format=json")).status_code, 401)
-        with self.assertRaises(PermissionDenied):
-            view(self.request(make_user()))
-        response = view(self.request(make_user("sari@email.com", "Sari"), path="/moderasi/?format=json"))
-        self.assertEqual(response.status_code, 403)
-        self.assertEqual(json.loads(response.content)["error"]["id"], "forbidden")
-        self.assertEqual(view(self.request(make_staff())).content, b"ok")
-
-    def test_decorators_keep_view_name(self):
-        def curator_queue(request):
-            return HttpResponse("ok")
-
-        self.assertEqual(staff_required(curator_queue).__name__, "curator_queue")
-        self.assertEqual(login_required_json(curator_queue).__name__, "curator_queue")
-
-
-SUBMITTED_MESSAGE = "Pengajuan koreksi terkirim dan menunggu tinjauan kurator."
-WITHDRAWN_MESSAGE = "Pengajuan berhasil ditarik."
-NOT_WITHDRAWABLE_MESSAGE = "Pengajuan ini sudah mulai ditinjau sehingga tidak bisa ditarik."
-EMPTY_MESSAGE = "Pilih minimal satu field untuk dikoreksi."
-FORBIDDEN_MESSAGE = "Field ini tidak boleh dikoreksi."
-DUPLICATE_MESSAGE = "Field ini diajukan lebih dari sekali."
-
-
-def json_of(response):
-    return json.loads(response.content)
-
-
-def messages_of(response):
-    """Pesan django.contrib.messages yang ditambahkan selama permintaan itu."""
-    return [str(message) for message in get_messages(response.wsgi_request)]
-
-
-class ViewTestMixin:
-    """Pemeriksaan yang berulang di tes view Tahap 4."""
-
-    def assertRedirectsTo(self, response, url):
-        self.assertRedirects(response, url, fetch_redirect_response=False)
-
-    def assertLoginRedirect(self, response, next_url):
-        self.assertRedirectsTo(response, f"/masuk/?next={next_url}")
-
-    def assertJsonError(self, response, status, error_id):
-        self.assertEqual((response.status_code, json_of(response)["error"]["id"]), (status, error_id))
-
-
-class CorrectionFormTests(SimpleTestCase):
-    """Form tanpa database: Product cukup objek yang tidak disimpan."""
-
-    def setUp(self):
-        self.product = Product(
-            product_name="Sarimi Isi 2 Goreng", brand="", nova_group=4, sodium_100g=0.3976, fiber_100g=None
-        )
-
-    def form(self, data=None, **kwargs):
-        return CorrectionForm(data, product=self.product, **kwargs)
-
-    def test_one_optional_text_field_per_correctable_field(self):
-        form = self.form()
-        self.assertEqual(list(form.fields), list(constants.CORRECTABLE_FIELDS))
-        for name, field in form.fields.items():
-            with self.subTest(field=name):
-                self.assertIs(type(field), forms.CharField)  # bukan FloatField/IntegerField
-                self.assertFalse(field.required)
-                self.assertEqual(field.label, constants.FIELD_LABELS[name])
-        groups = form.groups()
-        titles = [group["title"] for group in groups]
-        self.assertEqual(titles, ["Info produk", "Tingkat pemrosesan", "Gizi per 100 g"])
-        names = [row["field"].name for group in groups for row in group["rows"]]
-        self.assertEqual(names, list(constants.CORRECTABLE_FIELDS))
-
-    def test_inputs_use_inputmode_instead_of_number_type(self):
-        form = self.form()
-        for name in constants.CORRECTABLE_FIELDS:
-            with self.subTest(field=name):
-                html = str(form[name])
-                self.assertIn('type="text"', html)
-                self.assertNotIn('type="number"', html)
-        for name in constants.NUTRITION_FIELDS:
-            self.assertIn('inputmode="decimal"', str(form[name]))
-        self.assertIn('inputmode="numeric"', str(form["nova_group"]))
-        self.assertNotIn("inputmode", str(form["brand"]))
-        self.assertIn('maxlength="255"', str(form["brand"]))  # dari model Product
-        self.assertIn('maxlength="100"', str(form["quantity"]))
-
-    def test_help_texts_name_unit_and_forbid_thousand_separators(self):
-        for name in constants.NUTRITION_FIELDS:
-            self.assertIn("tanpa pemisah ribuan", help_text_for(name))
-        self.assertIn("dalam mg per 100 g", help_text_for("sodium_100g"))
-        self.assertIn("dalam kkal per 100 g", help_text_for("energy_kcal_100g"))
-        self.assertIn("dalam g per 100 g", help_text_for("fat_100g"))
-        self.assertIn("1 sampai 4", help_text_for("nova_group"))
-        self.assertEqual(help_text_for("brand"), "Maksimal 255 karakter.")
-        self.assertEqual(self.form().fields["fiber_100g"].help_text, help_text_for("fiber_100g"))
-
-    def test_focus_from_query_marks_fields_and_ignores_unknown_names(self):
-        form = self.form(focus=["code", "proteins_100g", "fiber_100g", "proteins_100g"])
-        self.assertEqual(form.focus, ["proteins_100g", "fiber_100g"])
-        self.assertIn("autofocus", str(form["proteins_100g"]))  # hanya field pertama
-        self.assertNotIn("autofocus", str(form["fiber_100g"]))
-        rows = {row["field"].name: row for group in form.groups() for row in group["rows"]}
-        self.assertTrue(rows["fiber_100g"]["focus"])
-        self.assertFalse(rows["brand"]["focus"])
-        self.assertEqual(rows["sodium_100g"]["value"], 0.3976)  # nilai kolom; template yang mengubah ke mg
-        self.assertNotIn("autofocus", str(self.form()["proteins_100g"]))
-
-    def test_changes_reads_raw_post_and_skips_empty_boxes(self):
-        data = QueryDict(
-            "csrfmiddlewaretoken=x&brand=+Sarimi+&fat_100g=&sugars_100g=+++&code=123&nova_group=3"
-        )
-        expected = [("brand", " Sarimi "), ("code", "123"), ("nova_group", "3")]
-        self.assertEqual(self.form(data).changes(), expected)
-        self.assertEqual(self.form({"brand": "Sarimi", "fat_100g": ""}).changes(), [("brand", "Sarimi")])
-
-    def test_changes_keeps_every_value_of_a_repeated_field(self):
-        data = QueryDict("brand=A&brand=B&fat_100g=&fat_100g=7")
-        expected = [("brand", "A"), ("brand", "B"), ("fat_100g", ""), ("fat_100g", "7")]
-        self.assertEqual(self.form(data).changes(), expected)
-
-    def test_changes_stops_on_null_character(self):
-        form = self.form(QueryDict("brand=Sari%00mi"))
-        error = error_of(form.changes)
-        self.assertEqual((error.error_id, error.status), ("validation_error", 400))
-        self.assertEqual(list(error.fields), ["brand"])
-        form.add_correction_error(error)  # pesan yang sama tidak dipasang dua kali
-        self.assertEqual(len(form.errors["brand"]), 1)
-
-    def test_add_correction_error(self):
-        form = self.form(QueryDict("nova_group=5&code=1"))
-        form.add_correction_error(CorrectionError(
-            "validation_error", "Periksa kembali isian koreksi.",
-            fields={"nova_group": [NOVA_MESSAGE], "code": [FORBIDDEN_MESSAGE]},
-        ))
-        self.assertEqual(form.errors["nova_group"], [NOVA_MESSAGE])
-        self.assertEqual(form.non_field_errors(), [f"code: {FORBIDDEN_MESSAGE}"])
-        form = self.form(QueryDict(""))
-        form.add_correction_error(CorrectionError("validation_error", EMPTY_MESSAGE))
-        self.assertEqual(form.non_field_errors(), [EMPTY_MESSAGE])
-
-    def test_json_fields_use_column_units(self):
-        fields = {entry["field_name"]: entry for entry in self.form().json_fields()}
-        self.assertEqual(list(fields), list(constants.CORRECTABLE_FIELDS))
-        self.assertEqual(fields["sodium_100g"], {
-            "field_name": "sodium_100g", "label": "Natrium (mg/100 g)", "type": "number",
-            "current_value": 0.3976, "display_factor": 1000, "help_text": help_text_for("sodium_100g"),
-        })
-        brand, nova, fiber = fields["brand"], fields["nova_group"], fields["fiber_100g"]
-        self.assertEqual((brand["type"], brand["current_value"]), ("text", None))  # "" = tidak diketahui
-        self.assertEqual((nova["type"], nova["current_value"]), ("integer", 4))
-        self.assertEqual((fiber["current_value"], fiber["display_factor"]), (None, 1))
-
-
-class DisplayValueFilterTests(SimpleTestCase):
-    def test_display_value(self):
-        cases = [
-            ("0.78", "sodium_100g", "780"),
-            (0.3976, "sodium_100g", "397,6"),
-            ("0", "fiber_100g", "0"),
-            ("3", "nova_group", "3"),
-            ("Sarimi", "brand", "Sarimi"),
-            (None, "fat_100g", "Tidak diketahui"),
-            ("", "brand", "Tidak diketahui"),
+    def test_url_chips_and_page_links_keep_filters(self):
+        filters = ContributionFilters(sort="terbaru", missing="nutrition", page="2")
+        self.assertEqual(ContributionFilters().url(), CONTRIBUTION_URL)
+        self.assertEqual(filters.url(), "/antrean/?sort=terbaru&missing=nutrition&page=2")
+        sorts = filters.sort_chips()
+        self.assertEqual([chip["label"] for chip in sorts], ["Paling banyak data kosong", "Terbaru"])
+        urls = ["/antrean/?missing=nutrition", "/antrean/?sort=terbaru&missing=nutrition"]
+        self.assertEqual([chip["url"] for chip in sorts], urls)
+        self.assertEqual([chip["active"] for chip in sorts], [False, True])
+        chips = filters.missing_chips(["nutrition", "nova"])
+        self.assertEqual([chip["label"] for chip in chips], ["Semua data", "Gizi", "NOVA"])
+        self.assertEqual([chip["active"] for chip in chips], [False, True, False])
+        urls = [
+            "/antrean/?sort=terbaru",
+            "/antrean/?sort=terbaru&missing=nutrition",
+            "/antrean/?sort=terbaru&missing=nova",
         ]
-        for value, field_name, expected in cases:
-            with self.subTest(value=value, field=field_name):
-                self.assertEqual(display_value(value, field_name), expected)
-
-    def test_filter_is_registered(self):
-        template = Template("{% load data_correction_tags %}{{ value|display_value:field }}")
-        self.assertEqual(template.render(Context({"value": "0.78", "field": "sodium_100g"})), "780")
+        self.assertEqual([chip["url"] for chip in chips], urls)
+        links = filters.page_links(Paginator(range(45), 20).get_page(2))
+        self.assertEqual(links["previous"], "/antrean/?sort=terbaru&missing=nutrition&page=1")
+        self.assertEqual(links["next"], "/antrean/?sort=terbaru&missing=nutrition&page=3")
 
 
-class SubmitViewTests(ViewTestMixin, TestCase):
-    def setUp(self):
-        self.user = make_user()
-        self.product = make_product(brand="Sarimi", nova_group=4, sodium_100g=0.3976)  # protein NULL
-        self.url = reverse("data_correction:submit", args=[self.product.pk])
-
-    def test_url_is_stable(self):
-        self.assertEqual(self.url, f"/antrean/produk/{self.product.pk}/ajukan/")
-
-    def test_visitor_is_sent_to_login_or_gets_401(self):
-        self.assertLoginRedirect(self.client.get(self.url), self.url)
-        self.assertLoginRedirect(self.client.post(self.url, {"brand": "Sarimi Baru"}), self.url)
-        response = self.client.post(self.url + "?format=json", {"brand": "Sarimi Baru"})
-        self.assertJsonError(response, 401, "authentication_required")
-        self.assertFalse(DataCorrection.objects.exists())
-
-    def test_get_shows_form_with_current_values(self):
-        self.client.force_login(self.user)
-        response = self.client.get(self.url + "?field=proteins_100g")
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "data_correction/submit.html")
-        self.assertContains(response, "csrfmiddlewaretoken")
-        self.assertContains(response, "397,6")  # natrium 0.3976 g tampil dalam mg
-        self.assertContains(response, "Tidak diketahui")  # protein NULL
-        self.assertContains(response, 'inputmode="decimal"')
-        self.assertNotContains(response, 'type="number"')
-        self.assertContains(response, reverse("product_catalog:product_detail", args=[self.product.pk]))
-        self.assertEqual(response.context["form"].focus, ["proteins_100g"])
-        self.assertIn("autofocus", str(response.context["form"]["proteins_100g"]))
-
-    def test_get_json_lists_correctable_fields(self):
-        self.client.force_login(self.user)
-        response = self.client.get(self.url, HTTP_ACCEPT="application/json")
-        self.assertEqual(response.status_code, 200)
-        data = json_of(response)
-        self.assertEqual(data["product"], {"id": self.product.pk, "product_name": self.product.product_name})
-        fields = {entry["field_name"]: entry for entry in data["correctable_fields"]}
-        self.assertEqual(list(fields), list(constants.CORRECTABLE_FIELDS))
-        self.assertEqual(fields["sodium_100g"]["current_value"], 0.3976)
-        self.assertIsNone(fields["proteins_100g"]["current_value"])
-
-    def test_post_creates_correction_and_redirects_to_success_page(self):
-        self.client.force_login(self.user)
-        response = self.client.post(self.url, {"proteins_100g": "8,5", "sodium_100g": "780", "brand": ""})
-        correction = DataCorrection.objects.get()
-        detail = reverse("data_correction:correction_detail", args=[correction.pk])
-        self.assertRedirectsTo(response, f"{detail}?terkirim=1")
-        self.assertEqual(messages_of(response), [SUBMITTED_MESSAGE])
-        self.assertEqual(correction.submitted_by, self.user)
-        items = {item.field_name: item for item in correction.items.all()}
-        self.assertEqual(set(items), {"proteins_100g", "sodium_100g"})
-        protein, sodium = items["proteins_100g"], items["sodium_100g"]
-        self.assertEqual((protein.old_value, protein.proposed_value), (None, "8.5"))
-        self.assertEqual((sodium.old_value, sodium.proposed_value), ("0.3976", "0.78"))  # mg -> g
-        self.product.refresh_from_db()
-        self.assertIsNone(self.product.proteins_100g)  # Product baru berubah setelah disetujui kurator
-
-    def test_success_page_after_redirect(self):
-        self.client.force_login(self.user)
-        response = self.client.post(self.url, {"sodium_100g": "780"}, follow=True)
-        self.assertTemplateUsed(response, "data_correction/submit_success.html")
-        self.assertContains(response, "Pengajuan berhasil dikirim")
-        self.assertContains(response, SUBMITTED_MESSAGE)  # toast
-        self.assertContains(response, "780")
-
-    def test_post_json_returns_201(self):
-        self.client.force_login(self.user)
-        response = self.client.post(self.url + "?format=json", {"sodium_100g": "780", "nova_group": "3"})
-        self.assertEqual(response.status_code, 201)
-        correction = DataCorrection.objects.get()
-        data = json_of(response)
-        created = correction.created_at
-        expected_time = created.replace(microsecond=created.microsecond // 1000 * 1000)  # JSON: milidetik
-        self.assertEqual(parse_datetime(data.pop("created_at")), expected_time)
-        pending = {"status": PENDING, "status_label": "Menunggu", "review_note": ""}
-        self.assertEqual(data, {
-            "id": correction.pk,
-            "product": {"id": self.product.pk, "product_name": self.product.product_name},
-            "status": PENDING,
-            "status_label": "Menunggu",
-            "is_withdrawable": True,
-            "detail_url": f"/antrean/saya/{correction.pk}/",            
-            "items": [
-                {"field_name": "nova_group", "label": "Grup NOVA", "old_value": 4, "proposed_value": 3,
-                 **pending},
-                {"field_name": "sodium_100g", "label": "Natrium (mg/100 g)", "old_value": 0.3976,
-                 "proposed_value": 0.78, **pending},
-            ],
-        })
-
-    def test_invalid_values_show_errors_and_keep_input(self):
-        self.client.force_login(self.user)
-        response = self.client.post(self.url, {"nova_group": "5", "fat_100g": "1.234,5"})
-        self.assertEqual(response.status_code, 400)
-        form = response.context["form"]
-        self.assertEqual(form.errors["nova_group"], [NOVA_MESSAGE])
-        self.assertEqual(form.errors["fat_100g"], [SEPARATOR_MESSAGE])
-        self.assertContains(response, "Periksa kembali isian koreksi.", status_code=400)
-        self.assertContains(response, 'value="1.234,5"', status_code=400)  # isian tidak hilang
-        self.assertContains(response, 'aria-invalid="true"', status_code=400)
-        response = self.client.post(self.url + "?format=json", {"nova_group": "5"})
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(json_of(response), {
-            "error": {"id": "validation_error", "message": "Periksa kembali isian koreksi."},
-            "fields": {"nova_group": [{"message": NOVA_MESSAGE, "code": "invalid"}]},
-        })
-        self.assertFalse(DataCorrection.objects.exists())
-
-    def test_empty_submission_is_rejected(self):
-        self.client.force_login(self.user)
-        response = self.client.post(self.url, {"brand": "  ", "fat_100g": ""})
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.context["form"].non_field_errors(), [EMPTY_MESSAGE])
-        response = self.client.post(self.url + "?format=json", {})
-        self.assertJsonError(response, 400, "validation_error")
-        self.assertEqual(json_of(response)["error"]["message"], EMPTY_MESSAGE)
-        self.assertFalse(DataCorrection.objects.exists())
-
-    def test_forbidden_field_from_manual_post_is_rejected(self):
-        self.client.force_login(self.user)
-        code = self.product.code
-        response = self.client.post(self.url, {"code": "1234567890123", "brand": "Sarimi Baru"})
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.context["form"].non_field_errors(), [f"code: {FORBIDDEN_MESSAGE}"])
-        response = self.client.post(self.url + "?format=json", {"is_active": "false"})
-        self.assertJsonError(response, 400, "validation_error")
-        expected = {"is_active": [{"message": FORBIDDEN_MESSAGE, "code": "invalid"}]}
-        self.assertEqual(json_of(response)["fields"], expected)
-        self.assertFalse(DataCorrection.objects.exists())
-        self.product.refresh_from_db()
-        self.assertEqual((self.product.code, self.product.brand), (code, "Sarimi"))
-        self.assertTrue(self.product.is_active)
-
-    def test_duplicate_field_is_rejected(self):
-        self.client.force_login(self.user)
-        response = self.client.post(self.url, {"fat_100g": ["7", "8"]})
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.context["form"].errors["fat_100g"], [DUPLICATE_MESSAGE])
-        response = self.client.post(self.url + "?format=json", {"fat_100g": ["7", ""]})
-        self.assertJsonError(response, 400, "validation_error")
-        self.assertEqual(json_of(response)["fields"]["fat_100g"][0]["message"], DUPLICATE_MESSAGE)
-        self.assertFalse(DataCorrection.objects.exists())
-
-    def test_unchanged_value_and_null_character_are_rejected(self):
-        self.client.force_login(self.user)
-        response = self.client.post(self.url, {"brand": "Sarimi"})
-        self.assertEqual(response.context["form"].errors["brand"], ["Usulan sama dengan nilai saat ini."])
-        response = self.client.post(self.url, {"brand": "Sari\x00mi"})
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(len(response.context["form"].errors["brand"]), 1)
-        response = self.client.post(self.url + "?format=json", {"brand": "Sari\x00mi"})
-        self.assertJsonError(response, 400, "validation_error")
-        self.assertEqual(list(json_of(response)["fields"]), ["brand"])
-        self.assertFalse(DataCorrection.objects.exists())
-
-    def test_inactive_or_missing_product_is_404(self):
-        self.client.force_login(self.user)
-        inactive = make_product(is_active=False)
-        for pk in (inactive.pk, 999999):
-            url = reverse("data_correction:submit", args=[pk])
-            with self.subTest(pk=pk):
-                self.assertEqual(self.client.get(url).status_code, 404)
-                self.assertEqual(self.client.post(url, {"brand": "Baru"}).status_code, 404)
-                response = self.client.post(url + "?format=json", {"brand": "Baru"})
-                self.assertJsonError(response, 404, "product_not_found")
-        self.assertFalse(DataCorrection.objects.exists())
-
-    def test_only_get_and_post_are_allowed(self):
-        self.client.force_login(self.user)
-        self.assertEqual(self.client.put(self.url).status_code, 405)
-        self.assertEqual(self.client.delete(self.url).status_code, 405)
+class ContributionPagingTests(SimpleTestCase):
+    def test_numbered_pages_skip_far_pages_and_keep_filters(self):
+        links = ContributionFilters(missing="nutrition").page_links(Paginator(range(347), 20).get_page(9))
+        numbers = [entry.get("number", "…") for entry in links["pages"]]
+        self.assertEqual(numbers, [1, "…", 8, 9, 10, "…", 18])
+        current = [entry for entry in links["pages"] if entry.get("current")]
+        page_nine = {"number": 9, "url": "/antrean/?missing=nutrition&page=9", "current": True}
+        self.assertEqual(current, [page_nine])
+        self.assertEqual(links["pages"][0]["url"], "/antrean/?missing=nutrition&page=1")
 
 
-class MyCorrectionsViewTests(ViewTestMixin, TestCase):
-    def setUp(self):
-        self.user = make_user()
-        self.other = make_user("sari@email.com", "Sari")
-        self.product = make_product(product_name="Sarimi Isi 2 Goreng")
-        self.url = reverse("data_correction:my_corrections")
-
-    def test_visitor_is_sent_to_login_or_gets_401(self):
-        self.assertLoginRedirect(self.client.get(self.url), "/antrean/saya/")
-        response = self.client.get(self.url, HTTP_ACCEPT="application/json")
-        self.assertJsonError(response, 401, "authentication_required")
-
-    def test_lists_only_own_corrections_newest_first(self):
-        older = make_correction(self.product, self.user, brand=PENDING)
-        newer = make_correction(self.product, self.user, fat_100g=APPROVED)
-        theirs = make_correction(make_product(product_name="Produk Milik Sari"), self.other, brand=PENDING)
-        self.client.force_login(self.user)
-        response = self.client.get(self.url)
-        self.assertTemplateUsed(response, "data_correction/my_corrections.html")
-        self.assertEqual(list(response.context["page_obj"]), [newer, older])
-        self.assertNotContains(response, "Produk Milik Sari")
-        self.assertNotContains(response, reverse("data_correction:correction_detail", args=[theirs.pk]))
-        data = json_of(self.client.get(self.url + "?format=json"))
-        self.assertEqual((data["count"], data["page"], data["page_size"]), (2, 1, 10))
-        self.assertEqual([row["id"] for row in data["results"]], [newer.pk, older.pk])
-
-    def test_shows_derived_status_item_status_and_curator_note(self):
-        correction = make_correction(self.product, self.user, fat_100g=APPROVED, fiber_100g=REJECTED)
-        correction.items.filter(field_name="fiber_100g").update(
-            proposed_value="2.5", review_note="Tidak sesuai label."
+class ContributionQueueDataTests(TestCase):
+    def test_detection_follows_incomplete_rules(self):
+        complete_tags = make_complete_product(
+            misc_tags=["en:nutriscore-computed", "en:environmental-score-computed"]
         )
-        self.client.force_login(self.user)
-        response = self.client.get(self.url)
-        texts = ("Sebagian disetujui", "Disetujui", "Ditolak", "Catatan kurator: Tidak sesuai label.", "2,5")
+        unknown_grades = make_complete_product(nutrition_grade="unknown", environmental_grade="unknown")
+        zero_fiber = make_complete_product(fiber_100g=0.0)  # nol bukan kosong
+        packaging = make_complete_product(misc_tags=PACKAGING_TAGS)
+        missing_fiber = make_complete_product(fiber_100g=None)  # tanpa misc_tags, gizi NULL
+        make_product(is_active=False)  # semua kolom kosong, tetapi nonaktif
+        rows, categories, total = queue_products(ContributionFilters())
+        found = {row["pk"]: row["missing"] for row in rows}
+        self.assertEqual(set(found), {packaging.pk, missing_fiber.pk})
+        packaging_entry = {"key": "packaging", "label": "Kemasan", "correctable": False, "fields": []}
+        self.assertEqual(found[packaging.pk], [packaging_entry])
+        fiber_entry = {"key": "nutrition", "label": "Gizi", "correctable": True, "fields": ["fiber_100g"]}
+        self.assertEqual(found[missing_fiber.pk], [fiber_entry])
+        self.assertEqual((categories, total), (["nutrition", "packaging"], 2))
+        for product in (complete_tags, unknown_grades, zero_fiber):
+            self.assertNotIn(product.pk, found)
+
+    def test_missing_filter_keeps_every_category_for_the_chips(self):
+        packaging = make_complete_product(misc_tags=PACKAGING_TAGS)
+        make_complete_product(fiber_100g=None)
+        rows, categories, total = queue_products(ContributionFilters(missing="packaging"))
+        self.assertEqual([row["pk"] for row in rows], [packaging.pk])
+        self.assertEqual((categories, total), (["nutrition", "packaging"], 2))
+        self.assertEqual(queue_ids(ContributionFilters(missing="nova")), [])
+
+    def test_sort_by_missing_then_name_and_by_newest(self):
+        bihun = make_complete_product(product_name="Bihun", fiber_100g=None)
+        apel = make_complete_product(product_name="apel kering", fiber_100g=None)
+        zebra = make_complete_product(product_name="Zebra", fiber_100g=None, brand="")  # 2 data kurang
+        self.assertEqual(queue_ids(), [zebra.pk, apel.pk, bihun.pk])  # lalu nama A-Z (abaikan huruf besar)
+        now = timezone.now()
+        for product, days in ((apel, 3), (zebra, 2), (bihun, 1)):
+            Product.objects.filter(pk=product.pk).update(created_at=now - timedelta(days=days))
+        self.assertEqual(queue_ids(ContributionFilters(sort="terbaru")), [bihun.pk, zebra.pk, apel.pk])
+        shelf = ContributionFilters.from_query({"sort": "shelf"})
+        self.assertEqual(queue_ids(shelf), [zebra.pk, apel.pk, bihun.pk])  # Tahap 10: masih urutan bawaan
+
+    def test_status_uses_one_query_and_follows_pending_items(self):
+        product = make_complete_product(fiber_100g=None)
+        other = make_complete_product(misc_tags=PACKAGING_TAGS)
+        row = {row["pk"]: row for row in queue_products(ContributionFilters())[0]}[product.pk]
+        ids = [product.pk, other.pk]
+        with self.assertNumQueries(1):
+            pending = pending_product_ids(ids)
+        self.assertEqual(decorate(row, pending)["status_label"], "Perlu kontribusi")
+        correction = submit_correction(make_user(), product, {"fiber_100g": "2,5"})
+        pending = pending_product_ids(ids)
+        self.assertEqual(pending, {product.pk})
+        self.assertEqual(decorate(row, pending)["status"], "needs_verification")
+        self.assertEqual(decorate(row, pending)["status_label"], "Perlu verifikasi")
+        reject_item(make_staff(), correction.items.get(), note="Tidak sesuai label.")
+        self.assertEqual(pending_product_ids(ids), set())  # sudah ditinjau: kembali perlu kontribusi
+
+    def test_links_ask_for_every_empty_correctable_field(self):
+        product = make_complete_product(fiber_100g=None, sodium_100g=None, brand="", nova_group=None)
+        info_only = make_complete_product(misc_tags=PACKAGING_TAGS)
+        rows = {row["pk"]: decorate(row, set()) for row in queue_products(ContributionFilters())[0]}
+        fields = "?field=brand&field=nova_group&field=fiber_100g&field=sodium_100g"  # urut seperti form
+        self.assertEqual(rows[product.pk]["submit_url"], f"/antrean/produk/{product.pk}/ajukan/{fields}")
+        self.assertEqual(rows[info_only.pk]["submit_url"], f"/antrean/produk/{info_only.pk}/ajukan/")
+        self.assertEqual(rows[product.pk]["detail_url"], f"/katalog/{product.pk}/")
+
+    def test_stats_count_only_existing_data(self):
+        user = make_user()
+        product = make_complete_product(fiber_100g=None)
+        old = make_correction(product, user, brand=APPROVED)
+        DataCorrection.objects.filter(pk=old.pk).update(created_at=timezone.now() - timedelta(days=8))
+        make_correction(product, user, fiber_100g=PENDING, sugars_100g=APPROVED)
+        expected = {"incomplete_products": 5, "submitted_last_7_days": 1, "approved": 2}
+        self.assertEqual(contribution_stats(5), expected)
+
+
+class ContributionQueueViewTests(ViewTestMixin, TestCase):
+    def setUp(self):
+        self.user = make_user()  # Budi, pengaju@email.com
+        self.fiber = make_complete_product(product_name="Sarimi Isi 2 Goreng", fiber_100g=None)
+        self.nova = make_complete_product(product_name="Teh Botol Sosro", nova_group=None, brand="")
+        self.complete = make_complete_product(product_name="Indomie Goreng")
+
+    def test_page_is_public(self):
+        self.assertEqual(reverse("data_correction:contribution_queue"), CONTRIBUTION_URL)
+        response = self.client.get(CONTRIBUTION_URL)  # pengunjung, tanpa login
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "data_correction/contribution_queue.html")
+        texts = ("Antrean Kelengkapan Data", "Bantu lengkapi data produk yang sering muncul di shelf.",
+                 "Menunggu kontribusi", "Diajukan minggu ini", "Disetujui", "Urutkan:",
+                 "Paling banyak data kosong", "Terbaru", "Semua data", "Gizi", "NOVA", "Merek",
+                 "Perlu kontribusi", "Menampilkan 2 dari 2 produk yang perlu dilengkapi",
+                 "Halaman 1 dari 1", "Sarimi Isi 2 Goreng", "Teh Botol Sosro")
         for text in texts:
             self.assertContains(response, text)
-        self.assertNotContains(response, reverse("data_correction:withdraw", args=[correction.pk]))
-        row = json_of(self.client.get(self.url + "?format=json"))["results"][0]
-        summary = (row["status"], row["status_label"], row["is_withdrawable"])
-        self.assertEqual(summary, (PARTIAL, "Sebagian disetujui", False))
-        self.assertEqual(row["items"][1], {
-            "field_name": "fiber_100g", "label": "Serat (g/100 g)", "old_value": None, "proposed_value": 2.5,
-            "status": REJECTED, "status_label": "Ditolak", "review_note": "Tidak sesuai label.",
+        self.assertNotContains(response, "Indomie Goreng")  # sudah lengkap
+        self.assertNotContains(response, "Paling sering muncul di shelf")  # bonus Tahap 10
+        self.assertNotContains(response, 'href="/antrean/saya/"')  # Pengajuan Saya hanya untuk yang masuk
+        self.assertEqual(self.client.get(CONTRIBUTION_URL + "?format=json").status_code, 200)
+
+    def test_lengkapi_data_and_detail_links(self):
+        response = self.client.get(CONTRIBUTION_URL)
+        fiber_url = f"/antrean/produk/{self.fiber.pk}/ajukan/?field=fiber_100g"
+        self.assertContains(response, f'href="{fiber_url}"')
+        nova_url = f"/antrean/produk/{self.nova.pk}/ajukan/?field=brand&amp;field=nova_group"  # & di-escape
+        self.assertContains(response, f'href="{nova_url}"')
+        self.assertContains(response, f'href="/katalog/{self.fiber.pk}/"')
+        response = self.client.get(fiber_url)  # pengunjung yang mengklik diarahkan ke halaman masuk
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.url.startswith("/masuk/?next=/antrean/produk/"))
+
+    def test_pending_item_marks_product_without_showing_the_submitter(self):
+        submit_correction(self.user, self.fiber, {"fiber_100g": "2,5"})
+        response = self.client.get(CONTRIBUTION_URL)
+        self.assertContains(response, "Perlu verifikasi")
+        self.assertNotContains(response, "Budi")
+        self.assertNotContains(response, "pengaju@email.com")
+        data = json_of(self.client.get(CONTRIBUTION_URL + "?format=json"))
+        statuses = {row["id"]: row["status"] for row in data["results"]}
+        expected = {self.fiber.pk: "needs_verification", self.nova.pk: "needs_contribution"}
+        self.assertEqual(statuses, expected)
+        self.assertEqual(data["stats"]["submitted_last_7_days"], 1)
+
+    def test_filter_sort_and_pagination_keep_the_query(self):
+        for number in range(25):
+            make_complete_product(product_name=f"Produk {number:02d}", fiber_100g=None)
+        response = self.client.get(CONTRIBUTION_URL + "?missing=nutrition&sort=terbaru")
+        page = response.context["page_obj"]
+        self.assertEqual((page.paginator.count, len(page.object_list)), (26, 20))
+        self.assertContains(response, "Menampilkan 20 dari 26 produk yang perlu dilengkapi")
+        self.assertContains(response, "Halaman 1 dari 2")
+        next_url = response.context["page_links"]["next"]
+        self.assertEqual(next_url, "/antrean/?sort=terbaru&missing=nutrition&page=2")
+        self.assertContains(self.client.get(next_url), "Menampilkan 6 dari 26 produk yang perlu dilengkapi")
+        response = self.client.get(CONTRIBUTION_URL + "?missing=nova")
+        self.assertEqual([row["pk"] for row in response.context["rows"]], [self.nova.pk])
+
+    def test_empty_states(self):
+        response = self.client.get(CONTRIBUTION_URL + "?missing=packaging")
+        self.assertContains(response, "Tidak ada produk yang cocok.")
+        self.assertContains(response, "Bersihkan filter")
+        self.assertEqual(response.context["clear_url"], CONTRIBUTION_URL)
+        Product.objects.filter(pk__in=[self.fiber.pk, self.nova.pk]).update(is_active=False)
+        response = self.client.get(CONTRIBUTION_URL)
+        self.assertContains(response, "Semua data produk sudah lengkap.")
+        self.assertNotContains(response, "Bersihkan filter")
+        self.assertNotContains(response, "Menampilkan")
+
+    def test_json_shape(self):
+        data = json_of(self.client.get(CONTRIBUTION_URL, HTTP_ACCEPT="application/json"))
+        summary = {key: data[key] for key in ("count", "page", "page_size", "sort", "missing")}
+        self.assertEqual(summary, {"count": 2, "page": 1, "page_size": 20, "sort": "kosong", "missing": None})
+        self.assertEqual(data["stats"], {"incomplete_products": 2, "submitted_last_7_days": 0, "approved": 0})
+        self.assertEqual(data["results"][0], {
+            "id": self.nova.pk, "product_name": "Teh Botol Sosro", "brand": "", "quantity": "88 g",
+            "missing": [
+                {"key": "nova", "label": "NOVA", "correctable": True, "fields": ["nova_group"]},
+                {"key": "brand", "label": "Merek", "correctable": True, "fields": ["brand"]},
+            ],
+            "missing_count": 2, "status": "needs_contribution", "status_label": "Perlu kontribusi",
+            "submit_url": f"/antrean/produk/{self.nova.pk}/ajukan/?field=brand&field=nova_group",
+            "detail_url": f"/katalog/{self.nova.pk}/",
         })
+        data = json_of(self.client.get(CONTRIBUTION_URL + "?format=json&missing=nutrition&sort=terbaru"))
+        self.assertEqual((data["count"], data["sort"], data["missing"]), (1, "terbaru", "nutrition"))
 
-    def test_withdraw_button_only_for_unreviewed_corrections(self):
-        pending = make_correction(self.product, self.user, brand=PENDING, fat_100g=PENDING)
-        reviewed = make_correction(self.product, self.user, brand=PENDING, fat_100g=REJECTED)
-        self.client.force_login(self.user)
-        response = self.client.get(self.url)
-        self.assertContains(response, reverse("data_correction:withdraw", args=[pending.pk]))
-        self.assertNotContains(response, reverse("data_correction:withdraw", args=[reviewed.pk]))
-
-    def test_empty_state_and_pagination(self):
-        self.client.force_login(self.user)
-        self.assertContains(self.client.get(self.url), "Belum ada pengajuan.")
-        for _ in range(12):
-            make_correction(self.product, self.user, brand=PENDING)
-        data = json_of(self.client.get(self.url + "?format=json&page=2"))
-        self.assertEqual((data["count"], data["page"], len(data["results"])), (12, 2, 2))
-        self.assertContains(self.client.get(self.url + "?page=2"), "Halaman 2 dari 2")
-
-    def test_query_count_does_not_grow_with_corrections(self):
-        self.client.force_login(self.user)
-        make_correction(self.product, self.user, brand=PENDING)
+    def test_query_count_does_not_grow_with_products(self):
         with CaptureQueriesContext(connection) as few:
-            self.client.get(self.url)
-        for _ in range(5):
-            make_correction(make_product(), self.user, brand=PENDING, fat_100g=APPROVED)
+            self.client.get(CONTRIBUTION_URL)
+        for _ in range(25):
+            make_complete_product(fiber_100g=None)
+        submit_correction(self.user, self.fiber, {"fiber_100g": "2,5"})
         with CaptureQueriesContext(connection) as many:
-            self.client.get(self.url)
+            self.client.get(CONTRIBUTION_URL)
         self.assertEqual(len(many), len(few))
-        with CaptureQueriesContext(connection) as many_json:
-            self.client.get(self.url + "?format=json")
-        self.assertEqual(len(many_json), len(few))
+        # produk, produk dengan item pending, gambar baris halaman ini, dan 2 query statistik
+        self.assertEqual(len(few), 5)
+
+    def test_logged_in_user_gets_a_link_to_own_corrections(self):
+        self.client.force_login(self.user)
+        self.assertContains(self.client.get(CONTRIBUTION_URL), 'href="/antrean/saya/"')
+
+    def test_old_todo_links_now_use_the_route_name(self):
+        for name in ("submit.html", "submit_success.html", "my_corrections.html"):
+            with self.subTest(template=name):
+                source = get_template(f"data_correction/{name}").template.source
+                self.assertNotIn("TODO Tahap 6", source)
+                self.assertNotIn('href="/antrean/"', source)
+                self.assertIn("{% url 'data_correction:contribution_queue' %}", source)
 
 
-class CorrectionDetailViewTests(ViewTestMixin, TestCase):
+class ContributionQueuePageTests(TestCase):
     def setUp(self):
-        self.user = make_user()
-        self.other = make_user("sari@email.com", "Sari")
-        self.product = make_product()
-        self.correction = make_correction(self.product, self.user, sodium_100g=PENDING)  # usulan "1" g
-        self.url = reverse("data_correction:correction_detail", args=[self.correction.pk])
+        self.fiber = make_complete_product(
+            product_name="Sarimi Isi 2 Goreng", fiber_100g=None, image_url=OFF_IMAGE
+        )
+        self.unknown = make_complete_product(
+            product_name="Teh Botol Sosro", brand="", quantity="", nova_group=None
+        )
 
-    def test_url_and_visitor(self):
-        self.assertEqual(self.url, f"/antrean/saya/{self.correction.pk}/")
-        self.assertLoginRedirect(self.client.get(self.url), self.url)
-        self.assertJsonError(self.client.get(self.url + "?format=json"), 401, "authentication_required")
+    def test_header_stats_and_guide(self):
+        response = self.client.get(CONTRIBUTION_URL)
+        texts = ('popovertarget="panduan-kontribusi"', 'id="panduan-kontribusi" popover',
+                 "Panduan kontribusi", "Kurator meninjau setiap usulan.", "Menunggu kontribusi",
+                 "Diajukan minggu ini", "Disetujui", "Rata-rata di shelf", "belum ada data shelf")
+        for text in texts:
+            self.assertContains(response, text)
 
-    def test_own_detail_html_and_json(self):
-        self.client.force_login(self.user)
-        response = self.client.get(self.url)
-        self.assertContains(response, "Detail pengajuan")
-        self.assertNotContains(response, "Pengajuan berhasil dikirim")
-        self.assertContains(response, "1000")  # 1 g natrium tampil 1000 mg
-        self.assertContains(response, reverse("data_correction:withdraw", args=[self.correction.pk]))
-        self.assertContains(response, reverse("product_catalog:product_detail", args=[self.product.pk]))
-        self.assertContains(self.client.get(self.url + "?terkirim=1"), "Pengajuan berhasil dikirim")
-        data = json_of(self.client.get(self.url + "?format=json"))
-        self.assertEqual((data["id"], data["status"]), (self.correction.pk, PENDING))
-        self.assertEqual(data["items"][0]["proposed_value"], 1.0)
+    def test_rows_show_image_meta_shelf_dash_and_actions(self):
+        response = self.client.get(CONTRIBUTION_URL)
+        images = {row["pk"]: row["image_url"] for row in response.context["rows"]}
+        self.assertEqual(images, {self.fiber.pk: OFF_IMAGE, self.unknown.pk: ""})  # "" = placeholder
+        self.assertContains(response, f'<img src="{OFF_IMAGE}" alt="" loading="lazy"', count=1)
+        self.assertContains(response, "Sarimi · 88 g")
+        self.assertContains(response, "Merek dan isi tidak diketahui")  # kosong tetap ditulis
+        self.assertContains(response, "<span>Frekuensi shelf</span>")
+        self.assertContains(response, '<span aria-hidden="true">—</span>', count=2)  # "—" sampai Tahap 10
+        self.assertContains(response, "</svg>Lengkapi Data</a>", count=2)  # tombol berikon pensil
+        self.assertEqual(page_images([self.unknown.pk]), {self.unknown.pk: ""})
 
-    def test_someone_elses_correction_is_404(self):
-        self.client.force_login(self.other)
-        self.assertEqual(self.client.get(self.url).status_code, 404)
-        self.assertJsonError(self.client.get(self.url + "?format=json"), 404, "correction_not_found")
-
-    def test_no_product_link_or_withdraw_for_inactive_product_and_reviewed_item(self):
-        Product.objects.filter(pk=self.product.pk).update(is_active=False)
-        self.correction.items.update(status=APPROVED)
-        self.client.force_login(self.user)
-        response = self.client.get(self.url)
-        self.assertNotContains(response, reverse("product_catalog:product_detail", args=[self.product.pk]))
-        self.assertNotContains(response, reverse("data_correction:withdraw", args=[self.correction.pk]))
-        self.assertContains(response, "Disetujui")
-
-
-class WithdrawViewTests(ViewTestMixin, TestCase):
-    def setUp(self):
-        self.user = make_user()
-        self.other = make_user("sari@email.com", "Sari")
-        self.correction = make_correction(make_product(), self.user, brand=PENDING, fat_100g=PENDING)
-        self.url = reverse("data_correction:withdraw", args=[self.correction.pk])
-        self.list_url = reverse("data_correction:my_corrections")
-
-    def assertStillExists(self):
-        self.assertTrue(DataCorrection.objects.filter(pk=self.correction.pk).exists())
-        self.assertEqual(DataCorrectionItem.objects.filter(correction_id=self.correction.pk).count(), 2)
-
-    def test_url_visitor_and_get(self):
-        self.assertEqual(self.url, f"/antrean/saya/{self.correction.pk}/tarik/")
-        self.assertLoginRedirect(self.client.post(self.url), self.url)
-        self.assertJsonError(self.client.post(self.url + "?format=json"), 401, "authentication_required")
-        self.client.force_login(self.user)
-        self.assertEqual(self.client.get(self.url).status_code, 405)  # wajib POST
-        self.assertStillExists()
-
-    def test_withdraw_own_pending_correction(self):
-        self.client.force_login(self.user)
-        response = self.client.post(self.url)
-        self.assertRedirectsTo(response, self.list_url)
-        self.assertEqual(messages_of(response), [WITHDRAWN_MESSAGE])
-        self.assertFalse(DataCorrection.objects.exists())
-        self.assertFalse(DataCorrectionItem.objects.exists())
-
-    def test_withdraw_json(self):
-        self.client.force_login(self.user)
-        response = self.client.post(self.url + "?format=json")
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(json_of(response), {"deleted": True, "id": self.correction.pk})
-        response = self.client.post(self.url + "?format=json")  # sudah tidak ada
-        self.assertJsonError(response, 404, "correction_not_found")
-
-    def test_cannot_withdraw_someone_elses_correction(self):
-        self.client.force_login(self.other)
-        self.assertEqual(self.client.post(self.url).status_code, 404)
-        response = self.client.post(self.url, HTTP_ACCEPT="application/json")
-        self.assertJsonError(response, 404, "correction_not_found")
-        self.assertStillExists()
-
-    def test_cannot_withdraw_after_any_review(self):
-        reviewed = self.correction.items.filter(field_name="fat_100g")
-        reviewed.update(status=REJECTED, review_note="Tidak sesuai.")
-        self.client.force_login(self.user)
-        response = self.client.post(self.url)
-        self.assertRedirectsTo(response, self.list_url)
-        self.assertEqual(messages_of(response), [NOT_WITHDRAWABLE_MESSAGE])
-        response = self.client.post(self.url + "?format=json")
-        self.assertJsonError(response, 409, "not_withdrawable")
-        self.assertEqual(json_of(response)["error"]["message"], NOT_WITHDRAWABLE_MESSAGE)
-        self.assertStillExists()
-
-QUEUE_URL = "/moderasi/"
-ACTION_MESSAGE = "Pilih aksi approve atau reject."
-NOTE_REQUIRED_MESSAGE = "Catatan wajib diisi saat menolak."
-ALREADY_REVIEWED_MESSAGE = "Item ini sudah ditinjau."
-
-
-def submit_items(product, user, **changes):
-    """Ajukan koreksi lewat service (nilai lama dan usulan seperti aslinya); hasil: item per field."""
-    correction = submit_correction(user, product, changes)
-    return {item.field_name: item for item in correction.items.all()}
-
-
-def set_created_at(item, **delta):
-    """Mundurkan waktu pengajuan milik item, mis. set_created_at(item, hours=2)."""
-    created_at = timezone.now() - timedelta(**delta)
-    DataCorrection.objects.filter(pk=item.correction_id).update(created_at=created_at)
-
-
-class DisplayNameAndAgoTests(SimpleTestCase):
-    def test_display_name_never_uses_username(self):
-        User = get_user_model()
-        self.assertEqual(display_name(User(username="budi@email.com", first_name="Budi")), "Budi")
-        self.assertEqual(display_name(User(username="sari@email.com", first_name="  ")), "Pengguna")
-        self.assertEqual(display_name(None), "-")
-
-    def test_ago_uses_a_single_unit(self):
-        now = timezone.now()
-        self.assertEqual(ago(now - timedelta(seconds=20)), "baru saja")
-        self.assertEqual(ago(now - timedelta(hours=2, minutes=40)), "2\xa0jam lalu")
-        self.assertEqual(ago(now - timedelta(days=3, hours=4)), "3\xa0hari lalu")
-        self.assertEqual(ago(None), "")
+    def test_numbered_pagination_keeps_filters(self):
+        for number in range(45):
+            make_complete_product(product_name=f"Produk {number:02d}", fiber_100g=None)
+        response = self.client.get(CONTRIBUTION_URL + "?missing=nutrition&page=2")
+        pages = [(entry["number"], entry["current"]) for entry in response.context["page_links"]["pages"]]
+        self.assertEqual(pages, [(1, False), (2, True), (3, False)])
+        self.assertContains(response, '<span aria-current="page"')
+        self.assertContains(response, 'href="/antrean/?missing=nutrition&amp;page=3"')
+        self.assertContains(response, "Menampilkan 20 dari 46 produk yang perlu dilengkapi.")
+        self.assertContains(response, "Halaman 2 dari 3")
 
 
 class QueueFiltersTests(SimpleTestCase):
@@ -1765,6 +2236,65 @@ class CuratorQueueViewTests(ViewTestMixin, TestCase):
                     reverse("data_correction:submit", args=[self.product.pk])):
             self.assertNotContains(self.client.get(url), 'href="/moderasi/"')
 
+    def test_submitter_without_first_name_is_shown_as_pengguna(self):
+        nameless = make_user("tanpa.nama@email.com", name="")
+        item = submit_items(make_complete_product(fiber_100g=None), nameless, fiber_100g="1")["fiber_100g"]
+        self.client.force_login(self.curator)
+        pages = ((QUEUE_URL, "Pengguna · "), (QUEUE_URL + "?tab=semua", "Pengguna · "),
+                 (QUEUE_URL + f"?item={item.pk}", "Sumber: Pengguna · "))
+        for url, text in pages:
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertContains(response, text)
+                self.assertNotContains(response, "tanpa.nama")  # email/username tidak pernah tampil
+        rows = json_of(self.client.get(QUEUE_URL + "?format=json"))["results"]
+        self.assertEqual({row["id"]: row["submitted_by"] for row in rows}[item.pk], "Pengguna")
+
+    def test_query_count_per_tab_is_fixed(self):
+        for number in range(1, 13):
+            submit_items(make_complete_product(fiber_100g=None), self.user, fiber_100g=str(number))
+        self.client.force_login(self.curator)
+        # sesi + pengguna (2), statistik (1), jumlah + baris satu halaman (2), item terpilih (+1)
+        selected = QUEUE_URL + f"?item={self.items['fiber_100g'].pk}"
+        expected = {QUEUE_URL: 5, QUEUE_URL + "?tab=semua": 5, QUEUE_URL + "?format=json": 5,
+                    QUEUE_URL + "?field=sodium_100g": 5, selected: 6, QUEUE_URL + "?tab=panduan": 3}
+        for url, queries in expected.items():
+            with self.subTest(url=url), self.assertNumQueries(queries):
+                self.client.get(url)
+
+
+class CuratorQueueLayoutTests(ViewTestMixin, TestCase):
+    def setUp(self):
+        self.curator = make_staff()
+        self.user = make_user()
+        self.product = make_complete_product(product_name="Sarimi Isi 2 Goreng", fiber_100g=None)
+        self.item = submit_items(self.product, self.user, fiber_100g="2,5")["fiber_100g"]
+        self.url = QUEUE_URL + f"?item={self.item.pk}"
+
+    def test_header_tabs_and_empty_state(self):
+        self.client.force_login(self.curator)
+        response = self.client.get(QUEUE_URL)
+        subtitle = "Tinjau koreksi data produk hasil kontribusi pengguna. Setujui atau tolak per field."
+        self.assertContains(response, subtitle)
+        for label in ("Antrean koreksi", "Semua pengajuan", "Panduan field"):
+            self.assertContains(response, f">{label}</a>")
+        self.assertNotContains(response, "Riwayat review saya")  # tab riwayat dihapus (keputusan Tahap 0)
+        response = self.client.get(QUEUE_URL + "?field=brand")
+        self.assertContains(response, "Tidak ada pengajuan yang menunggu review.")
+
+    def test_review_panel_only_for_staff(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.url.startswith("/masuk/?next=/moderasi/"))
+        self.client.force_login(self.user)
+        self.assertNotContains(self.client.get(self.url), "Catatan untuk pengaju", status_code=403)
+        self.client.force_login(self.curator)
+        response = self.client.get(self.url)
+        texts = ('aria-label="Review item koreksi"', "Review pengajuan", "Catatan untuk pengaju",
+                 ">Setujui</button>", ">Tolak</button>", "Sedang ditinjau")
+        for text in texts:
+            self.assertContains(response, text)
+
 
 class ReviewItemViewTests(ViewTestMixin, TestCase):
     def setUp(self):
@@ -1924,422 +2454,103 @@ class ReviewItemViewTests(ViewTestMixin, TestCase):
             with self.subTest(next=next_url):
                 self.assertRedirectsTo(self.post(field_name, "approve", next=next_url), expected)
 
-
-CONTRIBUTION_URL = "/antrean/"
-PACKAGING_TAGS = ["en:packagings-not-complete"]
-
-
-def queue_ids(filters=None):
-    """Id produk di antrean kontribusi, sesuai urutannya."""
-    rows, _, _ = queue_products(filters or ContributionFilters())
-    return [row["pk"] for row in rows]
-
-
-class ContributionFiltersTests(SimpleTestCase):
-    def test_unknown_values_fall_back_to_defaults(self):
-        self.assertEqual(ContributionFilters.from_query({}), ContributionFilters())
-        query = {"sort": "acak", "missing": "code", "page": "3"}
-        self.assertEqual(ContributionFilters.from_query(query), ContributionFilters(page="3"))
-        self.assertEqual(ContributionFilters.from_query({"sort": "shelf"}).sort, "kosong")  # sampai Tahap 10
-        filters = ContributionFilters.from_query({"sort": "terbaru", "missing": "packaging"})
-        self.assertEqual((filters.sort, filters.missing), ("terbaru", "packaging"))
-
-    def test_url_chips_and_page_links_keep_filters(self):
-        filters = ContributionFilters(sort="terbaru", missing="nutrition", page="2")
-        self.assertEqual(ContributionFilters().url(), CONTRIBUTION_URL)
-        self.assertEqual(filters.url(), "/antrean/?sort=terbaru&missing=nutrition&page=2")
-        sorts = filters.sort_chips()
-        self.assertEqual([chip["label"] for chip in sorts], ["Paling banyak data kosong", "Terbaru"])
-        urls = ["/antrean/?missing=nutrition", "/antrean/?sort=terbaru&missing=nutrition"]
-        self.assertEqual([chip["url"] for chip in sorts], urls)
-        self.assertEqual([chip["active"] for chip in sorts], [False, True])
-        chips = filters.missing_chips(["nutrition", "nova"])
-        self.assertEqual([chip["label"] for chip in chips], ["Semua data", "Gizi", "NOVA"])
-        self.assertEqual([chip["active"] for chip in chips], [False, True, False])
-        urls = [
-            "/antrean/?sort=terbaru",
-            "/antrean/?sort=terbaru&missing=nutrition",
-            "/antrean/?sort=terbaru&missing=nova",
-        ]
-        self.assertEqual([chip["url"] for chip in chips], urls)
-        links = filters.page_links(Paginator(range(45), 20).get_page(2))
-        self.assertEqual(links["previous"], "/antrean/?sort=terbaru&missing=nutrition&page=1")
-        self.assertEqual(links["next"], "/antrean/?sort=terbaru&missing=nutrition&page=3")
-
-
-class ContributionQueueDataTests(TestCase):
-    def test_detection_follows_incomplete_rules(self):
-        complete_tags = make_complete_product(
-            misc_tags=["en:nutriscore-computed", "en:environmental-score-computed"]
-        )
-        unknown_grades = make_complete_product(nutrition_grade="unknown", environmental_grade="unknown")
-        zero_fiber = make_complete_product(fiber_100g=0.0)  # nol bukan kosong
-        packaging = make_complete_product(misc_tags=PACKAGING_TAGS)
-        missing_fiber = make_complete_product(fiber_100g=None)  # tanpa misc_tags, gizi NULL
-        make_product(is_active=False)  # semua kolom kosong, tetapi nonaktif
-        rows, categories, total = queue_products(ContributionFilters())
-        found = {row["pk"]: row["missing"] for row in rows}
-        self.assertEqual(set(found), {packaging.pk, missing_fiber.pk})
-        packaging_entry = {"key": "packaging", "label": "Kemasan", "correctable": False, "fields": []}
-        self.assertEqual(found[packaging.pk], [packaging_entry])
-        fiber_entry = {"key": "nutrition", "label": "Gizi", "correctable": True, "fields": ["fiber_100g"]}
-        self.assertEqual(found[missing_fiber.pk], [fiber_entry])
-        self.assertEqual((categories, total), (["nutrition", "packaging"], 2))
-        for product in (complete_tags, unknown_grades, zero_fiber):
-            self.assertNotIn(product.pk, found)
-
-    def test_missing_filter_keeps_every_category_for_the_chips(self):
-        packaging = make_complete_product(misc_tags=PACKAGING_TAGS)
-        make_complete_product(fiber_100g=None)
-        rows, categories, total = queue_products(ContributionFilters(missing="packaging"))
-        self.assertEqual([row["pk"] for row in rows], [packaging.pk])
-        self.assertEqual((categories, total), (["nutrition", "packaging"], 2))
-        self.assertEqual(queue_ids(ContributionFilters(missing="nova")), [])
-
-    def test_sort_by_missing_then_name_and_by_newest(self):
-        bihun = make_complete_product(product_name="Bihun", fiber_100g=None)
-        apel = make_complete_product(product_name="apel kering", fiber_100g=None)
-        zebra = make_complete_product(product_name="Zebra", fiber_100g=None, brand="")  # 2 data kurang
-        self.assertEqual(queue_ids(), [zebra.pk, apel.pk, bihun.pk])  # lalu nama A-Z (abaikan huruf besar)
-        now = timezone.now()
-        for product, days in ((apel, 3), (zebra, 2), (bihun, 1)):
-            Product.objects.filter(pk=product.pk).update(created_at=now - timedelta(days=days))
-        self.assertEqual(queue_ids(ContributionFilters(sort="terbaru")), [bihun.pk, zebra.pk, apel.pk])
-        shelf = ContributionFilters.from_query({"sort": "shelf"})
-        self.assertEqual(queue_ids(shelf), [zebra.pk, apel.pk, bihun.pk])  # Tahap 10: masih urutan bawaan
-
-    def test_status_uses_one_query_and_follows_pending_items(self):
+    def test_approving_zero_fills_an_empty_column(self):
         product = make_complete_product(fiber_100g=None)
-        other = make_complete_product(misc_tags=PACKAGING_TAGS)
-        row = {row["pk"]: row for row in queue_products(ContributionFilters())[0]}[product.pk]
-        ids = [product.pk, other.pk]
-        with self.assertNumQueries(1):
-            pending = pending_product_ids(ids)
-        self.assertEqual(decorate(row, pending)["status_label"], "Perlu kontribusi")
-        correction = submit_correction(make_user(), product, {"fiber_100g": "2,5"})
-        pending = pending_product_ids(ids)
-        self.assertEqual(pending, {product.pk})
-        self.assertEqual(decorate(row, pending)["status"], "needs_verification")
-        self.assertEqual(decorate(row, pending)["status_label"], "Perlu verifikasi")
-        reject_item(make_staff(), correction.items.get(), note="Tidak sesuai label.")
-        self.assertEqual(pending_product_ids(ids), set())  # sudah ditinjau: kembali perlu kontribusi
+        self.assertIn(product.pk, queue_ids())  # serat kosong -> masuk antrean kontribusi
+        item = submit_items(product, self.user, fiber_100g="0")["fiber_100g"]
+        self.client.force_login(self.curator)
+        url = reverse("data_correction:review_item", args=[item.pk])
+        response = self.client.post(url, {"action": "approve"}, HTTP_ACCEPT="application/json")
+        expected = {"id": product.pk, "field_name": "fiber_100g", "value": 0}
+        self.assertEqual(json_of(response)["product"], expected)
+        product.refresh_from_db()
+        self.assertIs(type(product.fiber_100g), float)
+        self.assertEqual(product.fiber_100g, 0.0)
+        self.assertNotIn(product.pk, queue_ids())  # 0 adalah data, bukan kosong
 
-    def test_links_ask_for_every_empty_correctable_field(self):
-        product = make_complete_product(fiber_100g=None, sodium_100g=None, brand="", nova_group=None)
-        info_only = make_complete_product(misc_tags=PACKAGING_TAGS)
-        rows = {row["pk"]: decorate(row, set()) for row in queue_products(ContributionFilters())[0]}
-        fields = "?field=brand&field=nova_group&field=fiber_100g&field=sodium_100g"  # urut seperti form
-        self.assertEqual(rows[product.pk]["submit_url"], f"/antrean/produk/{product.pk}/ajukan/{fields}")
-        self.assertEqual(rows[info_only.pk]["submit_url"], f"/antrean/produk/{info_only.pk}/ajukan/")
-        self.assertEqual(rows[product.pk]["detail_url"], f"/katalog/{product.pk}/")
 
-    def test_stats_count_only_existing_data(self):
-        user = make_user()
+class HttpMethodTests(TestCase):
+    """Metode HTTP yang tidak dipakai dijawab 405 dan tidak mengubah data."""
+
+    def setUp(self):
+        self.user, self.curator = make_user(), make_staff()
         product = make_complete_product(fiber_100g=None)
-        old = make_correction(product, user, brand=APPROVED)
-        DataCorrection.objects.filter(pk=old.pk).update(created_at=timezone.now() - timedelta(days=8))
-        make_correction(product, user, fiber_100g=PENDING, sugars_100g=APPROVED)
-        expected = {"incomplete_products": 5, "submitted_last_7_days": 1, "approved": 2}
-        self.assertEqual(contribution_stats(5), expected)
+        self.item = submit_items(product, self.user, fiber_100g="2,5")["fiber_100g"]
+
+    def test_pages_only_answer_get_and_head(self):
+        detail_url = reverse("data_correction:correction_detail", args=[self.item.correction_id])
+        pages = ((None, CONTRIBUTION_URL), (self.user, reverse("data_correction:my_corrections")),
+                 (self.user, detail_url), (self.curator, QUEUE_URL))
+        for user, url in pages:
+            if user:
+                self.client.force_login(user)
+            with self.subTest(url=url):
+                self.assertEqual(self.client.head(url).status_code, 200)
+                for method in ("post", "put", "patch", "delete"):
+                    self.assertEqual(getattr(self.client, method)(url).status_code, 405)
+
+    def test_actions_only_answer_post(self):
+        withdraw_url = reverse("data_correction:withdraw", args=[self.item.correction_id])
+        review_url = reverse("data_correction:review_item", args=[self.item.pk])
+        for user, url in ((self.user, withdraw_url), (self.curator, review_url)):
+            self.client.force_login(user)
+            with self.subTest(url=url):
+                for method in ("get", "head", "put", "patch", "delete"):
+                    self.assertEqual(getattr(self.client, method)(url).status_code, 405)
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.status, PENDING)  # pengajuan tidak ditarik dan tidak ditinjau
 
 
-class ContributionQueueViewTests(ViewTestMixin, TestCase):
-    def setUp(self):
-        self.user = make_user()  # Budi, pengaju@email.com
-        self.fiber = make_complete_product(product_name="Sarimi Isi 2 Goreng", fiber_100g=None)
-        self.nova = make_complete_product(product_name="Teh Botol Sosro", nova_group=None, brand="")
-        self.complete = make_complete_product(product_name="Indomie Goreng")
+class PageStructureTests(TestCase):
+    """Setiap halaman modul tersusun benar: semua tag di dalam <main> ditutup berurutan.
 
-    def test_page_is_public(self):
-        self.assertEqual(reverse("data_correction:contribution_queue"), CONTRIBUTION_URL)
-        response = self.client.get(CONTRIBUTION_URL)  # pengunjung, tanpa login
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "data_correction/contribution_queue.html")
-        texts = ("Antrean Kelengkapan Data", "Bantu lengkapi data produk yang sering muncul di shelf.",
-                 "Menunggu kontribusi", "Diajukan minggu ini", "Disetujui", "Urutkan:",
-                 "Paling banyak data kosong", "Terbaru", "Semua data", "Gizi", "NOVA", "Merek",
-                 "Perlu kontribusi", "Menampilkan 2 dari 2 produk yang perlu dilengkapi",
-                 "Halaman 1 dari 1", "Sarimi Isi 2 Goreng", "Teh Botol Sosro")
-        for text in texts:
-            self.assertContains(response, text)
-        self.assertNotContains(response, "Indomie Goreng")  # sudah lengkap
-        self.assertNotContains(response, "Paling sering muncul di shelf")  # bonus Tahap 10
-        self.assertNotContains(response, 'href="/antrean/saya/"')  # Pengajuan Saya hanya untuk yang masuk
-        self.assertEqual(self.client.get(CONTRIBUTION_URL + "?format=json").status_code, 200)
+    Regresi Tahap 9: `<li ...></li>` di queue.html menutup baris antrean terlalu cepat, sehingga
+    isi baris tumpah ke luar kotaknya dan chip status tidak bisa diperbarui data_correction.js.
+    """
 
-    def test_lengkapi_data_and_detail_links(self):
-        response = self.client.get(CONTRIBUTION_URL)
-        fiber_url = f"/antrean/produk/{self.fiber.pk}/ajukan/?field=fiber_100g"
-        self.assertContains(response, f'href="{fiber_url}"')
-        nova_url = f"/antrean/produk/{self.nova.pk}/ajukan/?field=brand&amp;field=nova_group"  # & di-escape
-        self.assertContains(response, f'href="{nova_url}"')
-        self.assertContains(response, f'href="/katalog/{self.fiber.pk}/"')
-        response = self.client.get(fiber_url)  # pengunjung yang mengklik diarahkan ke halaman masuk
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(response.url.startswith("/masuk/?next=/antrean/produk/"))
-
-    def test_pending_item_marks_product_without_showing_the_submitter(self):
-        submit_correction(self.user, self.fiber, {"fiber_100g": "2,5"})
-        response = self.client.get(CONTRIBUTION_URL)
-        self.assertContains(response, "Perlu verifikasi")
-        self.assertNotContains(response, "Budi")
-        self.assertNotContains(response, "pengaju@email.com")
-        data = json_of(self.client.get(CONTRIBUTION_URL + "?format=json"))
-        statuses = {row["id"]: row["status"] for row in data["results"]}
-        expected = {self.fiber.pk: "needs_verification", self.nova.pk: "needs_contribution"}
-        self.assertEqual(statuses, expected)
-        self.assertEqual(data["stats"]["submitted_last_7_days"], 1)
-
-    def test_filter_sort_and_pagination_keep_the_query(self):
-        for number in range(25):
-            make_complete_product(product_name=f"Produk {number:02d}", fiber_100g=None)
-        response = self.client.get(CONTRIBUTION_URL + "?missing=nutrition&sort=terbaru")
-        page = response.context["page_obj"]
-        self.assertEqual((page.paginator.count, len(page.object_list)), (26, 20))
-        self.assertContains(response, "Menampilkan 20 dari 26 produk yang perlu dilengkapi")
-        self.assertContains(response, "Halaman 1 dari 2")
-        next_url = response.context["page_links"]["next"]
-        self.assertEqual(next_url, "/antrean/?sort=terbaru&missing=nutrition&page=2")
-        self.assertContains(self.client.get(next_url), "Menampilkan 6 dari 26 produk yang perlu dilengkapi")
-        response = self.client.get(CONTRIBUTION_URL + "?missing=nova")
-        self.assertEqual([row["pk"] for row in response.context["rows"]], [self.nova.pk])
-
-    def test_empty_states(self):
-        response = self.client.get(CONTRIBUTION_URL + "?missing=packaging")
-        self.assertContains(response, "Tidak ada produk yang cocok.")
-        self.assertContains(response, "Bersihkan filter")
-        self.assertEqual(response.context["clear_url"], CONTRIBUTION_URL)
-        Product.objects.filter(pk__in=[self.fiber.pk, self.nova.pk]).update(is_active=False)
-        response = self.client.get(CONTRIBUTION_URL)
-        self.assertContains(response, "Semua data produk sudah lengkap.")
-        self.assertNotContains(response, "Bersihkan filter")
-        self.assertNotContains(response, "Menampilkan")
-
-    def test_json_shape(self):
-        data = json_of(self.client.get(CONTRIBUTION_URL, HTTP_ACCEPT="application/json"))
-        summary = {key: data[key] for key in ("count", "page", "page_size", "sort", "missing")}
-        self.assertEqual(summary, {"count": 2, "page": 1, "page_size": 20, "sort": "kosong", "missing": None})
-        self.assertEqual(data["stats"], {"incomplete_products": 2, "submitted_last_7_days": 0, "approved": 0})
-        self.assertEqual(data["results"][0], {
-            "id": self.nova.pk, "product_name": "Teh Botol Sosro", "brand": "", "quantity": "88 g",
-            "missing": [
-                {"key": "nova", "label": "NOVA", "correctable": True, "fields": ["nova_group"]},
-                {"key": "brand", "label": "Merek", "correctable": True, "fields": ["brand"]},
-            ],
-            "missing_count": 2, "status": "needs_contribution", "status_label": "Perlu kontribusi",
-            "submit_url": f"/antrean/produk/{self.nova.pk}/ajukan/?field=brand&field=nova_group",
-            "detail_url": f"/katalog/{self.nova.pk}/",
-        })
-        data = json_of(self.client.get(CONTRIBUTION_URL + "?format=json&missing=nutrition&sort=terbaru"))
-        self.assertEqual((data["count"], data["sort"], data["missing"]), (1, "terbaru", "nutrition"))
-
-    def test_query_count_does_not_grow_with_products(self):
-        with CaptureQueriesContext(connection) as few:
-            self.client.get(CONTRIBUTION_URL)
-        for _ in range(25):
-            make_complete_product(fiber_100g=None)
-        submit_correction(self.user, self.fiber, {"fiber_100g": "2,5"})
-        with CaptureQueriesContext(connection) as many:
-            self.client.get(CONTRIBUTION_URL)
-        self.assertEqual(len(many), len(few))
-        self.assertEqual(len(few), 5)  # produk, produk dengan item pending, dan 2 query statistik
-
-    def test_logged_in_user_gets_a_link_to_own_corrections(self):
-        self.client.force_login(self.user)
-        self.assertContains(self.client.get(CONTRIBUTION_URL), 'href="/antrean/saya/"')
-
-    def test_old_todo_links_now_use_the_route_name(self):
-        for name in ("submit.html", "submit_success.html", "my_corrections.html"):
-            with self.subTest(template=name):
-                source = get_template(f"data_correction/{name}").template.source
-                self.assertNotIn("TODO Tahap 6", source)
-                self.assertNotIn('href="/antrean/"', source)
-                self.assertIn("{% url 'data_correction:contribution_queue' %}", source)
-
-UNKNOWN_CHIP = '<span class="chip bg-[#fdf0c4] text-[#6b4d00]">Tidak diketahui</span>'
-OFF_IMAGE = "https://images.openfoodfacts.org/images/products/899/000/000/0001/front_id.3.400.jpg"
-
-class DisplayFilterTests(SimpleTestCase):
-    def test_thousands_uses_indonesian_grouping(self):
-        cases = ((0, "0"), (347, "347"), (1248, "1.248"), (1234567, "1.234.567"), (None, "0"))
-        for value, expected in cases:
-            with self.subTest(value=value):
-                self.assertEqual(thousands(value), expected)
-        template = Template("{% load data_correction_tags %}{{ total|thousands }} produk")
-        self.assertEqual(template.render(Context({"total": 1248})), "1.248 produk")
-
-    def test_is_known_treats_zero_as_data(self):
-        self.assertFalse(is_known(None, "fat_100g"))
-        self.assertFalse(is_known("  ", "brand"))
-        self.assertTrue(is_known(0.0, "fiber_100g"))  # nol bukan kosong
-        self.assertTrue(is_known("0.78", "sodium_100g"))
-
-
-class ContributionPagingTests(SimpleTestCase):
-    def test_numbered_pages_skip_far_pages_and_keep_filters(self):
-        links = ContributionFilters(missing="nutrition").page_links(Paginator(range(347), 20).get_page(9))
-        numbers = [entry.get("number", "…") for entry in links["pages"]]
-        self.assertEqual(numbers, [1, "…", 8, 9, 10, "…", 18])
-        current = [entry for entry in links["pages"] if entry.get("current")]
-        page_nine = {"number": 9, "url": "/antrean/?missing=nutrition&page=9", "current": True}
-        self.assertEqual(current, [page_nine])
-        self.assertEqual(links["pages"][0]["url"], "/antrean/?missing=nutrition&page=1")
-
-
-class ContributionQueuePageTests(TestCase):
-    def setUp(self):
-        self.fiber = make_complete_product(
-            product_name="Sarimi Isi 2 Goreng", fiber_100g=None, image_url=OFF_IMAGE
-        )
-        self.unknown = make_complete_product(
-            product_name="Teh Botol Sosro", brand="", quantity="", nova_group=None
-        )
-
-    def test_header_stats_and_guide(self):
-        response = self.client.get(CONTRIBUTION_URL)
-        texts = ('popovertarget="panduan-kontribusi"', 'id="panduan-kontribusi" popover',
-                 "Panduan kontribusi", "Kurator meninjau setiap usulan.", "Menunggu kontribusi",
-                 "Diajukan minggu ini", "Disetujui", "Rata-rata di shelf", "belum ada data shelf")
-        for text in texts:
-            self.assertContains(response, text)
-
-    def test_rows_show_image_meta_shelf_dash_and_actions(self):
-        response = self.client.get(CONTRIBUTION_URL)
-        images = {row["pk"]: row["image_url"] for row in response.context["rows"]}
-        self.assertEqual(images, {self.fiber.pk: OFF_IMAGE, self.unknown.pk: ""})  # "" = placeholder
-        self.assertContains(response, f'<img src="{OFF_IMAGE}" alt="" loading="lazy"', count=1)
-        self.assertContains(response, "Sarimi · 88 g")
-        self.assertContains(response, "Merek dan isi tidak diketahui")  # kosong tetap ditulis
-        self.assertContains(response, "<span>Frekuensi shelf</span>")
-        self.assertContains(response, '<span aria-hidden="true">—</span>', count=2)  # "—" sampai Tahap 10
-        self.assertContains(response, "</svg>Lengkapi Data</a>", count=2)  # tombol berikon pensil
-        self.assertEqual(page_images([self.unknown.pk]), {self.unknown.pk: ""})
-
-    def test_numbered_pagination_keeps_filters(self):
-        for number in range(45):
-            make_complete_product(product_name=f"Produk {number:02d}", fiber_100g=None)
-        response = self.client.get(CONTRIBUTION_URL + "?missing=nutrition&page=2")
-        pages = [(entry["number"], entry["current"]) for entry in response.context["page_links"]["pages"]]
-        self.assertEqual(pages, [(1, False), (2, True), (3, False)])
-        self.assertContains(response, '<span aria-current="page"')
-        self.assertContains(response, 'href="/antrean/?missing=nutrition&amp;page=3"')
-        self.assertContains(response, "Menampilkan 20 dari 46 produk yang perlu dilengkapi.")
-        self.assertContains(response, "Halaman 2 dari 3")
-
-
-class SubmitPageLayoutTests(ViewTestMixin, TestCase):
-    def setUp(self):
-        self.product = make_complete_product(product_name="Sarimi Isi 2 Goreng", fiber_100g=None)
-        self.url = reverse("data_correction:submit", args=[self.product.pk])
-        self.client.force_login(make_user())
-
-    def test_form_rows_follow_wireframe(self):
-        response = self.client.get(self.url)
-        texts = ("Ajukan koreksi data produk.", "Sarimi Isi 2 Goreng</span> · ", "Sarimi · 88 g",
-                 "<span>Field</span><span>Nilai saat ini</span><span>Usulan nilai</span>",
-                 "Usulan belum disetujui.",
-                 "Data produk tetap seperti sekarang sampai pengajuan ditinjau kurator.",
-                 ">Ajukan Koreksi</button>", ">Batal</a>")
-        for text in texts:
-            self.assertContains(response, text)
-        self.assertContains(response, UNKNOWN_CHIP, count=2)  # hanya serat yang NULL
-        self.assertContains(response, 'inputmode="decimal"', count=len(constants.NUTRITION_FIELDS))
-        self.assertContains(response, 'inputmode="numeric"', count=1)  # Grup NOVA
-
-    def test_field_error_sits_right_below_its_input(self):
-        response = self.client.post(self.url, {"nova_group": "5"})
-        self.assertContains(response, NOVA_MESSAGE, status_code=400)
-        html = response.content.decode()
-        markers = ('id="id_nova_group"', 'id="id_nova_group_error"', 'id="id_nova_group_helptext"')
-        positions = [html.index(marker) for marker in markers]
-        self.assertEqual(positions, sorted(positions))  # input, lalu error, lalu teks bantuan
-
-
-class SuccessPageLayoutTests(TestCase):
     def setUp(self):
         self.user = make_user()
-        self.product = make_complete_product(product_name="Sarimi Isi 2 Goreng", fiber_100g=None)
-        self.client.force_login(self.user)
-
-    def test_just_submitted_card(self):
-        url = reverse("data_correction:submit", args=[self.product.pk])
-        response = self.client.post(url, {"fiber_100g": "2,5"}, follow=True)
-        texts = ("Pengajuan berhasil dikirim", "<span>Nilai saat ini</span>", UNKNOWN_CHIP, "2,5",
-                 " · belum disetujui", "Usulan belum disetujui.", ">Kembali ke Antrean Data</a>",
-                 ">Lihat Produk</a>", "Tarik pengajuan ini?")
-        for text in texts:
-            self.assertContains(response, text)
-
-    def test_reviewed_detail_shows_value_at_submission(self):
-        correction = submit_correction(self.user, self.product, {"fiber_100g": "2,5"})
-        approve_item(make_staff(), correction.items.get())
-        response = self.client.get(reverse("data_correction:correction_detail", args=[correction.pk]))
-        self.assertContains(response, "<span>Nilai saat diajukan</span>")
-        self.assertContains(response, UNKNOWN_CHIP)  # serat masih kosong saat diajukan
-        for text in ("belum disetujui", "Tarik pengajuan"):
-            self.assertNotContains(response, text)
-
-
-class WithdrawDialogTests(TestCase):
-    def setUp(self):
-        self.user = make_user()
-        self.url = reverse("data_correction:my_corrections")
-        self.client.force_login(self.user)
-
-    def test_dialog_only_for_withdrawable_corrections(self):
-        product = make_product(product_name="Sarimi Isi 2 Goreng")
-        correction = make_correction(product, self.user, brand=PENDING)
-        withdraw_url = reverse("data_correction:withdraw", args=[correction.pk])
-        response = self.client.get(self.url)
-        texts = (f'popovertarget="tarik-{correction.pk}"', f'id="tarik-{correction.pk}" popover',
-                 "Tarik pengajuan ini?", "Pengajuan untuk Sarimi Isi 2 Goreng akan dihapus",
-                 f'<form method="post" action="{withdraw_url}"', ">Batal</button>",
-                 ">Tarik Pengajuan</button>")
-        for text in texts:
-            self.assertContains(response, text)
-        correction.items.update(status=REJECTED, review_note="Tidak sesuai label.")
-        response = self.client.get(self.url)
-        for text in ("Tarik pengajuan", "Tarik Pengajuan", withdraw_url):
-            self.assertNotContains(response, text)
-
-    def test_empty_state_links_to_contribution_queue(self):
-        response = self.client.get(self.url)
-        self.assertContains(response, "Belum ada pengajuan.")
-        link = f'<a href="{CONTRIBUTION_URL}" class="btn-brand btn-small mt-5">Buka Antrean Data</a>'
-        self.assertContains(response, link)
-
-
-class CuratorQueueLayoutTests(ViewTestMixin, TestCase):
-    def setUp(self):
         self.curator = make_staff()
-        self.user = make_user()
         self.product = make_complete_product(product_name="Sarimi Isi 2 Goreng", fiber_100g=None)
-        self.item = submit_items(self.product, self.user, fiber_100g="2,5")["fiber_100g"]
-        self.url = QUEUE_URL + f"?item={self.item.pk}"
+        self.items = submit_items(self.product, self.user, fiber_100g="2,5", brand="Sarimi Baru")
+        reject_item(self.curator, self.items["brand"], "Tidak sesuai label.")
+        submit_correction(self.user, make_complete_product(nova_group=None), {"nova_group": "3"})
 
-    def test_header_tabs_and_empty_state(self):
-        self.client.force_login(self.curator)
-        response = self.client.get(QUEUE_URL)
-        subtitle = "Tinjau koreksi data produk hasil kontribusi pengguna. Setujui atau tolak per field."
-        self.assertContains(response, subtitle)
-        for label in ("Antrean koreksi", "Semua pengajuan", "Panduan field"):
-            self.assertContains(response, f">{label}</a>")
-        self.assertNotContains(response, "Riwayat review saya")  # tab riwayat dihapus (keputusan Tahap 0)
-        response = self.client.get(QUEUE_URL + "?field=brand")
-        self.assertContains(response, "Tidak ada pengajuan yang menunggu review.")
+    def assertWellFormed(self, urls):
+        for url in urls:
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(unbalanced_tags(response), [])
 
-    def test_review_panel_only_for_staff(self):
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(response.url.startswith("/masuk/?next=/moderasi/"))
+    def test_public_and_user_pages(self):
+        self.assertWellFormed([CONTRIBUTION_URL, CONTRIBUTION_URL + "?missing=packaging"])
         self.client.force_login(self.user)
-        self.assertNotContains(self.client.get(self.url), "Catatan untuk pengaju", status_code=403)
+        submit_url = reverse("data_correction:submit", args=[self.product.pk])
+        detail_url = reverse("data_correction:correction_detail", args=[self.items["brand"].correction_id])
+        self.assertWellFormed([submit_url, submit_url + "?field=fiber_100g", detail_url,
+                               detail_url + "?terkirim=1", reverse("data_correction:my_corrections")])
+        response = self.client.post(submit_url, {"fiber_100g": "abc", "nova_group": "5"})
+        self.assertEqual((response.status_code, unbalanced_tags(response)), (400, []))
+        self.client.force_login(make_user("kosong@email.com", "Kosong"))
+        self.assertWellFormed([reverse("data_correction:my_corrections")])  # empty state
+
+    def test_moderation_pages(self):
         self.client.force_login(self.curator)
-        response = self.client.get(self.url)
-        texts = ('aria-label="Review item koreksi"', "Review pengajuan", "Catatan untuk pengaju",
-                 ">Setujui</button>", ">Tolak</button>", "Sedang ditinjau")
-        for text in texts:
-            self.assertContains(response, text)
+        pending, rejected = self.items["fiber_100g"].pk, self.items["brand"].pk
+        self.assertWellFormed([QUEUE_URL, QUEUE_URL + f"?item={pending}", QUEUE_URL + f"?item={rejected}",
+                               QUEUE_URL + "?tab=semua", QUEUE_URL + "?tab=panduan",
+                               QUEUE_URL + "?field=sodium_100g"])
+        Product.objects.filter(pk=self.product.pk).update(is_active=False)
+        self.assertWellFormed([QUEUE_URL + f"?item={pending}"])  # panel produk nonaktif
+
+    def test_checker_catches_a_row_closed_too_early(self):
+        broken = HttpResponse('<main><ul><li class="baris"></li><div>isi</div></li></ul></main>')
+        self.assertEqual(unbalanced_tags(broken), ["baris 1: </li> padahal yang terbuka <ul>"])
+        self.assertEqual(unbalanced_tags(HttpResponse("<main><ul><li>a</li></main>")),
+                         ["baris 1: </main> padahal yang terbuka <ul>", "<main> di baris 1 tidak ditutup",
+                          "<ul> di baris 1 tidak ditutup"])
+
 
 class JsJsonContractTests(ViewTestMixin, TestCase):
     """Kunci JSON yang dibaca static/js/data_correction.js, pada balasan sukses dan gagal.
