@@ -6,7 +6,7 @@
     <p class="eyebrow">CATATAN PRIBADI</p>
     <h1 class="section-title">Riwayat keputusan</h1>
     <p class="mt-2 text-sm text-muted">Catat produk yang kamu pilih dan alasannya.</p>
-    <a href="{% url 'preferences:preference_list' %}" class="mt-4 inline-block text-brand underline">Preferensi nutrisi</a>
+    <a href="{% url 'preferences:preference_list' %}" class="mt-4 inline-block rounded text-brand underline focus-visible:outline-2 focus-visible:outline-brand">Preferensi nutrisi</a>
     <p data-module-status role="status" class="mt-3 text-sm"></p>
     {% if errors %}<div role="alert" class="mt-4 rounded-xl bg-warm p-4">{{ errors }}</div>{% endif %}
     <section class="card mt-6" aria-labelledby="create-title">
@@ -15,18 +15,18 @@
             {% csrf_token %}
             {% if form.errors %}<div role="alert">{{ form.errors }}</div>{% endif %}
             {% for field in form %}<div><label for="{{ field.id_for_label }}" class="mb-1 block text-sm font-semibold">{{ field.label }}</label>{{ field }}</div>{% endfor %}
-            <button type="submit" class="btn-brand">Simpan keputusan</button>
+            <button type="submit" class="btn-brand min-h-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">Simpan keputusan</button>
         </form>
     </section>
     <section class="card mt-6" aria-labelledby="filter-title">
         <h2 id="filter-title" class="text-lg font-bold">Filter riwayat</h2>
         <form method="get" action="{% url 'preferences:decision_list' %}" data-decision-filter class="mt-4 grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {% for field in filter_form %}<div class="min-w-0"><label for="{{ field.id_for_label }}" class="mb-1 block text-sm font-semibold">{{ field.label }}</label>{{ field }}</div>{% endfor %}
-            <button type="submit" class="btn-brand justify-self-start">Terapkan filter</button>
-            <a href="{% url 'preferences:decision_list' %}" data-filter-reset class="self-center text-brand underline">Hapus filter</a>
+            <button type="submit" class="btn-brand min-h-11 justify-self-start focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">Terapkan filter</button>
+            <a href="{% url 'preferences:decision_list' %}" data-filter-reset class="self-center rounded text-brand underline focus-visible:outline-2 focus-visible:outline-brand">Hapus filter</a>
         </form>
     </section>
-    <div data-decision-results class="mt-6 space-y-4">
+    <div data-decision-results role="region" aria-label="Daftar riwayat keputusan" tabindex="-1" class="mt-6 space-y-4 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
         {% include "preferences/_decision_results.html" %}
     </div>
 </main>

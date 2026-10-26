@@ -56,6 +56,7 @@
             event.preventDefault();
             const row = form.closest('[data-nutrient]');
             if (row.dataset.busy) return;
+            const focusedId = row.contains(document.activeElement) ? document.activeElement.id : '';
             const saved = row.cloneNode(true);
             const shouldPreview = form.matches('[data-preference-toggle]') || row.dataset.direction !== row.querySelector('select').value;
             row.dataset.busy = 'true';
@@ -67,6 +68,7 @@
                 const updated = fragment(data.html);
                 updated.dataset.direction = updated.querySelector('select').value;
                 row.replaceWith(updated);
+                if (focusedId) document.getElementById(focusedId)?.focus({preventScroll: true});
                 if (shouldPreview && updated.dataset.id) preview(updated);
                 notify(data.message);
             } catch (error) {
@@ -76,6 +78,7 @@
                 saved.querySelectorAll('[name="weight"]').forEach(control => {
                     if (control.type === 'radio') control.checked = control.value === saved.dataset.weight;
                 });
+                if (focusedId) document.getElementById(focusedId)?.focus({preventScroll: true});
                 notify(error.message, 'error');
             }
         });
@@ -97,12 +100,15 @@
 
         async function loadHistory(url) {
             const loadId = ++latestLoad;
+            const hadFocus = results.contains(document.activeElement);
+            const focusedId = hadFocus ? document.activeElement.id : '';
             results.setAttribute('aria-busy', 'true');
             try {
                 const data = await request(url);
                 if (loadId !== latestLoad) return false;
                 results.innerHTML = data.html;
                 history.replaceState(null, '', data.url);
+                if (hadFocus) (document.getElementById(focusedId) || results).focus({preventScroll: true});
                 return true;
             } catch (error) {
                 if (loadId === latestLoad) notify(`Riwayat belum diperbarui. ${error.message}`, 'error');

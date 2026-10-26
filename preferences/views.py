@@ -125,7 +125,7 @@ def decision_context(request, form=None):
         queryset = queryset.filter(created_at__date__lte=data["sampai"])
     notices = [f"Filter {filters.fields[key].label.lower()} tidak valid dan diabaikan." for key in filters.errors]
     page = Paginator(queryset, 10).get_page(request.GET.get("page"))
-    rows = [{"item": decision_item(item)} for item in page]
+    rows = [{"item": decision_item(item), "created_at": item.created_at} for item in page]
     params = request.GET.copy()
     params["page"] = page.number
     current_url = reverse("preferences:decision_list") + "?" + params.urlencode()
