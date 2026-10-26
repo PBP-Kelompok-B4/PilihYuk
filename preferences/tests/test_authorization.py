@@ -1,4 +1,5 @@
 from django.test import TestCase
+from django.core.cache import cache
 from django.urls import reverse
 
 from preferences.models import Preference
@@ -7,6 +8,8 @@ from .helpers import make_user
 
 class AuthorizationTests(TestCase):
     def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
         self.owner = make_user()
         self.other = make_user("lain")
         self.item = Preference.objects.create(user=self.owner, nutrient="protein", direction="max")

@@ -10,7 +10,7 @@ from django.urls import reverse
 from product_catalog.models import Product
 
 from .constants import DEFAULT_DIRECTION, DEFAULT_WEIGHT, DIRECTION_CHOICES, NUTRIENT_FIELDS, WEIGHT_CHOICES
-from .decorators import module_methods, owner_required, wants_json
+from .decorators import module_methods, owner_required, rate_limit, wants_json
 from .forms import DecisionFilterForm, DecisionForm, PreferenceForm
 from .models import Decision, Preference
 
@@ -57,6 +57,7 @@ def preference_list(request):
 
 @login_required
 @module_methods("POST")
+@rate_limit
 def preference_create(request):
     form = PreferenceForm(request.POST, user=request.user)
     if form.is_valid():
@@ -67,6 +68,7 @@ def preference_create(request):
 @login_required
 @module_methods("POST")
 @owner_required(Preference)
+@rate_limit
 def preference_update(request, item):
     form = PreferenceForm(request.POST, user=request.user, instance=item)
     if form.is_valid():
@@ -77,6 +79,7 @@ def preference_update(request, item):
 @login_required
 @module_methods("POST")
 @owner_required(Preference)
+@rate_limit
 def preference_delete(request, item):
     item_id = item.pk
     item.delete()
@@ -167,6 +170,7 @@ def decision_invalid(request, form):
 
 @login_required
 @module_methods("POST")
+@rate_limit
 def decision_create(request):
     form = DecisionForm(request.POST, user=request.user)
     if form.is_valid():
@@ -177,6 +181,7 @@ def decision_create(request):
 @login_required
 @module_methods("POST")
 @owner_required(Decision)
+@rate_limit
 def decision_update(request, item):
     form = DecisionForm(request.POST, user=request.user, instance=item)
     if form.is_valid():
@@ -187,6 +192,7 @@ def decision_update(request, item):
 @login_required
 @module_methods("POST")
 @owner_required(Decision)
+@rate_limit
 def decision_delete(request, item):
     result = decision_item(item)
     item.delete()

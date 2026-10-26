@@ -11,3 +11,5 @@ DIRECTION_CHOICES = (("max", "Maksimalkan ↑"), ("min", "Batasi ↓"))
 DEFAULT_DIRECTION = "max"
 WEIGHT_CHOICES = ((1, "Rendah"), (2, "Sedang"), (3, "Tinggi"))
 DEFAULT_WEIGHT = 2
+WRITE_LIMIT = 30
+WRITE_WINDOW_SECONDS = 60

@@ -1,4 +1,5 @@
 from django.test import TestCase
+from django.core.cache import cache
 from django.urls import reverse
 
 from preferences.models import Preference
@@ -7,6 +8,8 @@ from .helpers import make_product, make_user
 
 class PreferenceViewTests(TestCase):
     def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
         self.user = make_user()
         self.url = "/preferensi/"
 

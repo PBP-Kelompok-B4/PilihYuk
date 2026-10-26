@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from urllib.parse import parse_qs, urlsplit
 
 from django.test import Client, TestCase
+from django.core.cache import cache
 
 from preferences.models import Decision
 from .helpers import make_product, make_shelf, make_user
@@ -9,6 +10,8 @@ from .helpers import make_product, make_shelf, make_user
 
 class DecisionViewTests(TestCase):
     def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
         self.user = make_user()
         self.product = make_product()
         self.shelf = make_shelf(self.user, self.product)
