@@ -76,5 +76,6 @@ class DecisionFilterForm(forms.Form):
     def __init__(self, *args, user, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["shelf"].queryset = Shelf.objects.filter(Q(owner=user) | Q(is_private=False)).order_by("name", "pk")
-        for field in self.fields.values():
+        for name, field in self.fields.items():
+            field.widget.attrs["id"] = f"filter-{name}"
             field.widget.attrs["class"] = "w-full min-w-0 rounded-xl border border-line bg-white p-3 text-sm focus-visible:outline-brand"

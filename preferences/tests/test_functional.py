@@ -82,6 +82,8 @@ class DecisionBrowserTests(StaticLiveServerTestCase):
                 for path in ("/preferensi/", "/riwayat/"):
                     page.goto(self.live_server_url + path)
                     page.wait_for_function("getComputedStyle(document.querySelector('.card')).borderRadius === '20px'")
+                    self.assertTrue(page.locator("main [id]").evaluate_all(
+                        "elements => new Set(elements.map(element => element.id)).size === elements.length"))
                     self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"), width)
                     self.assertLessEqual(page.locator("main").evaluate("element => element.scrollWidth"),
                                          page.locator("main").evaluate("element => element.clientWidth"))
