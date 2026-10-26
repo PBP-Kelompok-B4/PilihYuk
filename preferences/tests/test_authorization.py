@@ -1,9 +1,9 @@
-from django.test import TestCase
+from django.test import Client, TestCase
 from django.core.cache import cache
 from django.urls import reverse
 
-from preferences.models import Preference
-from .helpers import make_user
+from preferences.models import Decision, Preference
+from .helpers import make_product, make_user
 
 
 class AuthorizationTests(TestCase):
@@ -33,3 +33,14 @@ class AuthorizationTests(TestCase):
         url = reverse("preferences:preference_delete", args=[99999])
         self.assertEqual(self.client.post(url).status_code, 404)
         self.assertEqual(self.client.post(url, HTTP_ACCEPT="application/json").status_code, 404)
+
+    def test_all_write_endpoints_reject_requests_without_csrf(self):
+        client = Client(enforce_csrf_checks=True)
+        client.force_login(self.owner)
+        decision = Decision.objects.create(user=self.owner, product=make_product())
+        urls = ["/preferensi/tambah/", f"/preferensi/{self.item.pk}/ubah/", f"/preferensi/{self.item.pk}/hapus/",
+                "/riwayat/tambah/", f"/riwayat/{decision.pk}/ubah/", f"/riwayat/{decision.pk}/hapus/",
+                "/riwayat/hapus-massal/"]
+        for url in urls:
+            with self.subTest(url=url):
+                self.assertEqual(client.post(url, HTTP_ACCEPT="application/json").status_code, 403)

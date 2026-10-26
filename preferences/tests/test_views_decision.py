@@ -133,3 +133,19 @@ class DecisionViewTests(TestCase):
         self.assertEqual(client.post(f"/riwayat/{item['id']}/ubah/", {"note": "Diubah"}, **headers).status_code, 200)
         self.assertEqual(client.post(f"/riwayat/{item['id']}/hapus/", **headers).status_code, 200)
         self.assertEqual(client.get("/riwayat/", **headers).json()["total"], 0)
+
+    def test_note_update_ignores_forged_owner_product_and_shelf(self):
+        decision = Decision.objects.create(user=self.user, product=self.product, shelf=self.shelf)
+        other = make_user("lain")
+        other_product = make_product(product_name="Produk lain")
+        other_shelf = make_shelf(other, other_product, is_private=True)
+        self.client.force_login(self.user)
+        response = self.client.post(f"/riwayat/{decision.pk}/ubah/", {
+            "note": "Alasan berubah", "user": other.pk, "product": other_product.pk, "shelf": other_shelf.pk,
+        }, HTTP_ACCEPT="application/json")
+        self.assertEqual(response.status_code, 200)
+        item = response.json()["item"]
+        self.assertEqual((item["product_id"], item["shelf_id"], item["note"]),
+                         (self.product.pk, self.shelf.pk, "Alasan berubah"))
+        self.client.force_login(other)
+        self.assertEqual(self.client.get("/riwayat/", HTTP_ACCEPT="application/json").json()["items"], [])
