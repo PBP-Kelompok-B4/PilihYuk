@@ -23,6 +23,7 @@ Notes:
   5. AdminTests               : admin hanya-baca dan tidak membocorkan email
 """
 import json
+import re
 from itertools import count
 from unittest import mock
 from datetime import timedelta
@@ -33,6 +34,10 @@ from django.core.checks.registry import registry
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models.deletion import ProtectedError
+from django.template.loader import get_template
+from django.contrib.staticfiles import finders
+from django.templatetags.static import static
+from django.test import Client
 from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -1204,6 +1209,7 @@ class SubmitViewTests(ViewTestMixin, TestCase):
             "status": PENDING,
             "status_label": "Menunggu",
             "is_withdrawable": True,
+            "detail_url": f"/antrean/saya/{correction.pk}/",            
             "items": [
                 {"field_name": "nova_group", "label": "Grup NOVA", "old_value": 4, "proposed_value": 3,
                  **pending},
@@ -2236,7 +2242,7 @@ class SubmitPageLayoutTests(ViewTestMixin, TestCase):
                  ">Ajukan Koreksi</button>", ">Batal</a>")
         for text in texts:
             self.assertContains(response, text)
-        self.assertContains(response, UNKNOWN_CHIP, count=1)  # hanya serat yang NULL
+        self.assertContains(response, UNKNOWN_CHIP, count=2)  # hanya serat yang NULL
         self.assertContains(response, 'inputmode="decimal"', count=len(constants.NUTRITION_FIELDS))
         self.assertContains(response, 'inputmode="numeric"', count=1)  # Grup NOVA
 
@@ -2334,3 +2340,213 @@ class CuratorQueueLayoutTests(ViewTestMixin, TestCase):
                  ">Setujui</button>", ">Tolak</button>", "Sedang ditinjau")
         for text in texts:
             self.assertContains(response, text)
+
+class JsJsonContractTests(ViewTestMixin, TestCase):
+    """Kunci JSON yang dibaca static/js/data_correction.js, pada balasan sukses dan gagal.
+
+    Notes:
+    - Daftar kuncinya ada di komentar atas data_correction.js. Kalau tes ini gagal karena
+      bentuk JSON berubah, ubah juga file JavaScript itu.
+    - Permintaan memakai header Accept: application/json, sama seperti fetch di JavaScript.
+    - Semua balasan gagal ditampilkan lewat error.message; 401 diarahkan ke halaman masuk.
+    """
+
+    def setUp(self):
+        self.user = make_user()
+        self.curator = make_staff()
+        self.product = make_complete_product(product_name="Sarimi Isi 2 Goreng", fiber_100g=None)
+        self.submit_url = reverse("data_correction:submit", args=[self.product.pk])
+
+    def post_json(self, url, data=None):
+        return self.client.post(url, data or {}, HTTP_ACCEPT="application/json")
+
+    def review(self, item, action, note=""):
+        url = reverse("data_correction:review_item", args=[item.pk])
+        return self.post_json(url, {"action": action, "review_note": note, "next": QUEUE_URL})
+
+    def assertFailure(self, response, status):
+        """Balasan gagal yang dibaca reportFailure(): kode HTTP dan error.message berisi teks."""
+        self.assertEqual(response.status_code, status)
+        body = json_of(response)
+        self.assertTrue(isinstance(body["error"]["message"], str) and body["error"]["message"])
+        return body
+
+    def read_by_js(self, body):
+        """Kunci yang dibaca afterReview(): item.id, status, status_label, label, dan stale."""
+        item = body["item"]
+        return item["id"], item["status"], item["status_label"], item["label"], body["stale"]
+
+    def test_submit_success_keys(self):
+        self.client.force_login(self.user)
+        response = self.post_json(self.submit_url, {"fiber_100g": "2,5"})
+        self.assertEqual(response.status_code, 201)
+        body = json_of(response)
+        detail_url = reverse("data_correction:correction_detail", args=[DataCorrection.objects.get().pk])
+        self.assertEqual(body["detail_url"], detail_url)
+        self.assertEqual(body["product"]["product_name"], "Sarimi Isi 2 Goreng")
+        # JavaScript membuka detail_url + ?terkirim=1, sama dengan tujuan redirect tanpa JavaScript.
+        self.assertContains(self.client.get(detail_url + "?terkirim=1"), "Pengajuan berhasil dikirim")
+        other = make_complete_product(fiber_100g=None)
+        response = self.client.post(reverse("data_correction:submit", args=[other.pk]), {"fiber_100g": "1"})
+        latest = DataCorrection.objects.latest("pk")
+        detail_url = reverse("data_correction:correction_detail", args=[latest.pk])
+        self.assertRedirectsTo(response, detail_url + "?terkirim=1")
+
+    def test_submit_failure_keys(self):
+        response = self.post_json(self.submit_url, {"fiber_100g": "1"})
+        self.assertJsonError(response, 401, "authentication_required")
+        self.client.force_login(self.user)
+        response = self.post_json(self.submit_url, {"fiber_100g": "abc", "nova_group": "5"})
+        body = self.assertFailure(response, 400)
+        messages = {name: [error["message"] for error in errors] for name, errors in body["fields"].items()}
+        self.assertEqual(body["error"]["message"], "Periksa kembali isian koreksi.")
+        self.assertEqual(messages, {"fiber_100g": [NUMBER_MESSAGE], "nova_group": [NOVA_MESSAGE]})
+        # Nama di "fields" = nama kotak isian, supaya error dipasang tepat di bawah kotaknya.
+        page = self.client.get(self.submit_url)
+        for name in messages:
+            self.assertContains(page, f'name="{name}"', count=1)
+        body = self.assertFailure(self.post_json(self.submit_url, {}), 400)
+        self.assertEqual(body["error"]["message"], EMPTY_MESSAGE)
+        self.assertNotIn("fields", body)  # JavaScript memakai data.fields || {}
+
+    def test_csrf_token_from_form_is_accepted_in_header(self):
+        client = Client(enforce_csrf_checks=True)
+        client.force_login(self.user)
+        page = client.get(self.submit_url).content.decode()
+        token = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', page).group(1)
+        headers = {"HTTP_ACCEPT": "application/json"}
+        response = client.post(self.submit_url, {"fiber_100g": "2,5"}, HTTP_X_CSRFTOKEN=token, **headers)
+        self.assertEqual(response.status_code, 201)
+        response = client.post(self.submit_url, {"fiber_100g": "3"}, **headers)
+        # Tanpa token: halaman 403 Django (bukan JSON) -> toast "Sesi formulir kedaluwarsa".
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(response["Content-Type"].startswith("text/html"))
+
+    def test_review_success_keys(self):
+        items = submit_items(self.product, self.user, fiber_100g="2,5", brand="Sarimi Baru", nova_group="3")
+        fiber, brand, nova = items["fiber_100g"], items["brand"], items["nova_group"]
+        self.client.force_login(self.curator)
+        body = json_of(self.review(fiber, "approve"))
+        self.assertEqual(self.read_by_js(body), (fiber.pk, APPROVED, "Disetujui", "Serat (g/100 g)", False))
+        body = json_of(self.review(brand, "reject", "Tidak sesuai label."))
+        self.assertEqual(self.read_by_js(body), (brand.pk, REJECTED, "Ditolak", "Merek", False))
+        Product.objects.filter(pk=self.product.pk).update(nova_group=2)  # berubah sesudah diajukan
+        body = json_of(self.review(nova, "approve"))
+        self.assertEqual(self.read_by_js(body), (nova.pk, APPROVED, "Disetujui", "Grup NOVA", True))
+
+    def test_review_failure_keys(self):
+        item = submit_items(self.product, self.user, fiber_100g="2,5")["fiber_100g"]
+        self.assertJsonError(self.review(item, "approve"), 401, "authentication_required")
+        self.client.force_login(self.user)
+        self.assertFailure(self.review(item, "approve"), 403)
+        self.client.force_login(self.curator)
+        page = self.client.get(QUEUE_URL + f"?item={item.pk}")
+        body = self.assertFailure(self.review(item, "reject"), 400)
+        self.assertEqual(body["error"]["message"], NOTE_REQUIRED_MESSAGE)
+        note_messages = [error["message"] for error in body["fields"]["review_note"]]
+        # Pesan yang sama dipasang JavaScript sebelum mengirim (data-note-required).
+        self.assertEqual(note_messages, ["Tulis alasan penolakan untuk pengaju."])
+        self.assertContains(page, f'data-note-required="{note_messages[0]}"', count=1)
+        self.review(item, "approve")
+        body = self.assertFailure(self.review(item, "reject", "Terlambat."), 409)
+        self.assertEqual(body["error"]["message"], ALREADY_REVIEWED_MESSAGE)
+        missing = reverse("data_correction:review_item", args=[item.pk + 1000])
+        self.assertFailure(self.post_json(missing, {"action": "approve"}), 404)
+
+    def test_withdraw_keys(self):
+        correction = submit_correction(self.user, self.product, {"fiber_100g": "2,5"})
+        url = reverse("data_correction:withdraw", args=[correction.pk])
+        self.assertJsonError(self.post_json(url), 401, "authentication_required")
+        self.client.force_login(self.user)
+        page = self.client.get(reverse("data_correction:my_corrections"))
+        self.assertContains(page, f'data-correction-card="{correction.pk}"', count=1)  # kartu yang dihapus
+        response = self.post_json(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(json_of(response), {"deleted": True, "id": correction.pk})
+        self.assertFailure(self.post_json(url), 404)
+        reviewed = submit_correction(self.user, self.product, {"brand": "Sarimi Baru"})
+        reject_item(self.curator, reviewed.items.get(), "Tidak sesuai label.")
+        locked_url = reverse("data_correction:withdraw", args=[reviewed.pk])
+        body = self.assertFailure(self.post_json(locked_url), 409)
+        self.assertEqual(body["error"]["message"], NOT_WITHDRAWABLE_MESSAGE)
+
+
+class JsTemplateHookTests(TestCase):
+    """Atribut data-* dan <template> di HTML yang dipakai static/js/data_correction.js."""
+
+    def setUp(self):
+        self.user = make_user()
+        self.curator = make_staff()
+        self.product = make_complete_product(
+            product_name="Sarimi Isi 2 Goreng", fiber_100g=None, sodium_100g=0.3976
+        )
+        self.correction = submit_correction(self.user, self.product, {"brand": "Sarimi Baru"})
+        self.item = self.correction.items.get()
+
+    def assertHooks(self, response, hooks):
+        for hook in hooks:
+            with self.subTest(hook=hook):
+                self.assertContains(response, hook)
+
+    def test_script_loaded_once_on_module_pages(self):
+        self.assertIsNotNone(finders.find("js/data_correction.js"))
+        script = f'<script src="{static("js/data_correction.js")}" defer data-login-url="/masuk/"></script>'
+        detail_url = reverse("data_correction:correction_detail", args=[self.correction.pk])
+        urls = (CONTRIBUTION_URL, reverse("data_correction:submit", args=[self.product.pk]),
+                reverse("data_correction:my_corrections"), detail_url + "?terkirim=1")
+        self.client.force_login(self.user)
+        for url in urls:
+            with self.subTest(url=url):
+                self.assertContains(self.client.get(url), script, count=1)
+        self.client.force_login(self.curator)
+        self.assertContains(self.client.get(QUEUE_URL), script, count=1)
+
+    def test_submit_form_hooks(self):
+        self.client.force_login(self.user)
+        url = reverse("data_correction:submit", args=[self.product.pk])
+        response = self.client.get(url + "?field=fiber_100g")
+        self.assertHooks(response, (
+            '<form method="post" class="card mt-6 min-w-0 max-w-4xl" data-correction-form>',
+            "data-form-alert hidden>", "data-static-only>", "data-dynamic-only hidden>",
+            "data-static-fields>", 'data-group-title="Info produk"', 'data-group-title="Tingkat pemrosesan"',
+            'data-group-title="Gizi per 100 g"', "data-dynamic-fields hidden>",
+            "<template data-row-template>", "data-field-select>", "data-input-slot>", "data-remove-field>",
+            "data-add-field>+ Tambah field lain", "<template data-unknown-template>",
+            "<template data-error-template>", "data-submit-button>",
+        ))
+        self.assertContains(response, "data-field-row ", count=len(constants.CORRECTABLE_FIELDS))
+        self.assertContains(response, "data-field-control>", count=len(constants.CORRECTABLE_FIELDS))
+        # Angka di atribut memakai titik (|unlocalize); teks tampilannya tetap berkoma.
+        self.assertContains(response, 'data-field="sodium_100g" data-label="Natrium (mg/100 g)" '
+                                      'data-current="0.3976" data-current-display="397,6">')
+        self.assertContains(response, 'data-field="fiber_100g" data-label="Serat (g/100 g)" '
+                                      'data-current="" data-current-display="Tidak diketahui" data-focus>')
+
+    def test_moderation_hooks(self):
+        self.client.force_login(self.curator)
+        pk = self.item.pk
+        response = self.client.get(QUEUE_URL + f"?item={pk}")
+        self.assertHooks(response, (
+            f'data-queue-row data-item-id="{pk}" data-status="pending" '
+            f'data-review-url="/moderasi/?item={pk}"',
+            "data-row-status>", 'data-stat="pending"', 'data-stat="approved"', 'data-stat="rejected"',
+            '<template data-chip-template="approved">', '<template data-chip-template="rejected">',
+            'data-review-panel data-product-name="Sarimi Isi 2 Goreng"', "data-review-form ",
+            f'<input type="hidden" name="next" value="{QUEUE_URL}">', 'name="action" value="approve"',
+            f'popovertarget="tolak-{pk}" ', "data-reject-trigger>", f'<div id="tolak-{pk}" popover ',
+            "data-reject-dialog>", 'name="action" value="reject"',
+        ))
+
+    def test_withdraw_and_contribution_hooks(self):
+        quoted = make_product(product_name='Teh "Botol" <Sosro>')
+        make_correction(quoted, self.user, brand=PENDING)
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("data_correction:my_corrections"))
+        self.assertHooks(response, (
+            f'<li class="card min-w-0" data-correction-card="{self.correction.pk}">', "data-withdraw-form ",
+            'data-after-url="/antrean/saya/"', 'data-product-name="Sarimi Isi 2 Goreng"',
+            'data-product-name="Teh &quot;Botol&quot; &lt;Sosro&gt;"',  # di-escape seperti teks biasa
+        ))
+        response = self.client.get(CONTRIBUTION_URL)
+        self.assertHooks(response, ('aria-live="polite" data-queue-status>', "data-queue-results>",
+                                    "data-queue-summary>"))

@@ -82,7 +82,8 @@ def serialize_correction(correction):
     Contoh:
         {"id": 12, "product": {"id": 7, "product_name": "Sarimi Isi 2 Goreng"},
          "status": "pending", "status_label": "Menunggu", "is_withdrawable": true,
-         "created_at": "2026-10-22T08:04:00.123Z", "items": [{...}, {...}]}
+        "created_at": "2026-10-22T08:04:00.123Z", "detail_url": "/antrean/saya/12/",
+         "items": [{...}, {...}]}
     """
     prefetch_related_objects([correction], "items")
     return {
@@ -92,6 +93,7 @@ def serialize_correction(correction):
         "status_label": correction.get_status_display(),
         "is_withdrawable": correction.is_withdrawable,
         "created_at": correction.created_at,
+        "detail_url": reverse("data_correction:correction_detail", args=[correction.pk]),
         "items": [serialize_item(item) for item in correction.items.all()],
     }
 
