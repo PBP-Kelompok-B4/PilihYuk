@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load data_correction_tags %}
+{% load static data_correction_tags %}
 {% block meta %}<title>Pengajuan Saya — PilihYuk</title>{% endblock meta %}
 {% block content %}
 <main class="section w-full flex-1 py-10">
@@ -11,7 +11,7 @@
 
     <ul class="mt-6 max-w-3xl space-y-4">
         {% for correction in page_obj %}
-        <li class="card min-w-0">
+        <li class="card min-w-0" data-correction-card="{{ correction.pk }}">
             <div class="flex flex-wrap items-start justify-between gap-2">
                 <div class="min-w-0">
                     <h2 class="break-words text-base font-bold">
@@ -56,4 +56,5 @@
     </nav>
     {% endif %}
 </main>
+<script src="{% static 'js/data_correction.js' %}" defer data-login-url="{% url 'accounts:login' %}"></script>
 {% endblock content %}

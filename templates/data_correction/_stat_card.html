@@ -1,7 +1,7 @@
-{# Satu kartu statistik: ikon kecil, angka besar, judul, keterangan kecil. Dipakai di dalam <ul> lewat include dengan variabel icon (nama di _icon.html), tone (kelas warna kotak ikon), value, title, text. #}
+{# Satu kartu statistik: ikon kecil, angka besar, judul, keterangan kecil. Dipakai di dalam <ul> lewat include dengan variabel icon (nama di _icon.html), tone (kelas warna kotak ikon), value, title, text, dan stat (opsional: nama angka yang diperbarui data_correction.js). #}
 <li class="card min-w-0 p-4 sm:p-5">
     <span class="icon-box h-9 w-9 {{ tone }}">{% include 'data_correction/_icon.html' with name=icon css='h-5 w-5' %}</span>
-    <p class="mt-3 text-2xl font-bold sm:text-3xl">{{ value }}</p>
+    <p class="mt-3 text-2xl font-bold sm:text-3xl"{% if stat %} data-stat="{{ stat }}"{% endif %}>{{ value }}</p>
     <p class="mt-1 text-[13px] font-semibold">{{ title }}</p>
     <p class="text-xs text-muted">{{ text }}</p>
 </li>

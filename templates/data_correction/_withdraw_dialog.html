@@ -8,9 +8,9 @@
             <p class="mt-1 break-words text-sm text-muted">Pengajuan untuk {{ correction.product.product_name|default:'produk ini' }} akan dihapus beserta semua usulannya dan tidak bisa dikembalikan.</p>
         </div>
     </div>
-    <form method="post" action="{% url 'data_correction:withdraw' correction.pk %}" class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+    <form method="post" action="{% url 'data_correction:withdraw' correction.pk %}" class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end" data-withdraw-form data-after-url="{% url 'data_correction:my_corrections' %}" data-product-name="{{ correction.product.product_name|default:'produk ini' }}">
         {% csrf_token %}
         <button type="button" popovertarget="tarik-{{ correction.pk }}" popovertargetaction="hide" autofocus class="btn-white btn-small ring-1 ring-line">Batal</button>
-        <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-[10px] bg-[#b42318] px-4 py-2.5 text-[13px] font-semibold text-white hover:bg-[#b42318]/90">Tarik Pengajuan</button>
+        <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-[10px] bg-[#b42318] px-4 py-2.5 text-[13px] font-semibold text-white hover:bg-[#b42318]/90 disabled:cursor-wait disabled:opacity-60">Tarik Pengajuan</button>
     </form>
 </div>

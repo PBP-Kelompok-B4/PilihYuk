@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load data_correction_tags %}
+{% load static data_correction_tags %}
 {% block meta %}<title>{% if just_submitted %}Pengajuan berhasil dikirim{% else %}Pengajuan #{{ correction.pk }}{% endif %} — PilihYuk</title>{% endblock meta %}
 {% block content %}
 <main class="section w-full flex-1 py-10">
@@ -51,4 +51,5 @@
         {% if correction.product.is_active %}<a href="{% url 'product_catalog:product_detail' correction.product_id %}" class="btn-white ring-1 ring-line">Lihat Produk</a>{% endif %}
     </div>
 </main>
+<script src="{% static 'js/data_correction.js' %}" defer data-login-url="{% url 'accounts:login' %}"></script>
 {% endblock content %}
