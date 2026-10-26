@@ -12,6 +12,11 @@ def make_product(**fields):
     return Product.objects.create(**{"product_name": "Produk contoh", "source": "manual", **fields})
 
 
+def build_product(**fields):
+    """Produk tanpa penyimpanan untuk pengujian fungsi murni."""
+    return Product(**{"product_name": "Produk contoh", "source": "manual", **fields})
+
+
 def make_shelf(owner, product=None, **fields):
     shelf = Shelf.objects.create(owner=owner, **{"name": "Shelf contoh", **fields})
     if product is not None:
