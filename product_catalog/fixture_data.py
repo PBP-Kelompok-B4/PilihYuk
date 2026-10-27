@@ -11,7 +11,7 @@ from .off_mapping import product_fields
 
 
 ROOT = Path(__file__).resolve().parent.parent
-SOURCE = ROOT / ".claude/pilihyuk-docs/off-samples/q1_v2_search_sample.json"
+SOURCE = ROOT / ".claude/off-samples/q1_v2_search_sample.json"
 FIXTURE = Path(__file__).resolve().parent / "fixtures/products.json"
 # Explicit selection preserves reproducibility even if the sample order changes.
 CODES = (

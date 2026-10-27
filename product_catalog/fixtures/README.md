@@ -1,7 +1,7 @@
 # Small OFF development fixture
 
 `products.json` contains 20 real food/drink records from the committed research
-sample `.claude/pilihyuk-docs/off-samples/q1_v2_search_sample.json`. The findings
+sample `.claude/off-samples/q1_v2_search_sample.json`. The findings
 document dates that API v2 search sample to 2 October 2026. This is a historical,
 popularity-biased sample, not a fresh API fetch or the planned 196-product CSV seed.
 Every selected record is checked for the exact `en:indonesia` countries tag when
