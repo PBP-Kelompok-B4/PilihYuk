@@ -12,6 +12,7 @@ from datetime import timedelta
 from django import template
 from django.utils import timezone
 from django.utils.timesince import timesince
+from django.template.defaultfilters import floatformat
 from django.utils.formats import number_format
 
 from ..validators import to_display
@@ -80,3 +81,17 @@ def thousands(value):
         None     -> "0"
     """
     return number_format(value or 0, decimal_pos=0, force_grouping=True)
+
+@register.filter
+def times(value):
+    """Angka kemunculan dengan tanda ×; desimal hanya kalau perlu, format Indonesia.
+
+    Contoh hasil:
+        34    -> "34×"
+        0.4   -> "0,4×"
+        9.0   -> "9×"
+        None  -> "—"     (data shelf tidak tersedia)
+    """
+    if value is None:
+        return "—"
+    return f"{floatformat(value, -1)}×"

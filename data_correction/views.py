@@ -36,7 +36,7 @@ from django.views.decorators.http import require_http_methods, require_POST, req
 
 from product_catalog.models import Product
 
-from . import contribution, moderation, services
+from . import contribution, moderation, services, shelf_frequency
 from .constants import APPROVED
 from .forms import APPROVE, CorrectionForm, ReviewForm
 from .models import DataCorrection, DataCorrectionItem
@@ -449,8 +449,10 @@ def serialize_contribution_row(row):
         {"id": 7, "product_name": "Sarimi Isi 2 Goreng", "brand": "Sarimi", "quantity": "88 g",
          "missing": [{"key": "nutrition", "label": "Gizi", "correctable": true,
                       "fields": ["fiber_100g"]}],
-         "missing_count": 1, "status": "needs_contribution", "status_label": "Perlu kontribusi",
+         "missing_count": 1, "shelf_count": 34, "status": "needs_contribution",
+         "status_label": "Perlu kontribusi",
          "submit_url": "/antrean/produk/7/ajukan/?field=fiber_100g", "detail_url": "/katalog/7/"}
+        shelf_count = jumlah shelf publik yang memuat produk ini; null kalau data shelf tidak ada.
     """
     return {
         "id": row["pk"],
@@ -459,6 +461,7 @@ def serialize_contribution_row(row):
         "quantity": row["quantity"],
         "missing": row["missing"],
         "missing_count": row["missing_count"],
+        "shelf_count": row["shelf_count"],
         "status": row["status"],
         "status_label": row["status_label"],
         "submit_url": row["submit_url"],
@@ -471,24 +474,27 @@ def contribution_queue(request):
     """Antrean kontribusi: produk aktif yang datanya belum lengkap (PRD F-4.7). PUBLIK.
 
     Query string:
-        ?sort=kosong (bawaan) | terbaru   (shelf dikenali)
-        ?missing=<key kategori>           filter kategori dari incomplete.CATEGORIES
-        ?page=<n>                         paginasi, 20 produk per halaman
+        ?sort=shelf (bawaan) | kosong | terbaru   shelf hilang kalau data shelf tidak tersedia,
+                                                  bawaannya lalu kosong (urutan Tahap 6)
+        ?missing=<key kategori>                   filter kategori dari incomplete.CATEGORIES
+        ?page=<n>                                 paginasi, 20 produk per halaman
 
     Contoh:
-        GET /antrean/                            -> data paling banyak kosong di atas
+        GET /antrean/                            -> paling sering di shelf publik di atas
         GET /antrean/?missing=nova&sort=terbaru  -> yang kurang NOVA, terbaru dulu
         GET /antrean/?format=json                -> {"count", "page", "page_size", "results",
-                                                     "sort", "missing", "stats"}
+                                                     "sort", "missing", "shelf_available", "stats"}
     """
-    filters = contribution.ContributionFilters.from_query(request.GET)
-    rows, categories, total = contribution.queue_products(filters)
-    page = Paginator(rows, CONTRIBUTION_PAGE_SIZE).get_page(filters.page)
+    frequency = shelf_frequency.shelf_counts()  # satu query untuk semua produk
+    filters = contribution.ContributionFilters.from_query(request.GET, frequency.available)
+    queue = contribution.queue_products(filters, frequency)
+    page = Paginator(queue.rows, CONTRIBUTION_PAGE_SIZE).get_page(filters.page)
     product_ids = [row["pk"] for row in page]
     pending = contribution.pending_product_ids(product_ids)
     images = contribution.page_images(product_ids)
-    page_rows = [contribution.decorate(row, pending, images) for row in page]
-    stats = contribution.contribution_stats(total)
+    shelf_max = max((row["shelf_count"] or 0 for row in page), default=0)
+    page_rows = [contribution.decorate(row, pending, images, shelf_max) for row in page]
+    stats = contribution.contribution_stats(queue.total, queue.shelf_total)
     return render_or_json(
         request,
         "data_correction/contribution_queue.html",
@@ -497,7 +503,8 @@ def contribution_queue(request):
             "stats": stats,
             "page_obj": page,
             "rows": page_rows,
-            "missing_chips": filters.missing_chips(categories),
+            "missing_chips": filters.missing_chips(queue.categories),
+            "shelf_available": frequency.available,
             "page_links": filters.page_links(page),
             "clear_url": filters.url(missing="", page=""),
         },
@@ -505,6 +512,7 @@ def contribution_queue(request):
             **page_payload(page, [serialize_contribution_row(row) for row in page_rows]),
             "sort": filters.sort,
             "missing": filters.missing or None,
+            "shelf_available": frequency.available,
             "stats": stats,
         },
     )
