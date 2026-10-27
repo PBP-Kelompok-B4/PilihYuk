@@ -3,9 +3,9 @@
 Sumber: model data yang disepakati kelompok. Ada dua versi diagram:
 
 - `pilihyuk.drawio`: acuan utama. Tabel dan garis memakai elemen bawaan sidebar Entity Relation draw.io (Table dan garis relasi), jadi baris bisa disunting, ditambah, dan dihapus langsung, dan tiap garis menempel ke baris kuncinya. Buka di https://app.diagrams.net lewat File, Open from, Device.
-- Blok Mermaid di bawah ini: tata letaknya otomatis sehingga lebih padat. Per 28 Oktober blok ini sudah dicocokkan dengan model di `dev` (Modul 1, 2, 3, 5). `DataCorrection` dan `DataCorrectionItem` masih mengikuti rancangan karena Modul 4 belum masuk `dev`.
+- Blok Mermaid di bawah ini: tata letaknya otomatis sehingga lebih padat. Per 28 Oktober kedua versi sudah dicocokkan dengan model di `dev` (Modul 1, 2, 3, 5). `DataCorrection` dan `DataCorrectionItem` masih mengikuti rancangan karena Modul 4 belum masuk `dev`.
 
-`pilihyuk.drawio`, PNG di bawah, dan tautan ERD di README belum memuat perubahan 28 Oktober: nama kolom `Recommendation` (`source_product`, `replacement_product`, `author`), `updated_at` di `Recommendation`, `RecommendationVote`, dan `Preference`, `created_at` di `Preference`, `compared_product_count` di `Decision`, `first_name` di `User`, dan tabel `OffLookupQuota`. Perbarui di draw.io lalu ekspor ulang PNG-nya.
+`pilihyuk.drawio` dan PNG di bawah juga sudah diperbarui pada 28 Oktober. Tautan ERD di README (Google Drive) perlu diganti dengan PNG ini secara manual.
 
 Notasi crow's foot. `||` berarti satu dan wajib, `o|` nol atau satu (kunci asing yang boleh kosong), `o{` nol atau banyak. Pada kotak entitas, `PK` kunci utama, `FK` kunci asing (teks miring, diikuti aturan hapusnya), dan `UK` kolom unik. Baris miring di dasar kotak memuat constraint gabungan.
 
