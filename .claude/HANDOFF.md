@@ -32,7 +32,7 @@ Other members' progress is read from Git metadata only, so it says nothing about
 - **Shared pages follow Figma.** On a phone, auth shows the form first and the brand panel below it, the navbar is logo, search and menu, and the footer links sit inline. `.row-label` and the first column of the landing table are sticky. The footer columns are `<details>` elements, so they fold on a phone and stay open on desktop. Still missing: the phone position of "Lihat semua shelf", which waits for Yasmin's landing commit.
 - **Figma** (file `6CwhelVNc1lJ9XWB4OnYlc`): desktop frames 02 to 14 on page `Wireframe` (node `6:3`), phone frames 01 to 15 in section `MOBILE` (node `180:34276`).
 - **Seeding** uses 406 products with an official Nutri-Score, not the 196 with 4 of 6 comparison rows in PRD decision 16. The group still has to pick a rule.
-- **ERD**: `erd/pilihyuk.drawio` is the source. Update the Mermaid block by hand. It has not been checked against the models the modules wrote.
+- **ERD**: the Mermaid block in `erd/pilihyuk-erd.md` and PRD section 7 match the models in `dev` as of 28 October (Modul 4 still follows the plan). `erd/pilihyuk.drawio`, its PNG and the Drive link in README do not have those changes yet. The list of what to add is at the top of `pilihyuk-erd.md`.
 - **`tools/check_off_encodings.py`** is the research script behind `is_sold_in_indonesia()` and `normalize_barcode()`. The old `drafts/` hand-over for Yasmin was deleted, since her module has its own versions.
 - **Root `CLAUDE.md`** is git-ignored. It only loads `.private/CLAUDE.md`, which teammates do not have.
 
