@@ -248,8 +248,6 @@ Koreksi selama sesi awal: Shelf sempat belum tersedia sehingga sinkronisasi dipe
 
 Keterbatasan: dokumen kelompok bertanggal lama tidak otomatis merepresentasikan status kode. Gambar berisi angka/statistik ilustrasi yang tidak boleh dibuat tanpa data; durasi/kebiasaan/alasan otomatis tidak ditambahkan. Count subset mencatat konteks valid dari klien, bukan audit tabel historis. API Shelf/arah/penandaan masih perlu koordinasi, kuota cache per proses, dan PWS belum diuji. Kegagalan koneksi setelah server commit dapat membuat klien belum mengetahui hasil; simpan global idempoten dapat dicoba lagi, sedangkan refresh diperlukan untuk memeriksa riwayat. AI tidak mengklaim pemilik telah melakukan review/perbaikan manual; pemeriksaan pemilik tetap diperlukan untuk demo/live coding.
 
-TODO(Jonathan): tambahkan perbaikan manual
-
 ## Ikon nutrien (lanjutan 27 Oktober 2026)
 
 Setiap baris memakai SVG Lucide lokal: Protein=beef, Serat=wheat, Gula=candy,
