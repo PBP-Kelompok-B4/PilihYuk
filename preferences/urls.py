@@ -5,6 +5,8 @@ from . import views
 app_name = "preferences"
 urlpatterns = [
     path("preferensi/", views.preference_list, name="preference_list"),
+    path("preferensi/simpan/", views.preference_save, name="preference_save"),
+    path("preferensi/pratinjau-gabungan/", views.preference_combined_preview, name="preference_combined_preview"),
     path("preferensi/pratinjau/", views.preference_preview, name="preference_preview"),
     path("preferensi/tambah/", views.preference_create, name="preference_create"),
     path("preferensi/<int:pk>/ubah/", views.preference_update, name="preference_update"),

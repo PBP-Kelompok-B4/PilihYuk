@@ -1,4 +1,7 @@
+import json
+
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.core.paginator import Paginator
@@ -10,10 +13,11 @@ from django.urls import reverse
 
 from product_catalog.models import Product
 
-from .constants import DEFAULT_DIRECTION, DEFAULT_WEIGHT, DIRECTION_CHOICES, NUTRIENT_FIELDS, WEIGHT_CHOICES
+from .constants import DEFAULT_DIRECTIONS, DEFAULT_WEIGHT, DIRECTION_CHOICES, NUTRIENT_FIELDS, WEIGHT_CHOICES
 from .decorators import module_methods, owner_required, rate_limit, wants_json
-from .forms import DecisionBulkDeleteForm, DecisionFilterForm, DecisionForm, PreferenceForm
+from .forms import DecisionBulkDeleteForm, DecisionFilterForm, DecisionForm, PreferenceDraftForm, PreferenceForm
 from .models import Decision, Preference
+from .ranking import rank_products
 
 
 def preference_context(user, form=None):
@@ -22,9 +26,65 @@ def preference_context(user, form=None):
     for nutrient, metadata in NUTRIENT_FIELDS.items():
         item = saved.get(nutrient)
         rows.append({"nutrient": nutrient, "label": metadata["label"], "item": item,
-                     "active": item is not None, "direction": item.direction if item else DEFAULT_DIRECTION,
+                     "active": item is not None, "direction": item.direction if item else DEFAULT_DIRECTIONS[nutrient],
                      "weight": item.weight if item else DEFAULT_WEIGHT})
     return {"rows": rows, "form": form, "weight_choices": WEIGHT_CHOICES, "direction_choices": DIRECTION_CHOICES}
+
+
+def draft_form(request):
+    try:
+        data = json.loads(request.body) if request.content_type == "application/json" else request.POST
+    except (ValueError, UnicodeDecodeError):
+        data = {}
+    return PreferenceDraftForm(data if isinstance(data, dict) else {})
+
+
+@login_required
+@module_methods("POST")
+@rate_limit
+def preference_save(request):
+    form = draft_form(request)
+    if not form.is_valid():
+        return JsonResponse({"ok": False, "message": "Periksa kembali preferensi.", "errors": form.errors}, status=400)
+    with transaction.atomic():
+        get_user_model().objects.select_for_update().get(pk=request.user.pk)
+        for row in form.cleaned_data["preferences"]:
+            if row["active"]:
+                Preference.objects.update_or_create(user=request.user, nutrient=row["nutrient"],
+                    defaults={"direction": row["direction"], "weight": row["weight"]})
+            else:
+                Preference.objects.filter(user=request.user, nutrient=row["nutrient"]).delete()
+    return JsonResponse({"ok": True, "message": "Preferensi disimpan.",
+                         "items": [preference_item(item) for item in Preference.objects.filter(user=request.user)]})
+
+
+@login_required
+@module_methods("POST")
+def preference_combined_preview(request):
+    form = draft_form(request)
+    if not form.is_valid():
+        return JsonResponse({"ok": False, "message": "Periksa kembali preferensi.", "errors": form.errors}, status=400)
+    active = [row for row in form.cleaned_data["preferences"] if row["active"]]
+    products = Product.objects.filter(is_active=True)
+    total = products.count()
+    if not active:
+        return JsonResponse({"ok": True, "ranked_count": 0, "total_active": total, "samples": [], "state": "inactive"})
+    known = Q()
+    for row in active:
+        known |= Q(**{NUTRIENT_FIELDS[row["nutrient"]]["field"] + "__isnull": False})
+    candidates = list(products.filter(known).order_by("pk"))
+    priorities = [Preference(nutrient=row["nutrient"], direction=row["direction"], weight=row["weight"]) for row in active]
+    samples = []
+    for product in rank_products(candidates, priorities)[:3]:
+        values = []
+        for row in active:
+            metadata = NUTRIENT_FIELDS[row["nutrient"]]
+            value = getattr(product, metadata["field"])
+            values.append({"label": metadata["label"], "value": None if value is None else round(value * metadata["scale"], 1),
+                           "unit": metadata["unit"]})
+        samples.append({"id": product.pk, "name": product.product_name, "values": values})
+    return JsonResponse({"ok": True, "ranked_count": len(candidates), "total_active": total, "samples": samples,
+                         "state": "ready" if candidates else "empty"})
 
 
 def preference_item(item):
