@@ -32,7 +32,7 @@ def owner_name(user):
 def shelves_with_counts():
     return (Shelf.objects.select_related("owner")
             .annotate(item_count=Count("items", distinct=True), save_count=Count("saves", distinct=True))
-            .prefetch_related("items__product"))
+            .prefetch_related("items__product").order_by("-updated_at", "-pk"))
 
 
 def serialize_shelf(shelf):

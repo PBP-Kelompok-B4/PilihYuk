@@ -54,6 +54,13 @@ class ShelfViewTests(TestCase):
         self.assertContains(response, "Mie instan")
         self.assertNotContains(response, "Rahasia")
 
+    def test_public_list_is_ordered_by_last_update(self):
+        newer = Shelf.objects.create(name="Kopi pagi", owner=self.other)
+        self.public.save()
+        response = self.client.get(reverse("shelves:list"))
+        self.assertTrue(response.context["page"].paginator.object_list.ordered)
+        self.assertEqual([s.name for s in response.context["page"]], ["Mie instan", newer.name])
+
     def test_search_filters_by_context(self):
         Shelf.objects.create(name="Kopi pagi", owner=self.other)
         response = self.client.get(reverse("shelves:list"), {"q": "alfamart"})
