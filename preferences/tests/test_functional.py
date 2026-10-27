@@ -24,6 +24,31 @@ CHROME_AVAILABLE = bool(shutil.which("google-chrome") or shutil.which("chrome"))
 @unittest.skipUnless(os.getenv("PILIHYUK_BROWSER_TESTS") == "1" and importlib.util.find_spec("playwright") and CHROME_AVAILABLE,
                      "Tes browser memerlukan opt-in, Playwright, dan Chrome lokal.")
 class DecisionBrowserTests(StaticLiveServerTestCase):
+    def test_history_read_cards_and_confirmation_dialog(self):
+        from playwright.sync_api import expect, sync_playwright
+
+        user = make_user()
+        Decision.objects.create(user=user, product=make_product(), note="Catatan tersimpan", compared_product_count=2)
+        self.client.force_login(user)
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(channel="chrome", headless=True)
+            context = browser.new_context(viewport={"width": 1280, "height": 900})
+            context.add_cookies([{"name": settings.SESSION_COOKIE_NAME, "value": self.client.cookies[settings.SESSION_COOKIE_NAME].value, "url": self.live_server_url}])
+            page = context.new_page()
+            page.goto(self.live_server_url + "/riwayat/")
+            expect(page.get_by_role("button", name="Catat Keputusan Baru", exact=True)).to_have_count(1)
+            expect(page.locator('[data-decision] textarea')).to_have_count(0)
+            page.get_by_role("button", name="Catat Keputusan Baru", exact=True).click()
+            expect(page.locator('dialog[data-create-dialog]')).to_be_visible()
+            page.keyboard.press("Escape")
+            expect(page.get_by_role("button", name="Catat Keputusan Baru", exact=True)).to_be_focused()
+            page.locator('[data-decision-delete] button').click()
+            expect(page.locator('dialog[data-confirm-dialog]')).to_be_visible()
+            expect(page.locator('[data-decision]')).to_have_count(1)
+            page.get_by_role('button', name='Batal', exact=True).click()
+            expect(page.locator('[data-decision]')).to_have_count(1)
+            browser.close()
+
     def test_global_draft_reset_and_failed_save_keep_database_unchanged(self):
         from playwright.sync_api import expect, sync_playwright
 
