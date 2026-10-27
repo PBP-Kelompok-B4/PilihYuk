@@ -1,3 +1,7 @@
 from django.contrib import admin
 
-# Register your models here.
+from .models import SavedShelf, Shelf, ShelfItem
+
+admin.site.register(Shelf)
+admin.site.register(ShelfItem)
+admin.site.register(SavedShelf)

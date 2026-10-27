@@ -1,5 +1,6 @@
 # Claude (team docs in .claude/ are tracked; only personal settings are ignored)
 .claude/settings.local.json
+/CLAUDE.md
 
 # Django
 *.log

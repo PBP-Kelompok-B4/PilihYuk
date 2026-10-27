@@ -1,0 +1,64 @@
+{% load static %}
+<p class="mb-2 text-xs text-muted sm:hidden">Geser tabel ke samping untuk melihat produk lain.</p>
+<div class="overflow-x-auto rounded-[20px] bg-white">
+    <table class="w-full border-collapse text-left text-sm">
+        <caption class="sr-only">Perbandingan {{ compared|length }} produk, nilai per 100 g</caption>
+        <thead>
+            <tr>
+                <th scope="col" class="sticky left-0 z-10 w-[110px] min-w-[110px] bg-surface px-3 py-3 align-top text-[11px] font-bold text-muted sm:w-[180px] sm:px-5">Metrik<span class="block font-normal">Nilai per 100 g</span></th>
+                {% for product in compared %}
+                <th scope="col" class="w-[calc((100vw-110px-2rem)/2)] min-w-[calc((100vw-110px-2rem)/2)] max-w-[calc((100vw-110px-2rem)/2)] wrap-anywhere px-3 py-4 align-top font-normal sm:w-auto sm:min-w-[200px] sm:max-w-none sm:px-4">
+                    {% if product.image_url %}<img src="{{ product.image_url }}" alt="" loading="lazy" class="h-24 w-full rounded-xl bg-surface object-contain">{% else %}<div class="h-24 rounded-xl bg-placeholder"></div>{% endif %}
+                    <p class="mt-3 font-bold">{{ product.product_name|default:"Tanpa nama" }}</p>
+                    <p class="text-xs text-muted">{{ product.brand }}{% if product.brand and product.quantity %} · {% endif %}{{ product.quantity }}</p>
+                </th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr class="border-t border-line">
+                <th scope="row" class="row-label">
+                    <span class="flex items-center gap-1.5">{{ row.label }}
+                        {% if row.kind == "number" and row.direction == "max" %}<img src="{% static 'img/arrow-up.svg' %}" alt="makin tinggi makin baik">{% elif row.kind == "number" and row.direction == "min" %}<img src="{% static 'img/arrow-down.svg' %}" alt="makin rendah makin baik">{% endif %}
+                    </span>
+                </th>
+                {% for cell in row.cells %}
+                <td class="px-3 py-3 sm:px-4{% if cell.best %} bg-mint{% endif %}">
+                    {% if cell.value is None or cell.value == "" %}
+                    <span class="chip bg-surface text-muted"><img src="{% static 'img/info.svg' %}" alt="">Tidak diketahui</span>
+                    {% elif row.kind == "nutri" or row.kind == "green" %}
+                        {% if cell.rank is None %}<span class="chip bg-surface text-muted">{{ cell.value }}</span>
+                        {% elif row.kind == "nutri" %}<span class="inline-flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-nutri-{{ cell.value }} font-bold text-white">{{ cell.value|upper }}</span>
+                        {% else %}<span class="chip bg-leaf"><img src="{% static 'img/leaf-1.svg' %}" alt="">{% if cell.value == "a-plus" %}A+{% else %}{{ cell.value|upper }}{% endif %}</span>{% endif %}
+                    {% elif row.kind == "nova" %}
+                    <span class="chip bg-surface"><img src="{% static 'img/flask-conical-1.svg' %}" alt="">NOVA {{ cell.value }}</span>
+                    {% elif row.kind == "number" %}
+                    <b class="text-[15px]{% if cell.best %} text-brand{% endif %}">{{ cell.value|floatformat:"-1" }}</b>
+                    <span class="text-[11px] text-muted">{{ row.unit }}</span>
+                    <div class="mt-1.5 h-1 w-20 rounded-full bg-track sm:w-24"><div class="h-1 rounded-full {% if row.direction %}bg-brand{% else %}bg-bar{% endif %}" style="width: {{ cell.pct }}%"></div></div>
+                    {% else %}
+                    <span class="text-sm wrap-anywhere">{{ cell.value }}</span>
+                    {% endif %}
+                    {% if cell.best %}<span class="ml-1 rounded-full bg-brand px-2 py-0.5 text-[9px] font-bold text-white">{% if row.kind != "number" %}Terbaik{% elif row.direction == "max" %}Tertinggi{% else %}Terendah{% endif %}</span>{% endif %}
+                </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+            <tr class="border-t border-line bg-surface">
+                <th scope="row" class="sticky left-0 z-10 bg-surface px-3 py-3 text-left text-xs font-bold text-muted sm:px-5">Aksi</th>
+                {% for product in compared %}
+                <td class="px-3 py-2 sm:px-4"><a href="{% url 'product_catalog:product_detail' product.pk %}" class="btn-white btn-small"><img src="{% static 'img/external-link.svg' %}" alt="">Detail</a></td>
+                {% endfor %}
+            </tr>
+        </tbody>
+    </table>
+</div>
+<div class="card mt-4 text-xs text-muted">
+    <p class="font-bold text-ink">Cara membaca tabel ini</p>
+    <ul class="mt-2 space-y-1">
+        <li>Sorotan hijau menandai nilai terbaik di barisnya, hanya bila minimal dua produk punya nilai yang bisa diperingkat.</li>
+        <li>"unknown" dan "not-applicable" ditampilkan apa adanya dan tidak ikut diperingkat.</li>
+        <li>"Tidak diketahui" berarti data belum tersedia, bukan nilai buruk.</li>
+    </ul>
+</div>
