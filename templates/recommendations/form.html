@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block meta %}<title>Usulkan Pengganti — PilihYuk</title>{% endblock %}
+{% block content %}
+<main class="section w-full flex-1 py-10">
+    <a class="text-sm text-brand underline" href="{% url 'product_catalog:product_detail' source_product.pk %}">Kembali ke detail produk</a>
+
+    <section class="card mt-6 max-w-2xl">
+        <p class="eyebrow">REKOMENDASI KOMUNITAS</p>
+        <h1 class="section-title mt-2">Buat rekomendasi produk</h1>
+        <p class="mt-3 text-sm text-muted">Kamu membuat rekomendasi pengganti untuk <strong class="text-ink">{{ source_product.product_name|default:'produk tanpa nama' }}</strong>. Hanya produk aktif dalam kategori <strong class="text-ink">{{ source_product.category|default:'yang sama' }}</strong> yang dapat dipilih.</p>
+
+        <form class="mt-8 space-y-6" method="post" novalidate>
+            {% csrf_token %}
+            {% if form.non_field_errors %}<div class="rounded-lg bg-red-50 p-4 text-sm text-red-800">{{ form.non_field_errors }}</div>{% endif %}
+            {% for field in form %}
+            <div>
+                <label class="text-sm font-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}<p class="mt-1 text-xs text-muted">{{ field.help_text }}</p>{% endif %}
+                {% for error in field.errors %}<p class="mt-1 text-sm text-red-700">{{ error }}</p>{% endfor %}
+            </div>
+            {% endfor %}
+            <button class="btn-brand" type="submit">Kirim rekomendasi</button>
+        </form>
+    </section>
+</main>
+{% endblock %}

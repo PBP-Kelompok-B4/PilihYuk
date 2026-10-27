@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block meta %}<title>{{ recommendation.source_product.product_name|default:'Rekomendasi' }} — PilihYuk</title>{% endblock %}
+{% block content %}
+<main class="section w-full flex-1 py-10">
+    <a class="text-sm text-brand underline" href="{% url 'recommendations:list' %}">Kembali ke semua rekomendasi</a>
+
+    <article class="card mt-6 max-w-3xl">
+        <p class="eyebrow">REKOMENDASI KOMUNITAS</p>
+        <h1 class="section-title mt-2 break-words">
+            <a class="hover:text-brand hover:underline" href="{% url 'product_catalog:product_detail' recommendation.source_product.pk %}">{{ recommendation.source_product.product_name|default:'Produk tanpa nama' }}</a>
+            <span aria-hidden="true">→</span>
+            <a class="hover:text-brand hover:underline" href="{% url 'product_catalog:product_detail' recommendation.replacement_product.pk %}">{{ recommendation.replacement_product.product_name|default:'Produk tanpa nama' }}</a>
+        </h1>
+        <p class="mt-6 whitespace-pre-line leading-relaxed">{{ recommendation.reason }}</p>
+
+        <dl class="mt-8 grid gap-4 border-t border-line pt-5 text-center sm:grid-cols-3">
+            <div><dt class="text-sm text-muted">Setuju</dt><dd class="mt-1 text-xl font-bold text-brand">{{ recommendation.agree_count }}</dd></div>
+            <div><dt class="text-sm text-muted">Tidak setuju</dt><dd class="mt-1 text-xl font-bold">{{ recommendation.disagree_count }}</dd></div>
+            <div><dt class="text-sm text-muted">Skor bersih</dt><dd class="mt-1 text-xl font-bold">{{ recommendation.score }}</dd></div>
+        </dl>
+        <p class="mt-6 text-xs text-muted">Dibuat {{ recommendation.created_at|date:'j F Y, H:i' }}. Voting akan tersedia pada langkah berikutnya.</p>
+    </article>
+</main>
+{% endblock %}
