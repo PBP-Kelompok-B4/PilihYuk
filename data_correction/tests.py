@@ -21,8 +21,8 @@ Notes:
   warna Tailwind, kecuali JsTemplateHookTests yang menjaga kait data_correction.js.
 
 Daftar isi:
-A. Helper bersama   : pembuat data, pesan, URL, pemeriksa HTML (chip_texts, links_of,
-                      unbalanced_tags), ViewTestMixin
+A. Helper bersama   : pembuat data (termasuk make_shelf), pesan, URL, pemeriksa HTML
+                      (chip_texts, links_of, unbalanced_tags), shelves_unavailable, ViewTestMixin
 B. Model            : DataCorrectionModelTests, DerivedStatusTests, ConstantsTests,
                       SystemCheckTests, AdminTests
 C. Validasi & form  : ValidatorTests, CorrectionFormTests
@@ -34,7 +34,7 @@ F. Halaman pengguna : SubmitViewTests, SubmitPageLayoutTests, SuccessPageLayoutT
                       WithdrawDialogTests
 G. Antrean kontribusi : IncompleteDataTests, ContributionFiltersTests, ContributionPagingTests,
                       ContributionQueueDataTests, ContributionQueueViewTests,
-                      ContributionQueuePageTests
+                      ContributionQueuePageTests, ShelfFrequencyTests, ShelfQueueViewTests
 H. Moderasi         : QueueFiltersTests, ModerationDataTests, CuratorQueueViewTests,
                       CuratorQueueLayoutTests, ReviewItemViewTests
 I. Lintas halaman   : HttpMethodTests, PageStructureTests
@@ -42,6 +42,7 @@ J. Kontrak JS       : JsJsonContractTests, JsTemplateHookTests
 """
 import json
 import re
+from contextlib import contextmanager
 from datetime import timedelta
 from html.parser import HTMLParser
 from itertools import count
@@ -97,7 +98,8 @@ from .responses import (
     wants_json,
 )
 from .services import CorrectionError, approve_item, reject_item, submit_correction, withdraw_correction
-from .templatetags.data_correction_tags import ago, display_value, is_known, thousands
+from .shelf_frequency import ShelfFrequency, shelf_counts
+from .templatetags.data_correction_tags import ago, display_value, is_known, thousands, times
 from .validators import get_current_value, parse_proposed_value, to_column_value, to_display, to_stored_text
 
 _barcodes = count(1)
@@ -192,8 +194,29 @@ def error_of(action):
 
 def queue_ids(filters=None):
     """Id produk di antrean kontribusi, sesuai urutannya."""
-    rows, _, _ = queue_products(filters or ContributionFilters())
-    return [row["pk"] for row in rows]
+    return [row["pk"] for row in queue_products(filters or ContributionFilters()).rows]
+
+
+@contextmanager
+def shelves_unavailable(**get_model):
+    """Patch apps.get_model HANYA di shelf_frequency.py (bukan registry Django global).
+    Bawaan: LookupError seperti app shelves tidak terpasang; argumen lain diteruskan ke mock,
+    mis. side_effect=ImportError(...) atau return_value=<model tanpa kolom shelf>."""
+    with mock.patch("data_correction.shelf_frequency.apps") as registry:
+        registry.get_model.configure_mock(**(get_model or {"side_effect": LookupError("shelves")}))
+        yield
+
+
+def make_shelf(*products, private=False, owner=None):
+    """Shelf berisi produk-produk itu. Model diambil lewat apps.get_model, sama seperti
+    shelf_frequency.py, jadi file tes ini tetap bisa diimpor walau app shelves berubah."""
+    shelf_model = apps.get_model("shelves", "Shelf")
+    item_model = apps.get_model("shelves", "ShelfItem")
+    owner = owner or make_user(f"pemilik{next(_barcodes)}@email.com", "Pemilik")
+    shelf = shelf_model.objects.create(name="Belanja mingguan", owner=owner, is_private=private)
+    for product in products:
+        item_model.objects.create(shelf=shelf, product=product)
+    return shelf
 
 
 def json_of(response):
@@ -1134,6 +1157,12 @@ class DisplayFilterTests(SimpleTestCase):
         self.assertTrue(is_known(0.0, "fiber_100g"))  # nol bukan kosong
         self.assertTrue(is_known("0.78", "sodium_100g"))
 
+    def test_times_shows_decimals_only_when_needed(self):
+        cases = ((34, "34×"), (0, "0×"), (0.4, "0,4×"), (9.0, "9×"), (2.5, "2,5×"), (None, "—"))
+        for value, expected in cases:
+            with self.subTest(value=value):
+                self.assertEqual(times(value), expected)
+
 
 class DisplayNameAndAgoTests(SimpleTestCase):
     def test_display_name_never_uses_username(self):
@@ -1708,7 +1737,9 @@ class ContributionFiltersTests(SimpleTestCase):
         self.assertEqual(ContributionFilters.from_query({}), ContributionFilters())
         query = {"sort": "acak", "missing": "code", "page": "3"}
         self.assertEqual(ContributionFilters.from_query(query), ContributionFilters(page="3"))
-        self.assertEqual(ContributionFilters.from_query({"sort": "shelf"}).sort, "kosong")  # sampai Tahap 10
+        self.assertEqual(ContributionFilters().sort, "shelf")  # bawaan Tahap 10 (PRD F-4.6)
+        without_shelf = ContributionFilters.from_query({"sort": "shelf"}, shelf_available=False)
+        self.assertEqual((without_shelf.sort, without_shelf.default_sort), ("kosong", "kosong"))
         filters = ContributionFilters.from_query({"sort": "terbaru", "missing": "packaging"})
         self.assertEqual((filters.sort, filters.missing), ("terbaru", "packaging"))
 
@@ -1717,10 +1748,16 @@ class ContributionFiltersTests(SimpleTestCase):
         self.assertEqual(ContributionFilters().url(), CONTRIBUTION_URL)
         self.assertEqual(filters.url(), "/antrean/?sort=terbaru&missing=nutrition&page=2")
         sorts = filters.sort_chips()
-        self.assertEqual([chip["label"] for chip in sorts], ["Paling banyak data kosong", "Terbaru"])
-        urls = ["/antrean/?missing=nutrition", "/antrean/?sort=terbaru&missing=nutrition"]
+        labels = ["Paling sering di shelf", "Paling banyak data kosong", "Terbaru"]
+        self.assertEqual([chip["label"] for chip in sorts], labels)
+        urls = ["/antrean/?missing=nutrition", "/antrean/?sort=kosong&missing=nutrition",
+                "/antrean/?sort=terbaru&missing=nutrition"]
         self.assertEqual([chip["url"] for chip in sorts], urls)
-        self.assertEqual([chip["active"] for chip in sorts], [False, True])
+        self.assertEqual([chip["active"] for chip in sorts], [False, False, True])
+        # Tanpa data shelf: chip shelf hilang dan "kosong" menjadi bawaan (tidak ditulis di URL).
+        sorts = ContributionFilters.from_query({}, shelf_available=False).sort_chips()
+        self.assertEqual([(chip["label"], chip["url"]) for chip in sorts],
+                         [("Paling banyak data kosong", "/antrean/"), ("Terbaru", "/antrean/?sort=terbaru")])
         chips = filters.missing_chips(["nutrition", "nova"])
         self.assertEqual([chip["label"] for chip in chips], ["Semua data", "Gizi", "NOVA"])
         self.assertEqual([chip["active"] for chip in chips], [False, True, False])
@@ -1756,21 +1793,21 @@ class ContributionQueueDataTests(TestCase):
         packaging = make_complete_product(misc_tags=PACKAGING_TAGS)
         missing_fiber = make_complete_product(fiber_100g=None)  # tanpa misc_tags, gizi NULL
         make_product(is_active=False)  # semua kolom kosong, tetapi nonaktif
-        rows, categories, total = queue_products(ContributionFilters())
+        rows, categories, total, shelf_total = queue_products(ContributionFilters())
         found = {row["pk"]: row["missing"] for row in rows}
         self.assertEqual(set(found), {packaging.pk, missing_fiber.pk})
         packaging_entry = {"key": "packaging", "label": "Kemasan", "correctable": False, "fields": []}
         self.assertEqual(found[packaging.pk], [packaging_entry])
         fiber_entry = {"key": "nutrition", "label": "Gizi", "correctable": True, "fields": ["fiber_100g"]}
         self.assertEqual(found[missing_fiber.pk], [fiber_entry])
-        self.assertEqual((categories, total), (["nutrition", "packaging"], 2))
+        self.assertEqual((categories, total, shelf_total), (["nutrition", "packaging"], 2, 0))
         for product in (complete_tags, unknown_grades, zero_fiber):
             self.assertNotIn(product.pk, found)
 
     def test_missing_filter_keeps_every_category_for_the_chips(self):
         packaging = make_complete_product(misc_tags=PACKAGING_TAGS)
         make_complete_product(fiber_100g=None)
-        rows, categories, total = queue_products(ContributionFilters(missing="packaging"))
+        rows, categories, total, _ = queue_products(ContributionFilters(missing="packaging"))
         self.assertEqual([row["pk"] for row in rows], [packaging.pk])
         self.assertEqual((categories, total), (["nutrition", "packaging"], 2))
         self.assertEqual(queue_ids(ContributionFilters(missing="nova")), [])
@@ -1779,13 +1816,14 @@ class ContributionQueueDataTests(TestCase):
         bihun = make_complete_product(product_name="Bihun", fiber_100g=None)
         apel = make_complete_product(product_name="apel kering", fiber_100g=None)
         zebra = make_complete_product(product_name="Zebra", fiber_100g=None, brand="")  # 2 data kurang
-        self.assertEqual(queue_ids(), [zebra.pk, apel.pk, bihun.pk])  # lalu nama A-Z (abaikan huruf besar)
+        # Bawaan "shelf" tanpa shelf sama sekali: seri -> data kurang, lalu nama A-Z (abaikan huruf besar).
+        self.assertEqual(queue_ids(), [zebra.pk, apel.pk, bihun.pk])
         now = timezone.now()
         for product, days in ((apel, 3), (zebra, 2), (bihun, 1)):
             Product.objects.filter(pk=product.pk).update(created_at=now - timedelta(days=days))
         self.assertEqual(queue_ids(ContributionFilters(sort="terbaru")), [bihun.pk, zebra.pk, apel.pk])
-        shelf = ContributionFilters.from_query({"sort": "shelf"})
-        self.assertEqual(queue_ids(shelf), [zebra.pk, apel.pk, bihun.pk])  # Tahap 10: masih urutan bawaan
+        kosong = ContributionFilters(sort="kosong")
+        self.assertEqual(queue_ids(kosong), [zebra.pk, apel.pk, bihun.pk])  # urutan Tahap 6 tetap ada
 
     def test_status_uses_one_query_and_follows_pending_items(self):
         product = make_complete_product(fiber_100g=None)
@@ -1818,8 +1856,11 @@ class ContributionQueueDataTests(TestCase):
         old = make_correction(product, user, brand=APPROVED)
         DataCorrection.objects.filter(pk=old.pk).update(created_at=timezone.now() - timedelta(days=8))
         make_correction(product, user, fiber_100g=PENDING, sugars_100g=APPROVED)
-        expected = {"incomplete_products": 5, "submitted_last_7_days": 1, "approved": 2}
-        self.assertEqual(contribution_stats(5), expected)
+        expected = {"incomplete_products": 5, "submitted_last_7_days": 1, "approved": 2,
+                    "shelf_average": None}
+        self.assertEqual(contribution_stats(5), expected)  # data shelf tidak tersedia
+        self.assertEqual(contribution_stats(3, 4)["shelf_average"], 1.3)  # 4 kemunculan / 3 produk
+        self.assertEqual(contribution_stats(0, 0)["shelf_average"], 0)  # antrean kosong
 
 
 class ContributionQueueViewTests(ViewTestMixin, TestCase):
@@ -1897,15 +1938,18 @@ class ContributionQueueViewTests(ViewTestMixin, TestCase):
     def test_json_shape(self):
         data = json_of(self.client.get(CONTRIBUTION_URL, HTTP_ACCEPT="application/json"))
         summary = {key: data[key] for key in ("count", "page", "page_size", "sort", "missing")}
-        self.assertEqual(summary, {"count": 2, "page": 1, "page_size": 20, "sort": "kosong", "missing": None})
-        self.assertEqual(data["stats"], {"incomplete_products": 2, "submitted_last_7_days": 0, "approved": 0})
+        self.assertEqual(summary, {"count": 2, "page": 1, "page_size": 20, "sort": "shelf", "missing": None})
+        self.assertEqual(data["stats"], {"incomplete_products": 2, "submitted_last_7_days": 0, "approved": 0,
+                                         "shelf_average": 0})
+        self.assertIs(data["shelf_available"], True)
         self.assertEqual(data["results"][0], {
             "id": self.nova.pk, "product_name": "Teh Botol Sosro", "brand": "", "quantity": "88 g",
             "missing": [
                 {"key": "nova", "label": "NOVA", "correctable": True, "fields": ["nova_group"]},
                 {"key": "brand", "label": "Merek", "correctable": True, "fields": ["brand"]},
             ],
-            "missing_count": 2, "status": "needs_contribution", "status_label": "Perlu kontribusi",
+            "missing_count": 2, "shelf_count": 0, "status": "needs_contribution",
+            "status_label": "Perlu kontribusi",
             "submit_url": f"/antrean/produk/{self.nova.pk}/ajukan/?field=brand&field=nova_group",
             "detail_url": f"/katalog/{self.nova.pk}/",
         })
@@ -1915,14 +1959,17 @@ class ContributionQueueViewTests(ViewTestMixin, TestCase):
     def test_query_count_does_not_grow_with_products(self):
         with CaptureQueriesContext(connection) as few:
             self.client.get(CONTRIBUTION_URL)
-        for _ in range(25):
-            make_complete_product(fiber_100g=None)
+        products = [make_complete_product(fiber_100g=None) for _ in range(25)]
         submit_correction(self.user, self.fiber, {"fiber_100g": "2,5"})
+        for start in range(0, 25, 5):
+            make_shelf(*products[start:start + 5])
+        make_shelf(*products[:3], private=True)
         with CaptureQueriesContext(connection) as many:
             self.client.get(CONTRIBUTION_URL)
         self.assertEqual(len(many), len(few))
-        # produk, produk dengan item pending, gambar baris halaman ini, dan 2 query statistik
-        self.assertEqual(len(few), 5)
+        # frekuensi shelf, produk, produk dengan item pending, gambar baris halaman ini,
+        # dan 2 query statistik (Tahap 9: 5 query; frekuensi shelf menambah 1)
+        self.assertEqual(len(few), 6)
 
     def test_logged_in_user_gets_a_link_to_own_corrections(self):
         self.client.force_login(self.user)
@@ -1950,11 +1997,11 @@ class ContributionQueuePageTests(TestCase):
         response = self.client.get(CONTRIBUTION_URL)
         texts = ('popovertarget="panduan-kontribusi"', 'id="panduan-kontribusi" popover',
                  "Panduan kontribusi", "Kurator meninjau setiap usulan.", "Menunggu kontribusi",
-                 "Diajukan minggu ini", "Disetujui", "Rata-rata di shelf", "belum ada data shelf")
+                 "Diajukan minggu ini", "Disetujui", "Rata-rata di shelf", "0×", "kemunculan per produk")
         for text in texts:
             self.assertContains(response, text)
 
-    def test_rows_show_image_meta_shelf_dash_and_actions(self):
+    def test_rows_show_image_meta_shelf_frequency_and_actions(self):
         response = self.client.get(CONTRIBUTION_URL)
         images = {row["pk"]: row["image_url"] for row in response.context["rows"]}
         self.assertEqual(images, {self.fiber.pk: OFF_IMAGE, self.unknown.pk: ""})  # "" = placeholder
@@ -1962,7 +2009,7 @@ class ContributionQueuePageTests(TestCase):
         self.assertContains(response, "Sarimi · 88 g")
         self.assertContains(response, "Merek dan isi tidak diketahui")  # kosong tetap ditulis
         self.assertContains(response, "<span>Frekuensi shelf</span>")
-        self.assertContains(response, '<span aria-hidden="true">—</span>', count=2)  # "—" sampai Tahap 10
+        self.assertContains(response, ">0×</span>", count=2)  # frekuensi 0 tetap ditulis, bukan "—"
         self.assertContains(response, "</svg>Lengkapi Data</a>", count=2)  # tombol berikon pensil
         self.assertEqual(page_images([self.unknown.pk]), {self.unknown.pk: ""})
 
@@ -1976,6 +2023,122 @@ class ContributionQueuePageTests(TestCase):
         self.assertContains(response, 'href="/antrean/?missing=nutrition&amp;page=3"')
         self.assertContains(response, "Menampilkan 20 dari 46 produk yang perlu dilengkapi.")
         self.assertContains(response, "Halaman 2 dari 3")
+
+
+class ShelfFrequencyTests(TestCase):
+    """shelf_frequency.shelf_counts: shelf publik berbeda, satu query, fallback tanpa error."""
+
+    def setUp(self):
+        self.mi, self.teh, self.susu = (
+            make_complete_product(product_name=name, fiber_100g=None) for name in ("Mi", "Teh", "Susu")
+        )
+
+    def test_counts_distinct_public_shelves_in_one_query(self):
+        for _ in range(3):
+            make_shelf(self.mi, self.teh)
+        make_shelf(self.mi)
+        make_shelf(self.mi, self.teh, self.susu, private=True)  # shelf privat tidak dihitung
+        ids = [self.mi.pk, self.teh.pk, self.susu.pk]
+        with self.assertNumQueries(1):
+            frequency = shelf_counts(ids)
+        self.assertEqual(frequency, ShelfFrequency({self.mi.pk: 4, self.teh.pk: 3, self.susu.pk: 0}, True))
+        with self.assertNumQueries(1):
+            shelved = shelf_counts()  # tanpa daftar id: hanya produk yang ada di shelf publik
+        self.assertEqual(shelved.counts, {self.mi.pk: 4, self.teh.pk: 3})
+        self.assertEqual((shelved.of(self.mi.pk), shelved.of(self.susu.pk)), (4, 0))
+
+    def test_product_without_shelf_is_zero(self):
+        self.assertEqual(shelf_counts([self.susu.pk]), ShelfFrequency({self.susu.pk: 0}, True))
+        self.assertEqual(shelf_counts([]), ShelfFrequency({}, True))
+
+    def test_missing_model_or_column_falls_back_without_error(self):
+        make_shelf(self.mi)
+        cases = {
+            "app shelves tidak ada": {},
+            "impor model gagal": {"side_effect": ImportError("shelves.models")},
+            "nama kolom berbeda": {"return_value": DataCorrectionItem},  # tanpa kolom shelf/product
+        }
+        for name, get_model in cases.items():
+            with self.subTest(name), shelves_unavailable(**get_model), self.assertNumQueries(0):
+                frequency = shelf_counts([self.mi.pk])
+                self.assertEqual(frequency, ShelfFrequency())
+                self.assertEqual((frequency.available, frequency.of(self.mi.pk)), (False, None))
+
+
+class ShelfQueueViewTests(ViewTestMixin, TestCase):
+    """Antrean kontribusi dengan frekuensi shelf (Tahap 10, PRD F-4.6)."""
+
+    def setUp(self):
+        self.mi = make_complete_product(product_name="Mi Goreng", fiber_100g=None)
+        self.kopi = make_complete_product(product_name="Kopi", fiber_100g=None)
+        self.apel = make_complete_product(product_name="apel kering", fiber_100g=None)
+        self.zebra = make_complete_product(product_name="Zebra", fiber_100g=None, brand="")  # 2 kurang
+        self.teh = make_complete_product(product_name="Teh", fiber_100g=None, brand="")  # 2 kurang
+        for _ in range(3):
+            make_shelf(self.mi)
+        make_shelf(self.kopi, self.apel, self.zebra)
+        make_shelf(self.teh, self.apel, private=True)  # tidak dihitung
+        # Frekuensi: mi 3, zebra 1, apel 1, kopi 1, teh 0.
+        # Shelf: frekuensi; seri frekuensi 1 -> zebra (2 kurang), lalu apel kering dan Kopi (nama A-Z).
+        self.by_shelf = [self.mi.pk, self.zebra.pk, self.apel.pk, self.kopi.pk, self.teh.pk]
+        # Tahap 6: data kurang terbanyak (Teh, Zebra), lalu nama.
+        self.by_missing = [self.teh.pk, self.zebra.pk, self.apel.pk, self.kopi.pk, self.mi.pk]
+
+    def ids(self, response):
+        return [row["pk"] for row in response.context["rows"]]
+
+    def summary(self, data):
+        return data["sort"], data["shelf_available"], data["stats"]["shelf_average"]
+
+    def test_default_order_is_shelf_then_missing_then_name(self):
+        response = self.client.get(CONTRIBUTION_URL)
+        self.assertEqual(self.ids(response), self.by_shelf)
+        self.assertEqual(response.context["filters"].sort, "shelf")
+        chips = (("/antrean/", "Paling sering di shelf"),
+                 ("/antrean/?sort=kosong", "Paling banyak data kosong"))
+        for link in chips:
+            self.assertIn(link, links_of(response))
+        response = self.client.get(CONTRIBUTION_URL + "?sort=kosong")  # urutan Tahap 6 tetap tersedia
+        self.assertEqual(self.ids(response), self.by_missing)
+
+    def test_frequency_column_bar_and_average_card(self):
+        response = self.client.get(CONTRIBUTION_URL)
+        rows = {row["pk"]: (row["shelf_count"], row["shelf_bar"]) for row in response.context["rows"]}
+        self.assertEqual(rows, {self.mi.pk: (3, 100), self.zebra.pk: (1, 33), self.apel.pk: (1, 33),
+                                self.kopi.pk: (1, 33), self.teh.pk: (0, 0)})
+        self.assertContains(response, ">3×</span>", count=1)
+        self.assertContains(response, ">1×</span>", count=3)
+        self.assertContains(response, 'style="width: 100%"', count=1)  # bar: persen bilangan bulat
+        self.assertContains(response, 'style="width: 33%"', count=3)
+        # Kartu: (3 + 1 + 1 + 1 + 0) kemunculan / 5 produk antrean = 1,2.
+        self.assertEqual(response.context["stats"]["shelf_average"], 1.2)
+        self.assertContains(response, "1,2×")
+        self.assertContains(response, "kemunculan per produk")
+        # Bar relatif terhadap frekuensi terbesar di halaman; kartu tetap untuk seluruh antrean.
+        response = self.client.get(CONTRIBUTION_URL + "?missing=brand")
+        rows = {row["pk"]: (row["shelf_count"], row["shelf_bar"]) for row in response.context["rows"]}
+        self.assertEqual(rows, {self.zebra.pk: (1, 100), self.teh.pk: (0, 0)})
+        self.assertEqual(response.context["stats"]["shelf_average"], 1.2)
+
+    def test_json_has_frequency(self):
+        data = json_of(self.client.get(CONTRIBUTION_URL + "?format=json"))
+        self.assertEqual(self.summary(data), ("shelf", True, 1.2))
+        counts = [(row["id"], row["shelf_count"]) for row in data["results"]]
+        self.assertEqual(counts, list(zip(self.by_shelf, [3, 1, 1, 1, 0])))
+
+    def test_without_shelves_the_page_falls_back_to_stage_six(self):
+        with shelves_unavailable():
+            with self.assertNumQueries(5):  # query frekuensi shelf tidak dijalankan
+                response = self.client.get(CONTRIBUTION_URL + "?sort=shelf")
+            data = json_of(self.client.get(CONTRIBUTION_URL + "?format=json"))
+        self.assertEqual(response.context["filters"].sort, "kosong")
+        self.assertEqual(self.ids(response), self.by_missing)
+        self.assertNotContains(response, "Paling sering di shelf")
+        self.assertContains(response, ">belum tersedia</span>", count=5)  # kolom frekuensi: "—"
+        self.assertContains(response, "data shelf belum tersedia")  # kartu rata-rata: "—"
+        self.assertNotIn(("/antrean/?sort=kosong", "Paling banyak data kosong"), links_of(response))
+        self.assertEqual(self.summary(data), ("kosong", False, None))
+        self.assertEqual({row["shelf_count"] for row in data["results"]}, {None})
 
 
 class QueueFiltersTests(SimpleTestCase):
