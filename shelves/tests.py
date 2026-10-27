@@ -6,6 +6,7 @@ from django.db.models.deletion import ProtectedError
 from django.test import TestCase
 from django.urls import reverse
 
+from preferences.models import Decision, Preference
 from product_catalog.models import Product
 
 from .comparison import comparison_rows
@@ -348,3 +349,50 @@ class ShelfJsonCrudTests(TestCase):
         self.assertEqual([s["name"] for s in data["own"]], ["Mie instan"])
         self.assertEqual([s["name"] for s in data["saved"]], ["Camilan kantor"])
         self.assertNotIn("bagas@example.com", str(data))
+
+
+class PreferenceIntegrationTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user("rani@example.com", "rani@example.com", "pw-12345678")
+        self.shelf = Shelf.objects.create(name="Mie", owner=self.user)
+        self.a = Product.objects.create(product_name="A", source="manual", energy_kcal_100g=450, sugars_100g=7)
+        self.b = Product.objects.create(product_name="B", source="manual", energy_kcal_100g=400, sugars_100g=9)
+        for product in (self.a, self.b):
+            ShelfItem.objects.create(shelf=self.shelf, product=product)
+        self.client.force_login(self.user)
+
+    def labels(self, rows):
+        return [r["label"] for r in rows if r["kind"] == "number"]
+
+    def test_preferred_rows_come_first_and_follow_their_direction(self):
+        Preference.objects.create(user=self.user, nutrient="sugar", direction="min", weight=1)
+        Preference.objects.create(user=self.user, nutrient="energy", direction="min", weight=3)
+        rows = comparison_rows([self.a, self.b], self.user.nutrition_preferences.all())
+        self.assertEqual(self.labels(rows)[:3], ["Energi", "Gula", "Protein"])
+        self.assertEqual(rows[3]["cells"][1]["best"], True)
+        self.assertEqual(self.labels(comparison_rows([self.a, self.b]))[0], "Energi")
+        self.assertEqual(comparison_rows([self.a, self.b])[3]["direction"], None)
+
+    def test_detail_uses_viewer_preferences(self):
+        Preference.objects.create(user=self.user, nutrient="sugar", direction="min", weight=3)
+        data = self.client.get(reverse("shelves:detail", args=[self.shelf.pk]), {"format": "json"}).json()
+        self.assertEqual(self.labels(data["rows"])[0], "Gula")
+        self.client.logout()
+        data = self.client.get(reverse("shelves:detail", args=[self.shelf.pk]), {"format": "json"}).json()
+        self.assertEqual(self.labels(data["rows"])[0], "Energi")
+
+    def test_choose_button_records_decision_with_compared_products(self):
+        response = self.client.get(reverse("shelves:detail", args=[self.shelf.pk]))
+        self.assertContains(response, reverse("preferences:decision_create"))
+        self.assertContains(response, 'name="compared_product_ids"', count=4)
+        response = self.client.post(reverse("preferences:decision_create"),
+                                    {"product": self.b.pk, "shelf": self.shelf.pk,
+                                     "compared_product_ids": [self.a.pk, self.b.pk]},
+                                    HTTP_ACCEPT="application/json")
+        self.assertEqual(response.status_code, 201)
+        decision = Decision.objects.get()
+        self.assertEqual((decision.product, decision.shelf, decision.compared_product_count), (self.b, self.shelf, 2))
+
+    def test_visitors_do_not_see_choose_button(self):
+        self.client.logout()
+        self.assertNotContains(self.client.get(reverse("shelves:detail", args=[self.shelf.pk])), "Pilih ini")

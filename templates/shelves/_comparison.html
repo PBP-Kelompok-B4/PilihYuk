@@ -1,4 +1,15 @@
 {% load static %}
+{% if user.is_authenticated %}
+<div class="mb-4 flex flex-wrap items-center gap-2 rounded-2xl bg-mint px-4 py-3 text-xs">
+    {% if preferred_rows %}
+    <span class="font-semibold">Diurutkan berdasarkan preferensi aktif:</span>
+    {% for row in preferred_rows %}<span class="chip bg-white">{{ row.label }} {% if row.direction == "max" %}↑{% else %}↓{% endif %}</span>{% endfor %}
+    {% else %}
+    <span>Atur preferensi nutrisi agar baris yang kamu prioritaskan tampil paling atas.</span>
+    {% endif %}
+    <a href="{% url 'preferences:preference_list' %}" class="ml-auto font-semibold text-brand hover:underline">Kelola preferensi</a>
+</div>
+{% endif %}
 <p class="mb-2 text-xs text-muted sm:hidden">Geser tabel ke samping untuk melihat produk lain.</p>
 <div class="overflow-x-auto rounded-[20px] bg-white">
     <table class="w-full border-collapse text-left text-sm">
@@ -49,7 +60,20 @@
             <tr class="border-t border-line bg-surface">
                 <th scope="row" class="sticky left-0 z-10 bg-surface px-3 py-3 text-left text-xs font-bold text-muted sm:px-5">Aksi</th>
                 {% for product in compared %}
-                <td class="px-3 py-2 sm:px-4"><a href="{% url 'product_catalog:product_detail' product.pk %}" class="btn-white btn-small"><img src="{% static 'img/external-link.svg' %}" alt="">Detail</a></td>
+                <td class="px-3 py-2 sm:px-4">
+                    <div class="flex flex-wrap gap-2">
+                        {% if user.is_authenticated %}
+                        <form method="post" action="{% url 'preferences:decision_create' %}" data-decision-form>
+                            {% csrf_token %}
+                            <input type="hidden" name="product" value="{{ product.pk }}">
+                            <input type="hidden" name="shelf" value="{{ shelf.pk }}">
+                            {% for other in compared %}<input type="hidden" name="compared_product_ids" value="{{ other.pk }}">{% endfor %}
+                            <button type="submit" class="btn-white btn-small bg-mint text-brand disabled:opacity-50" aria-label="Pilih {{ product.product_name|default:'produk ini' }}">✓ Pilih ini</button>
+                        </form>
+                        {% endif %}
+                        <a href="{% url 'product_catalog:product_detail' product.pk %}" class="btn-white btn-small"><img src="{% static 'img/external-link.svg' %}" alt="">Detail</a>
+                    </div>
+                </td>
                 {% endfor %}
             </tr>
         </tbody>
@@ -61,6 +85,7 @@
         <li>Sorotan hijau menandai nilai terbaik di barisnya, hanya bila minimal dua produk punya nilai yang bisa diperingkat.</li>
         <li>"unknown" dan "not-applicable" ditampilkan apa adanya dan tidak ikut diperingkat.</li>
         <li>"Tidak diketahui" berarti data belum tersedia, bukan nilai buruk.</li>
+        <li>Baris gizi yang punya preferensi aktif tampil paling atas, dan arah nilai terbaiknya mengikuti preferensimu.</li>
         <li>"Estimasi" berarti skor lingkungan dihitung PilihYuk, bukan nilai resmi, dan tidak ikut diperingkat.</li>
     </ul>
 </div>

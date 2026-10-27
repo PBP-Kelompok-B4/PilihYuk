@@ -1,3 +1,4 @@
+from preferences.constants import NUTRIENT_FIELDS
 from product_catalog.off_mapping import tag_name
 
 MAX_COMPARED = 4
@@ -34,7 +35,8 @@ def grade_row(label, kind, values, order):
     return row(label, kind, values, [order.index(v) if v in order else None for v in values], "min")
 
 
-def comparison_rows(products):
+def comparison_rows(products, preferences=()):
+    chosen = {NUTRIENT_FIELDS[p.nutrient]["field"]: p for p in preferences if p.nutrient in NUTRIENT_FIELDS}
     green = grade_row("Green-Score", "green", [p.environmental_grade for p in products], GREEN_ORDER)
     for cell, product in zip(green["cells"], products):
         cell["estimate"] = product.environmental_grade_estimated if cell["rank"] is None else ""
@@ -43,15 +45,20 @@ def comparison_rows(products):
         green,
         row("NOVA", "nova", [p.nova_group for p in products], [p.nova_group for p in products], "min"),
     ]
+    nutrients = []
     for label, field, unit, direction in NUTRIENTS:
+        preference = chosen.get(field)
         values = [getattr(p, field) for p in products]
         if field == "sodium_100g":
             values = [None if v is None else round(v * 1000, 1) for v in values]
         top = max((v for v in values if v is not None), default=0)
-        nutrient = row(label, "number", values, values, direction, unit)
+        nutrient = row(label, "number", values, values, preference.direction if preference else direction, unit)
+        nutrient["preferred"] = preference is not None
         for cell in nutrient["cells"]:
             cell["pct"] = round(100 * cell["value"] / top) if cell["value"] and top else 0
-        rows.append(nutrient)
+        nutrients.append((nutrient, preference))
+    nutrients.sort(key=lambda pair: -pair[1].weight if pair[1] else 0)
+    rows += [nutrient for nutrient, _ in nutrients]
     rows.append(row("Kemasan", "text", [", ".join(tag_name(t) for t in p.packaging_tags) for p in products],
                     [None] * len(products)))
     rows.append(row("Asal", "text", [p.origin for p in products], [None] * len(products)))

@@ -167,6 +167,26 @@
         }
     }
 
+    table.addEventListener('submit', async event => {
+        const decision = event.target.closest('[data-decision-form]');
+        if (!decision) return;
+        event.preventDefault();
+        const button = decision.querySelector('button');
+        button.disabled = true;
+        try {
+            const response = await fetch(decision.action, {
+                method: 'POST', body: new FormData(decision), headers: {'Accept': 'application/json'},
+            });
+            const isJson = (response.headers.get('Content-Type') || '').includes('application/json');
+            const data = isJson ? await response.json() : {};
+            if (!response.ok) throw new Error(data.message || 'Muat ulang halaman lalu coba lagi.');
+            showToast('Keputusan disimpan', `${data.item.product_name} tercatat di Riwayat Keputusan.`, 'success');
+        } catch (error) {
+            showToast('Gagal menyimpan keputusan', error.message, 'error');
+        } finally {
+            button.disabled = false;
+        }
+    });
     form.querySelector('[data-compare-submit]').hidden = true;
     form.addEventListener('change', event => {
         if (!boxes.some(box => box.checked)) event.target.checked = true;

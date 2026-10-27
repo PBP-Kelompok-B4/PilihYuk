@@ -99,13 +99,14 @@ def shelf_detail(request, pk):
     products = [i.product for i in shelf.items.select_related("product").filter(product__is_active=True)]
     chosen = request.GET.getlist("banding")
     compared = [p for p in products if str(p.pk) in chosen][:MAX_COMPARED] or products[:MAX_COMPARED]
-    rows = comparison_rows(compared)
+    preferences = list(request.user.nutrition_preferences.all()) if request.user.is_authenticated else []
+    rows = comparison_rows(compared, preferences)
     is_saved = request.user.is_authenticated and shelf.saves.filter(user=request.user).exists()
     if wants_json(request):
         return JsonResponse({**serialize_shelf(shelf), "products": [product_card(p) for p in products],
                              "compared": [p.pk for p in compared], "rows": rows, "saved": is_saved})
     context = {"shelf": shelf, "products": products, "compared": compared, "rows": rows,
-               "max_compared": MAX_COMPARED}
+               "max_compared": MAX_COMPARED, "preferred_rows": [r for r in rows if r.get("preferred")]}
     if request.GET.get("partial"):
         return render(request, "shelves/_comparison.html", context)
     return render(request, "shelves/detail.html", {
