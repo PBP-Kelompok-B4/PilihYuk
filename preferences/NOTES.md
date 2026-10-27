@@ -249,3 +249,23 @@ Koreksi selama sesi awal: Shelf sempat belum tersedia sehingga sinkronisasi dipe
 Keterbatasan: dokumen kelompok bertanggal lama tidak otomatis merepresentasikan status kode. Gambar berisi angka/statistik ilustrasi yang tidak boleh dibuat tanpa data; durasi/kebiasaan/alasan otomatis tidak ditambahkan. Count subset mencatat konteks valid dari klien, bukan audit tabel historis. API Shelf/arah/penandaan masih perlu koordinasi, kuota cache per proses, dan PWS belum diuji. Kegagalan koneksi setelah server commit dapat membuat klien belum mengetahui hasil; simpan global idempoten dapat dicoba lagi, sedangkan refresh diperlukan untuk memeriksa riwayat. AI tidak mengklaim pemilik telah melakukan review/perbaikan manual; pemeriksaan pemilik tetap diperlukan untuk demo/live coding.
 
 TODO(Jonathan): tambahkan perbaikan manual
+
+## Ikon nutrien (lanjutan 27 Oktober 2026)
+
+Setiap baris memakai SVG Lucide lokal: Protein=beef, Serat=wheat, Gula=candy,
+Natrium=droplets, Lemak jenuh=droplet, Kalori=flame. Bentuk mengikuti acuan
+desain; tetesan untuk natrium merupakan simbol visual, bukan simbol kimia.
+`_nutrient_icon.html` memilih SVG dari `templates/preferences/icons/`.
+Ikon berwarna hijau pada latar mint, dekoratif (`aria-hidden`, tidak menerima
+fokus); nama nutrien tetap menjadi label teks. Tidak ada dependency, CDN,
+atau request ikon tambahan. Sumber: https://github.com/lucide-icons/lucide.
+Lisensi dan atribusi disimpan di `preferences/LUCIDE_LICENSE.txt`.
+
+Tes render enam ikon dijalankan merah sebelum implementasi, kemudian hijau.
+Verifikasi lanjutan: check dan pemeriksaan migrasi lulus; 63 tes modul
+ditemukan, 57 lulus dan enam browser dilewati pada run standar. Cakupan
+models/forms/views tetap 100%. Tes seluruh proyek tidak diulang untuk
+perubahan template ikon yang hanya berada di modul ini.
+Dua tes browser (responsif 390/768/1024/1440 px dan pratinjau) lulus;
+screenshot desktop/ponsel diperiksa. Run awal di sandbox timeout saat
+menunggu Tailwind CDN, lalu lulus saat akses jaringan diizinkan.
