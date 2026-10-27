@@ -29,6 +29,7 @@ def preference_context(user, form=None):
     for nutrient, metadata in NUTRIENT_FIELDS.items():
         item = saved.get(nutrient)
         rows.append({"nutrient": nutrient, "label": metadata["label"], "item": item,
+                     "default_direction": DEFAULT_DIRECTIONS[nutrient],
                      "active": item is not None, "direction": item.direction if item else DEFAULT_DIRECTIONS[nutrient],
                      "weight": item.weight if item else DEFAULT_WEIGHT})
     return {"rows": rows, "form": form, "weight_choices": WEIGHT_CHOICES, "direction_choices": DIRECTION_CHOICES}

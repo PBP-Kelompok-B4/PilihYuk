@@ -1,4 +1,4 @@
-"""Tes browser opsional: PILIHYUK_BROWSER_TESTS=1, Playwright, dan Chrome lokal."""
+﻿"""Tes browser opsional: PILIHYUK_BROWSER_TESTS=1, Playwright, dan Chrome lokal."""
 
 import importlib.util
 import os
@@ -61,7 +61,7 @@ class DecisionBrowserTests(StaticLiveServerTestCase):
         cache.clear()
         self.addCleanup(cache.clear)
 
-    def test_optimistic_bulk_delete_and_toggle_restore_on_failure(self):
+    def test_optimistic_bulk_delete_restores_on_failure(self):
         from playwright.sync_api import expect, sync_playwright
 
         user = make_user()
@@ -104,19 +104,6 @@ class DecisionBrowserTests(StaticLiveServerTestCase):
             expect(page.locator('[data-decision]')).to_have_count(0)
             self.assertEqual(page.evaluate("window.modulePage"), "same-page")
 
-            page.goto(self.live_server_url + "/preferensi/")
-            page.route("**/preferensi/tambah/", lambda route: held.append(route))
-            page.locator('#active-fiber').click()
-            expect(page.locator('#active-fiber')).to_have_attribute('aria-checked', 'true')
-            expect(page.locator('#active-fiber')).to_be_disabled()
-            self.assertEqual(len(held), 1)
-            held.pop().fulfill(status=429, json={"ok": False, "message": "Batas request."})
-            expect(page.locator('#active-fiber')).to_have_attribute('aria-checked', 'false')
-            expect(page.locator('[data-module-status]')).to_have_text('Batas request.')
-            page.unroute("**/preferensi/tambah/")
-            page.locator('#active-fiber').click()
-            expect(page.locator('#active-fiber')).to_have_attribute('aria-checked', 'true')
-            expect(page.locator('#direction-fiber')).to_be_enabled()
             browser.close()
 
     def test_ajax_crud_filters_and_pagination_without_navigation(self):
@@ -165,7 +152,7 @@ class DecisionBrowserTests(StaticLiveServerTestCase):
             self.assertEqual(errors, [])
             browser.close()
 
-    def test_responsive_pages_keyboard_focus_and_failed_preference_rollback(self):
+    def test_responsive_pages_and_unique_labels(self):
         from playwright.sync_api import expect, sync_playwright
 
         user = make_user()
@@ -195,35 +182,5 @@ class DecisionBrowserTests(StaticLiveServerTestCase):
                         directory.mkdir(parents=True, exist_ok=True)
                         page.screenshot(path=str(directory / f"{path.strip('/')}-{width}.png"), full_page=True)
 
-            page.set_viewport_size({"width": 390, "height": 900})
-            page.goto(self.live_server_url + "/preferensi/")
-            expect(page.locator("#direction-energy")).to_be_disabled()
-            page.locator("#weight-protein-3").focus()
-            page.keyboard.press("ArrowLeft")
-            expect(page.locator("[data-module-status]")).to_have_text("Preferensi disimpan.")
-            expect(page.locator("#weight-protein-2")).to_be_checked()
-            expect(page.locator("#weight-protein-2")).to_be_focused()
-            page.locator("#direction-protein").select_option("min")
-            expect(page.locator('[data-nutrient="protein"]')).to_have_attribute("data-direction", "min")
-            expect(page.locator('[data-nutrient="protein"] [data-preview]')).to_contain_text("1 dari 1")
-
-            page.route("**/preferensi/*/ubah/", lambda route: route.fulfill(status=400, json={"ok": False, "message": "Simpan gagal."}))
-            page.locator("label", has=page.locator("#weight-protein-1")).click()
-            expect(page.locator("[data-module-status]")).to_have_text("Simpan gagal.")
-            expect(page.locator("#weight-protein-2")).to_be_checked()
-            expect(page.locator("#direction-protein")).to_have_value("min")
-            page.unroute("**/preferensi/*/ubah/")
-            page.reload()
-            expect(page.locator("#weight-protein-2")).to_be_checked()
-            expect(page.locator("#direction-protein")).to_have_value("min")
-
-            page.locator("#active-protein").click()
-            expect(page.locator("#active-protein")).to_have_attribute("aria-checked", "false")
-            expect(page.locator("#active-protein")).to_be_focused()
-            expect(page.locator("#direction-protein")).to_be_disabled()
-            expect(page.locator("#weight-protein-2")).to_be_disabled()
-            page.locator("#active-protein").click()
-            expect(page.locator("#active-protein")).to_have_attribute("aria-checked", "true")
-            expect(page.locator("#weight-protein-2")).to_be_checked()
-            self.assertEqual(page.evaluate("document.documentElement.scrollWidth"), 390)
             browser.close()
+

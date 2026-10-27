@@ -42,7 +42,7 @@ class PreferenceViewTests(TestCase):
     def test_inactive_controls_disabled_and_wrong_methods_rejected(self):
         self.client.force_login(self.user)
         response = self.client.get(self.url)
-        self.assertContains(response, "<fieldset disabled", count=6)
+        self.assertContains(response, "<fieldset disabled", count=12)
         self.assertEqual(self.client.get(reverse("preferences:preference_create")).status_code, 405)
         self.assertEqual(self.client.post(self.url).status_code, 405)
         self.assertEqual(self.client.post(reverse("preferences:preference_create"), {}).status_code, 400)

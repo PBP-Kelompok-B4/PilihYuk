@@ -1,4 +1,4 @@
-(() => {
+﻿(() => {
     'use strict';
 
     function notify(message, type = 'success') {
@@ -39,65 +39,120 @@
 
     const preferences = document.querySelector('[data-preferences]');
     if (preferences) {
-        async function preview(row) {
-            if (!row.dataset.id) return;
-            const params = new URLSearchParams({nutrient: row.dataset.nutrient, direction: row.querySelector('select').value});
-            const output = row.querySelector('[data-preview]');
-            try {
-                const data = await request(`${preferences.dataset.previewUrl}?${params}`);
-                const samples = data.samples.map(item => `${item.name}: ${item.value} ${item.unit}`).join('; ');
-                output.textContent = `${data.ranked_count} dari ${data.total_active} produk memiliki data. ${samples}`;
-            } catch (error) { output.textContent = error.message; }
+        const rows = [...preferences.querySelectorAll('[data-nutrient]')];
+        const status = preferences.querySelector('[data-draft-status]');
+        const summary = preferences.querySelector('[data-draft-summary]');
+        const output = preferences.querySelector('[data-combined-preview]');
+        const loading = preferences.querySelector('[data-preview-loading]');
+        const retry = preferences.querySelector('[data-preview-retry]');
+        let saving = false;
+        let previewVersion = 0;
+        let previewTimer;
+        function readDraft() {
+            return rows.map(row => ({nutrient: row.dataset.nutrient,
+                active: row.querySelector('[role="switch"]').getAttribute('aria-checked') === 'true',
+                direction: row.querySelector('[data-direction-input]:checked').value,
+                weight: Number(row.querySelector('[data-weight-input]:checked').value)}));
         }
-
-        preferences.addEventListener('submit', async event => {
-            const form = event.target;
-            if (!form.matches('[data-preference-save], [data-preference-toggle]')) return;
-            event.preventDefault();
-            const row = form.closest('[data-nutrient]');
-            if (row.dataset.busy) return;
-            const focusedId = row.contains(document.activeElement) ? document.activeElement.id : '';
-            const saved = row.cloneNode(true);
-            const shouldPreview = form.matches('[data-preference-toggle]') || row.dataset.direction !== row.querySelector('select').value;
-            row.dataset.busy = 'true';
-            row.setAttribute('aria-busy', 'true');
+        let baseline = JSON.stringify(readDraft());
+        function element(tag, classes, text) {
+            const node = document.createElement(tag);
+            node.className = classes;
+            node.textContent = text;
+            return node;
+        }
+        function renderDraft() {
+            summary.replaceChildren();
+            readDraft().forEach((item, index) => {
+                const row = rows[index];
+                row.querySelectorAll('fieldset').forEach(field => { field.disabled = saving || !item.active; });
+                row.querySelector('[data-toggle-track]').classList.toggle('bg-brand', item.active);
+                row.querySelector('[data-toggle-track]').classList.toggle('bg-track', !item.active);
+                row.querySelector('[data-toggle-thumb]').classList.toggle('translate-x-4', item.active);
+                if (item.active) summary.append(element('span', 'chip bg-mint text-brand',
+                    `${row.querySelector('h3').textContent.trim()} ${item.direction === 'max' ? '↑' : '↓'} · ${['Rendah', 'Sedang', 'Tinggi'][item.weight - 1]}`));
+            });
+            if (!summary.childElementCount) summary.append(element('p', 'text-sm text-muted', 'Belum ada preferensi aktif.'));
+            status.textContent = saving ? 'Menyimpan…' : JSON.stringify(readDraft()) === baseline ? 'Semua perubahan tersimpan.' : 'Ada perubahan belum disimpan.';
+            preferences.querySelectorAll('button').forEach(button => { button.disabled = saving; });
+        }
+        function jsonPost(url, draft) {
+            return request(url, {method: 'POST', body: JSON.stringify({preferences: draft}),
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': preferences.querySelector('[name=csrfmiddlewaretoken]').value}});
+        }
+        async function preview() {
+            const version = ++previewVersion;
+            const draft = readDraft();
+            retry.hidden = true;
+            if (!draft.some(item => item.active)) {
+                loading.hidden = true;
+                output.removeAttribute('aria-busy');
+                output.replaceChildren(element('p', 'rounded-xl bg-surface p-4 text-sm text-muted', 'Aktifkan nutrien untuk melihat pratinjau.'));
+                return;
+            }
+            loading.hidden = false;
+            output.setAttribute('aria-busy', 'true');
             try {
-                const pending = post(form);
-                if (form.matches('[data-preference-toggle]')) {
-                    const active = !row.dataset.id;
-                    row.querySelector('[role="switch"]').setAttribute('aria-checked', String(active));
-                    row.querySelector('[data-active-label]').textContent = active ? 'Aktif' : 'Nonaktif';
-                    row.querySelector('[data-toggle-track]').classList.toggle('bg-brand', active);
-                    row.querySelector('[data-toggle-track]').classList.toggle('bg-track', !active);
-                    row.querySelector('[data-toggle-thumb]').classList.toggle('translate-x-4', active);
-                }
-                row.querySelectorAll('button, input, select').forEach(control => { control.disabled = true; });
-                const data = await pending;
-                const updated = fragment(data.html);
-                updated.dataset.direction = updated.querySelector('select').value;
-                row.replaceWith(updated);
-                if (focusedId) document.getElementById(focusedId)?.focus({preventScroll: true});
-                if (shouldPreview && updated.dataset.id) preview(updated);
-                notify(data.message);
-            } catch (error) {
-                row.replaceWith(saved);
-                // Nilai kontrol dikembalikan ke data terakhir dari server.
-                saved.querySelector('select').value = saved.dataset.direction;
-                saved.querySelectorAll('[name="weight"]').forEach(control => {
-                    if (control.type === 'radio') control.checked = control.value === saved.dataset.weight;
+                const data = await jsonPost(preferences.dataset.previewUrl, draft);
+                if (version !== previewVersion) return;
+                output.replaceChildren(element('p', 'rounded-xl bg-mint p-5 text-sm font-semibold text-brand', `${data.ranked_count} produk dapat diperingkat`));
+                if (!data.samples.length) output.append(element('p', 'text-sm text-muted', 'Belum ada produk dengan data pada nutrien aktif.'));
+                data.samples.forEach((sample, index) => {
+                    const card = element('div', 'rounded-xl border border-line p-3', '');
+                    card.append(element('p', 'break-words text-sm font-semibold', `${index + 1}. ${sample.name || 'Tidak diketahui'}`));
+                    card.append(element('p', 'mt-1 break-words text-xs text-muted', sample.values.map(value =>
+                        `${value.label}: ${value.value === null ? 'Tidak diketahui' : value.value + ' ' + value.unit}`).join(' · ')));
+                    output.append(card);
                 });
-                if (focusedId) document.getElementById(focusedId)?.focus({preventScroll: true});
-                notify(error.message, 'error');
+            } catch (error) {
+                if (version === previewVersion) {
+                    output.replaceChildren(element('p', 'rounded-xl bg-warm p-4 text-sm', `Pratinjau gagal dimuat. ${error.message}`));
+                    retry.hidden = false;
+                }
+            } finally {
+                if (version === previewVersion) { loading.hidden = true; output.removeAttribute('aria-busy'); }
+            }
+        }
+        function changed() {
+            ++previewVersion;
+            clearTimeout(previewTimer);
+            renderDraft();
+            previewTimer = setTimeout(preview, 200);
+        }
+        preferences.addEventListener('change', event => {
+            if (event.target.matches('[data-direction-input], [data-weight-input]')) changed();
+        });
+        preferences.addEventListener('click', async event => {
+            const toggle = event.target.closest('[data-draft-toggle]');
+            if (toggle && !saving) {
+                toggle.setAttribute('aria-checked', String(toggle.getAttribute('aria-checked') !== 'true'));
+                changed();
+            }
+            if (event.target.closest('[data-draft-reset]') && !saving) {
+                rows.forEach(row => {
+                    row.querySelector('[role="switch"]').setAttribute('aria-checked', 'false');
+                    row.querySelectorAll('[data-direction-input]').forEach(input => { input.checked = input.value === row.dataset.defaultDirection; });
+                    row.querySelectorAll('[data-weight-input]').forEach(input => { input.checked = input.value === '2'; });
+                });
+                changed();
+                notify('Preferensi direset. Klik Simpan Preferensi untuk menerapkan perubahan.', 'normal');
+            }
+            if (event.target.closest('[data-preview-retry]')) preview();
+            if (event.target.closest('[data-draft-save]') && !saving) {
+                saving = true;
+                preferences.setAttribute('aria-busy', 'true');
+                const draft = readDraft();
+                renderDraft();
+                try {
+                    const data = await jsonPost(preferences.dataset.saveUrl, draft);
+                    baseline = JSON.stringify(draft);
+                    notify(data.message);
+                } catch (error) { notify(error.message, 'error'); }
+                finally { saving = false; preferences.removeAttribute('aria-busy'); renderDraft(); }
             }
         });
-        preferences.addEventListener('change', event => {
-            const form = event.target.closest('[data-preference-save]');
-            if (form) form.requestSubmit();
-        });
-        preferences.querySelectorAll('[data-nutrient]').forEach(row => {
-            row.dataset.direction = row.querySelector('select').value;
-            row.dataset.weight = row.querySelector('[type="radio"]:checked').value;
-        });
+        renderDraft();
+        preview();
     }
     const decisions = document.querySelector('[data-decisions]');
     if (decisions) {
@@ -211,3 +266,4 @@
         });
     }
 })();
+
