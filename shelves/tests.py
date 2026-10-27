@@ -299,3 +299,45 @@ class SaveShelfTests(TestCase):
         response = self.client.get(url)
         self.assertContains(response, "Disimpan 1 pengguna")
         self.assertNotContains(response, "bagas")
+
+
+class ShelfJsonCrudTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.owner = User.objects.create_user("rani@example.com", "rani@example.com", "pw-12345678", first_name="Rani")
+        self.other = User.objects.create_user("bagas@example.com", "bagas@example.com", "pw-12345678")
+        self.shelf = Shelf.objects.create(name="Mie instan", owner=self.owner)
+        self.client.force_login(self.owner)
+
+    def post(self, url, data=None):
+        return self.client.post(url, data or {}, HTTP_ACCEPT="application/json")
+
+    def test_create_returns_shelf_or_field_errors(self):
+        response = self.post(reverse("shelves:create"), {"name": "Susu untuk kopi", "is_private": "True"})
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["name"], "Susu untuk kopi")
+        self.assertTrue(response.json()["is_private"])
+        self.assertEqual(response.json()["owner"], "Rani")
+        response = self.post(reverse("shelves:create"), {"name": ""})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("name", response.json()["errors"])
+
+    def test_edit_returns_updated_shelf_and_stays_owner_only(self):
+        url = reverse("shelves:edit", args=[self.shelf.pk])
+        data = self.post(url, {"name": "Mie goreng", "is_private": "False"}).json()
+        self.assertEqual((data["id"], data["name"], data["item_count"]), (self.shelf.pk, "Mie goreng", 0))
+        self.client.force_login(self.other)
+        self.assertEqual(self.post(url, {"name": "Dibajak"}).status_code, 404)
+
+    def test_delete_returns_json(self):
+        response = self.post(reverse("shelves:delete", args=[self.shelf.pk]))
+        self.assertEqual(response.json(), {"id": self.shelf.pk, "deleted": True})
+        self.assertFalse(Shelf.objects.exists())
+
+    def test_mine_returns_own_and_saved_shelves(self):
+        theirs = Shelf.objects.create(name="Camilan kantor", owner=self.other)
+        SavedShelf.objects.create(user=self.owner, shelf=theirs)
+        data = self.client.get(reverse("shelves:mine"), {"format": "json"}).json()
+        self.assertEqual([s["name"] for s in data["own"]], ["Mie instan"])
+        self.assertEqual([s["name"] for s in data["saved"]], ["Camilan kantor"])
+        self.assertNotIn("bagas@example.com", str(data))

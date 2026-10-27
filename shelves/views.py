@@ -55,6 +55,15 @@ def product_card(product):
             "quantity": product.quantity, "image_url": product.image_url}
 
 
+def shelf_json(pk, status=200):
+    return JsonResponse(serialize_shelf(shelves_with_counts().get(pk=pk)), status=status)
+
+
+def json_errors(form):
+    errors = {field: [item["message"] for item in items] for field, items in form.errors.get_json_data().items()}
+    return JsonResponse({"errors": errors}, status=400)
+
+
 def paginate(request, queryset, param="page"):
     return Paginator(queryset, PAGE_SIZE).get_page(request.GET.get(param))
 
@@ -78,6 +87,8 @@ def shelf_mine(request):
     own = paginate(request, shelves.filter(owner=request.user))
     saved = paginate(request, shelves.filter(saves__user=request.user, is_private=False)
                      .exclude(owner=request.user), "saved_page")
+    if wants_json(request):
+        return JsonResponse({"own": [serialize_shelf(s) for s in own], "saved": [serialize_shelf(s) for s in saved]})
     return render(request, "shelves/mine.html", {"own": own, "saved": saved})
 
 
@@ -110,8 +121,12 @@ def shelf_create(request):
         shelf = form.save(commit=False)
         shelf.owner = request.user
         shelf.save()
+        if wants_json(request):
+            return shelf_json(shelf.pk, status=201)
         messages.success(request, "Shelf dibuat. Tambahkan produk untuk mulai membandingkan.")
         return redirect("shelves:detail", pk=shelf.pk)
+    if request.method == "POST" and wants_json(request):
+        return json_errors(form)
     return render(request, "shelves/form.html", {"form": form})
 
 
@@ -121,8 +136,12 @@ def shelf_edit(request, pk):
     form = ShelfForm(request.POST or None, instance=shelf)
     if request.method == "POST" and form.is_valid():
         form.save()
+        if wants_json(request):
+            return shelf_json(shelf.pk)
         messages.success(request, "Perubahan shelf disimpan.")
         return redirect("shelves:detail", pk=shelf.pk)
+    if request.method == "POST" and wants_json(request):
+        return json_errors(form)
     return render(request, "shelves/form.html", {
         "form": form, "shelf": shelf, "items": shelf.items.select_related("product"),
         "search_form": CandidateSearchForm(), "max_items": MAX_SHELF_ITEMS,
@@ -134,6 +153,8 @@ def shelf_edit(request, pk):
 def shelf_delete(request, pk):
     shelf = get_object_or_404(Shelf, pk=pk, owner=request.user)
     shelf.delete()
+    if wants_json(request):
+        return JsonResponse({"id": pk, "deleted": True})
     messages.success(request, f"Shelf \"{shelf.name}\" dihapus.")
     return redirect("shelves:mine")
 
