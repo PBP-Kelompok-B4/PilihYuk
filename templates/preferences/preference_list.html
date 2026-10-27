@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load static %}
+{% block meta %}<title>Preferensi Nutrisi · PilihYuk</title>{% endblock %}
+{% block content %}
+<main class="section w-full min-w-0 flex-1 py-8" data-preferences data-save-url="{% url 'preferences:preference_save' %}" data-preview-url="{% url 'preferences:preference_combined_preview' %}">
+    {% csrf_token %}
+    <nav aria-label="Breadcrumb" class="mb-3 flex gap-2 text-xs text-muted"><a href="{% url 'accounts:profile' %}" class="hover:underline">Profil</a><span aria-hidden="true">›</span><span aria-current="page" class="font-semibold text-ink">Preferensi Nutrisi</span></nav>
+    <div class="flex flex-wrap items-end justify-between gap-5">
+        <div class="max-w-3xl"><h1 class="text-3xl font-bold tracking-tight">Preferensi Nutrisi</h1><p class="mt-3 text-sm leading-relaxed text-muted">Atur nutrien mana yang ingin kamu prioritaskan atau batasi. Urutan mengikuti preferensimu.</p></div>
+        <div class="flex flex-wrap gap-2"><button type="button" data-draft-reset class="btn-white min-h-11 focus-visible:outline-2 focus-visible:outline-brand"><span aria-hidden="true">↶</span> Reset</button><button type="button" data-draft-save class="btn-brand min-h-11 focus-visible:outline-2 focus-visible:outline-brand"><span aria-hidden="true">✓</span> Simpan Preferensi</button></div>
+    </div>
+    <p data-draft-status class="mt-3 text-xs text-muted" aria-live="polite">Semua perubahan tersimpan.</p>
+    <p data-module-status role="status" class="sr-only"></p>
+    {% if form.errors %}<div role="alert" class="mt-3 rounded-xl bg-warm p-4">{{ form.errors }}</div>{% endif %}
+    <div class="mt-5 grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,2.25fr)_minmax(280px,1fr)]">
+        <div class="min-w-0">
+            <div class="mb-4 flex items-start gap-3 rounded-2xl bg-mint px-5 py-4 text-xs leading-relaxed"><img src="{% static 'img/info.svg' %}" alt="" class="mt-0.5 h-4 w-4 shrink-0"><p>Setiap nutrien punya dua arah: Maksimalkan untuk nilai lebih tinggi, atau Batasi untuk nilai lebih rendah. Bobot menentukan seberapa kuat pengaruhnya pada urutan.</p></div>
+            <section class="card min-w-0" aria-labelledby="nutrient-title">
+                <h2 id="nutrient-title" class="text-lg font-bold">Nutrien yang dibandingkan</h2><p class="mt-1 text-xs text-muted">Pilih arah dan bobot untuk nutrien yang ingin kamu pakai.</p>
+                <div aria-hidden="true" class="mt-6 hidden grid-cols-[minmax(90px,1fr)_170px_170px_44px] gap-3 text-[11px] font-semibold text-muted lg:grid"><span>Nutrien</span><span>Arah</span><span>Bobot</span><span>Aktif</span></div>
+                <div class="mt-4 divide-y divide-line">{% for row in rows %}{% include "preferences/_preference_row.html" %}{% endfor %}</div>
+            </section>
+        </div>
+        <aside class="min-w-0 space-y-4" aria-label="Ringkasan preferensi dan pratinjau">
+            <section class="card"><h2 class="text-lg font-bold">Preferensi aktif</h2><p class="mt-1 text-xs text-muted">Ringkasan mengikuti draft yang sedang kamu atur.</p><div data-draft-summary class="mt-4 flex flex-wrap gap-2"></div></section>
+            <section class="card"><h2 class="text-lg font-bold">Pratinjau hasil</h2><p class="mt-1 text-xs text-muted">Urutan produk berdasarkan gabungan preferensi draft.</p>
+                <div data-preview-loading hidden class="mt-4 animate-pulse rounded-xl bg-surface p-5 text-sm">Menghitung pratinjau…</div>
+                <div data-combined-preview class="mt-4 space-y-3" aria-live="polite"></div>
+                <button type="button" data-preview-retry hidden class="btn-white mt-3 ring-1 ring-line">Coba lagi</button>
+                <p class="mt-5 text-[11px] leading-relaxed text-muted">Data parsial hanya menyumbang skor pada nilai yang diketahui. Pratinjau mengurutkan produk, tanpa menetapkan ambang kelolosan.</p>
+            </section>
+            <section class="card"><h2 class="flex items-center gap-2 text-sm font-bold"><img src="{% static 'img/shield-check.svg' %}" alt="" class="h-5 w-5"> Bukan nasihat medis</h2><p class="mt-4 text-xs leading-relaxed text-muted">Preferensi mengubah cara data diurutkan. PilihYuk tidak memberikan diagnosis atau rekomendasi kesehatan.</p></section>
+            <a href="{% url 'preferences:decision_list' %}" class="inline-block text-sm text-brand underline">Lihat riwayat keputusan →</a>
+        </aside>
+    </div>
+</main>
+<script src="{% static 'js/preferences.js' %}" defer></script>
+{% endblock %}
