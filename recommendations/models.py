@@ -5,36 +5,37 @@ from django.db.models import F, Q
 from product_catalog.models import Product
 
 
-class Substitution(models.Model):
+class Recommendation(models.Model):
     source_product = models.ForeignKey(
         Product,
         on_delete=models.PROTECT,
-        related_name="outgoing_substitutions",
+        related_name="outgoing_recommendations",
     )
     replacement_product = models.ForeignKey(
         Product,
         on_delete=models.PROTECT,
-        related_name="incoming_substitutions",
+        related_name="incoming_recommendations",
     )
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="substitutions",
+        related_name="recommendations",
     )
     reason = models.TextField(max_length=1000)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        db_table = "recommendations_recommendation"
         ordering = ["-created_at"]
         constraints = [
             models.UniqueConstraint(
                 fields=["source_product", "replacement_product"],
-                name="unique_substitution_direction",
+                name="unique_recommendation_direction",
             ),
             models.CheckConstraint(
                 condition=~Q(source_product=F("replacement_product")),
-                name="different_substitution_products",
+                name="different_recommendation_products",
             ),
         ]
 
@@ -42,7 +43,7 @@ class Substitution(models.Model):
         return f"{self.source_product.product_name} → {self.replacement_product.product_name}"
 
 
-class SubstitutionVote(models.Model):
+class RecommendationVote(models.Model):
     AGREE = 1
     DISAGREE = -1
     VOTE_CHOICES = [
@@ -50,29 +51,30 @@ class SubstitutionVote(models.Model):
         (DISAGREE, "Tidak setuju"),
     ]
 
-    substitution = models.ForeignKey(
-        Substitution,
+    recommendation = models.ForeignKey(
+        Recommendation,
         on_delete=models.CASCADE,
         related_name="votes",
     )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="substitution_votes",
+        related_name="recommendation_votes",
     )
     value = models.SmallIntegerField(choices=VOTE_CHOICES)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        db_table = "recommendations_recommendation_vote"
         constraints = [
             models.UniqueConstraint(
-                fields=["substitution", "user"],
-                name="one_vote_per_user_per_substitution",
+                fields=["recommendation", "user"],
+                name="one_vote_per_user_per_recommendation",
             ),
             models.CheckConstraint(
                 condition=Q(value__in=[1, -1]),
-                name="substitution_vote_is_agree_or_disagree",
+                name="recommendation_vote_is_agree_or_disagree",
             ),
         ]
 

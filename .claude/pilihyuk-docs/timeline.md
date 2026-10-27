@@ -29,7 +29,7 @@ Totalnya sekitar tujuh hari kerja, jadi fitur dipilah menjadi wajib dan bonus.
 |-------|---------|------------|-------|
 | 1. Katalog Produk | Yasmin | `product_catalog` | `Product`, `ProductView` |
 | 2. Shelf dan Tabel Pembanding | Daffaa | `shelves` | `Shelf`, `ShelfItem`, `SavedShelf` |
-| 3. Substitusi Komunitas | Rafael | `substitutions` | `Substitution`, `SubstitutionVote` |
+| 3. Rekomendasi Komunitas | Rafael | `recommendations` | `Recommendation`, `RecommendationVote` |
 | 4. Antrean Data | Rayyan | `data_correction` | `DataCorrection`, `DataCorrectionItem` |
 | 5. Preferensi dan Riwayat Keputusan | Jonathan | `preferences` | `Preference`, `Decision` |
 | Auth | Daffaa | `accounts` | memakai `User` bawaan Django |
@@ -40,7 +40,7 @@ Template tiap modul masuk `templates/<app>/`, JavaScript-nya ke `static/js/<app>
 
 - Alur branch: tiap modul atau app punya branch sendiri (misalnya `shelves`, yang sudah ada), lalu digabung ke `dev` untuk diuji bersama (`manage.py check` dan `manage.py test`), lalu `dev` di-push ke `main`. Push ke `main` sekaligus deploy ke PWS lewat GitHub Actions, jadi `main` harus selalu bisa jalan.
 - Pengecualian: auth (`accounts`) dikerjakan Daffaa langsung di `dev`, karena kecil, dikerjakan sekali, dan semua modul segera membutuhkannya. Yang di-push ke `dev` hanya commit yang lulus `check` dan `test`.
-- Branch modul dibuat sendiri oleh pemiliknya, dengan nama sama seperti app (`product_catalog`, `substitutions`, `data_correction`, `preferences`; `shelves` sudah ada). Buat dari `dev` yang terbaru, saat mulai mengerjakan: `git switch dev`, `git pull`, `git switch -c <nama_app>`, lalu `git push -u origin <nama_app>`.
+- Branch modul dibuat sendiri oleh pemiliknya, dengan nama sama seperti app (`product_catalog`, `recommendations`, `data_correction`, `preferences`; `shelves` sudah ada). Buat dari `dev` yang terbaru, saat mulai mengerjakan: `git switch dev`, `git pull`, `git switch -c <nama_app>`, lalu `git push -u origin <nama_app>`.
 - Jangan menyunting file milik modul lain. Kalau perlu perubahan di sana, minta pemiliknya atau buka PR kecil terpisah.
 - `settings.py` dan `urls.py` hanya diubah satu baris per app. Kalau bentrok saat merge, simpan kedua baris.
 - Kerja sehari-hari: commit kecil dengan pesan jelas (misalnya `feat: add product list view`), ambil `dev` terbaru ke branch-mu (`git merge dev`) supaya konflik ketahuan di branch sendiri, jalankan `manage.py check` dan `manage.py test`, lalu gabungkan ke `dev` dan buka halaman modul lain untuk memastikan tidak ada yang rusak. Daffaa yang mendorong `dev` ke `main`.
@@ -108,11 +108,11 @@ Target Sabtu 10 Okt siang: semua model sudah di `dev`, fixture 20 produk bisa di
 - `shelves/models.py`: `Shelf`, `ShelfItem`, `SavedShelf`, dengan batas 12 produk divalidasi di form. Gabungkan Kamis 8 Okt malam, karena `Decision` milik Jonathan membutuhkannya.
 - `shelves/views.py` dan `templates/shelves/`: daftar shelf publik dan form buat shelf.
 
-### Rafael (Modul 3, `substitutions`)
+### Rafael (Modul 3, `recommendations`)
 
-- `substitutions/models.py`: `Substitution` (from, to, reason, proposed_by; unik pada pasangan produk dan from tidak sama dengan to) dan `SubstitutionVote` (nilai +1 atau -1, unik per pengguna). Ditulis Selasa 6 Okt setelah `Product` ada, digabung paling lambat Sabtu 10 Okt pagi.
-- `substitutions/forms.py` dan `views.py`: form usul substitusi dan daftar usulan, dengan data dari fixture.
-- `templates/substitutions/`: kartu usulan dan form, mengikuti wireframe.
+- `recommendations/models.py`: `Recommendation` (from, to, reason, proposed_by; unik pada pasangan produk dan from tidak sama dengan to) dan `RecommendationVote` (nilai +1 atau -1, unik per pengguna). Ditulis Selasa 6 Okt setelah `Product` ada, digabung paling lambat Sabtu 10 Okt pagi.
+- `recommendations/forms.py` dan `views.py`: form usul rekomendasi dan daftar usulan, dengan data dari fixture.
+- `templates/recommendations/`: kartu usulan dan form, mengikuti wireframe.
 
 ### Rayyan (Modul 4, `data_correction`)
 
@@ -157,11 +157,11 @@ Target Minggu 18 Okt siang: semua modul sudah digabung dari `dev` ke `main` dan 
 - Landing page: isi `featured_shelves()` di `pilihyuk/views.py` dengan shelf publik terbaru, lalu ganti tautan `/katalog/` dan `/shelf/` di `templates/index.html` dengan `{% url %}`.
 - Minggu 18 pagi: dorong `dev` ke `main` dan cek PWS.
 
-### Rafael (`substitutions`)
+### Rafael (`recommendations`)
 
-- CRUD substitusi: usul X diganti Y dengan alasan, sunting alasan, tarik usulan sendiri. Usulan punya arah, jadi X ke Y tidak berlaku sebaliknya.
-- Suara setuju dan tidak setuju lewat AJAX di `static/js/substitutions.js`. Satu pengguna satu suara per usulan, bisa diubah atau ditarik. Jumlah suara dihitung dengan `annotate`.
-- Daftar usulan dengan persetujuan terbanyak di halaman detail produk, lewat `{% include %}` dari `templates/substitutions/`. Koordinasikan titik pemasangannya dengan Yasmin.
+- CRUD rekomendasi: usul X diganti Y dengan alasan, sunting alasan, tarik usulan sendiri. Usulan punya arah, jadi X ke Y tidak berlaku sebaliknya.
+- Suara setuju dan tidak setuju lewat AJAX di `static/js/recommendations.js`. Satu pengguna satu suara per usulan, bisa diubah atau ditarik. Jumlah suara dihitung dengan `annotate`.
+- Daftar usulan dengan persetujuan terbanyak di halaman detail produk, lewat `{% include %}` dari `templates/recommendations/`. Koordinasikan titik pemasangannya dengan Yasmin.
 - Filter dari database: kandidat pengganti disaring menurut kategori dan skor dari `Product`.
 - Dikunci login: identitas pengusul dan hak memberi suara. Pengunjung bisa membaca usulan tanpa melihat siapa pengusulnya.
 
@@ -209,8 +209,8 @@ Target Minggu 18 Okt siang: semua modul sudah digabung dari `dev` ke `main` dan 
 ### Rafael
 
 - Pasang daftar usulan di halaman detail produk bersama Yasmin, lalu uji dengan data seeding sungguhan.
-- Responsif ponsel untuk `templates/substitutions/`.
-- Tes di `substitutions/tests.py`: arah usulan, unik pasangan, satu suara per pengguna, dan akses pengunjung.
+- Responsif ponsel untuk `templates/recommendations/`.
+- Tes di `recommendations/tests.py`: arah usulan, unik pasangan, satu suara per pengguna, dan akses pengunjung.
 - Bantu Daffaa menguji alur di PWS pada Kamis 22 Okt.
 
 ### Rayyan

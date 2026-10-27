@@ -2,12 +2,12 @@ from django import forms
 
 from product_catalog.models import Product
 
-from .models import Substitution
+from .models import Recommendation
 
 
-class SubstitutionForm(forms.ModelForm):
+class RecommendationForm(forms.ModelForm):
     class Meta:
-        model = Substitution
+        model = Recommendation
         fields = ("replacement_product", "reason")
         widgets = {
             "reason": forms.Textarea(attrs={"rows": 5, "placeholder": "Jelaskan alasan penggantian ini."}),
@@ -31,17 +31,17 @@ class SubstitutionForm(forms.ModelForm):
     def clean(self):
         cleaned = super().clean()
         replacement = cleaned.get("replacement_product")
-        if replacement and Substitution.objects.filter(
+        if replacement and Recommendation.objects.filter(
             source_product=self.source_product,
             replacement_product=replacement,
         ).exists():
-            self.add_error("replacement_product", "Usulan penggantian ini sudah ada.")
+            self.add_error("replacement_product", "Rekomendasi penggantian ini sudah ada.")
         return cleaned
 
     def save(self, *, author, commit=True):
-        substitution = super().save(commit=False)
-        substitution.source_product = self.source_product
-        substitution.author = author
+        recommendation = super().save(commit=False)
+        recommendation.source_product = self.source_product
+        recommendation.author = author
         if commit:
-            substitution.save()
-        return substitution
+            recommendation.save()
+        return recommendation

@@ -48,7 +48,7 @@ INSTALLED_APPS = [
     'accounts',
     'product_catalog',
     'shelves',
-    'substitutions',
+    'recommendations.apps.RecommendationsConfig',
     'data_correction',
     'preferences',
 ]

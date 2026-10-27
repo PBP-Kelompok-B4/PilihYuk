@@ -14,8 +14,8 @@ erDiagram
     User |o--o{ Product : "added_by"
     User ||--o{ Decision : "user"
     User ||--o{ ProductView : "user"
-    User ||--o{ Substitution : "proposed_by"
-    User ||--o{ SubstitutionVote : "user"
+    User ||--o{ Recommendation : "proposed_by"
+    User ||--o{ RecommendationVote : "user"
     User ||--o{ DataCorrection : "submitted_by"
     User |o--o{ DataCorrection : "reviewed_by"
     User ||--o{ Shelf : "owner"
@@ -27,10 +27,10 @@ erDiagram
     Product ||--o{ ShelfItem : "product"
     Product |o--o{ Decision : "product"
     Product ||--o{ ProductView : "product"
-    Product ||--o{ Substitution : "from_product"
-    Product ||--o{ Substitution : "to_product"
+    Product ||--o{ Recommendation : "from_product"
+    Product ||--o{ Recommendation : "to_product"
     Product ||--o{ DataCorrection : "product"
-    Substitution ||--o{ SubstitutionVote : "substitution"
+    Recommendation ||--o{ RecommendationVote : "recommendation"
     DataCorrection ||--o{ DataCorrectionItem : "correction"
     User {
         int id PK
@@ -104,7 +104,7 @@ erDiagram
         int shelf_id FK "CASCADE"
         datetime created_at
     }
-    Substitution {
+    Recommendation {
         int id PK
         int from_product_id FK "PROTECT"
         int to_product_id FK "PROTECT"
@@ -112,9 +112,9 @@ erDiagram
         int proposed_by_id FK "CASCADE"
         datetime created_at
     }
-    SubstitutionVote {
+    RecommendationVote {
         int id PK
-        int substitution_id FK "CASCADE"
+        int recommendation_id FK "CASCADE"
         int user_id FK "CASCADE"
         int value "+1 | -1"
         datetime created_at
@@ -157,8 +157,8 @@ erDiagram
 
 | Hal | Aturan |
 |-----|--------|
-| Hapus produk | Soft delete lewat `Product.is_active`. `ShelfItem`, `Substitution`, dan `DataCorrection` memakai `PROTECT`, sedangkan `Decision` memakai `SET_NULL` |
-| Unik gabungan | `ShelfItem` (shelf, product), `SavedShelf` (user, shelf), `Substitution` (from, to) dengan syarat from berbeda dari to, `SubstitutionVote` (substitution, user), `DataCorrectionItem` (correction, field_name), `Preference` (user, nutrient) |
+| Hapus produk | Soft delete lewat `Product.is_active`. `ShelfItem`, `Recommendation`, dan `DataCorrection` memakai `PROTECT`, sedangkan `Decision` memakai `SET_NULL` |
+| Unik gabungan | `ShelfItem` (shelf, product), `SavedShelf` (user, shelf), `Recommendation` (from, to) dengan syarat from berbeda dari to, `RecommendationVote` (recommendation, user), `DataCorrectionItem` (correction, field_name), `Preference` (user, nutrient) |
 | Barcode | `Product.code` boleh kosong untuk produk manual dan disimpan sebagai `NULL`, bukan string kosong |
 | Nilai yang dihitung | Jumlah suara dan jumlah simpanan shelf dihitung dengan `annotate`, tidak ada kolomnya. Status `DataCorrection` diturunkan dari item-itemnya |
 | Tidak disimpan | `environmental_is_estimated` dan tautan halaman produk di Open Food Facts dihitung saat tampil |

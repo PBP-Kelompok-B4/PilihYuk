@@ -21,7 +21,7 @@
 - **Aturan filter berubah** dari data Public/mock API menjadi data database. Butir "Filter API" di README menjadi "Filter database" (bagian 6, F-1.2, F-1.7, F-2.11, F-3.7, F-4.7).
 - **Kerangka kode.** Enam app Django terdaftar, template dan JavaScript kosong disiapkan per app, dan halaman landing dibuat agar mudah beralih ke data asli (keputusan 33 sampai 35). Linimasa di bagian 12 dirinci per minggu.
 
-**v0.2.** Nama aplikasi ditetapkan: PilihYuk. Unit pembanding berganti dari `ComparisonSet` menjadi shelf. Lima modul disusun ulang mengikuti README: `Review` dihapus, Substitusi dan `DataCorrection` jadi modul sendiri, Profil diganti Preferensi Nutrisi dan Riwayat Keputusan, Kandidat Daftar Belanja tidak dipakai. Pengunjung hanya membaca shelf publik. Seeding berganti dari daftar barcode lewat API menjadi dump nightly. Nilai skor kosong ternyata string `"unknown"` atau `"not-applicable"`, bukan `null`. Bagian Model Data ditambahkan (`SubstitutionVote`, constraint unik, kebijakan hapus).
+**v0.2.** Nama aplikasi ditetapkan: PilihYuk. Unit pembanding berganti dari `ComparisonSet` menjadi shelf. Lima modul disusun ulang mengikuti README: `Review` dihapus, Rekomendasi dan `DataCorrection` jadi modul sendiri, Profil diganti Preferensi Nutrisi dan Riwayat Keputusan, Kandidat Daftar Belanja tidak dipakai. Pengunjung hanya membaca shelf publik. Seeding berganti dari daftar barcode lewat API menjadi dump nightly. Nilai skor kosong ternyata string `"unknown"` atau `"not-applicable"`, bukan `null`. Bagian Model Data ditambahkan (`RecommendationVote`, constraint unik, kebijakan hapus).
 
 ## 1. Masalah
 
@@ -56,8 +56,8 @@ Hal berikut sengaja tidak dikerjakan pada versi ini:
 
 | Peran | Deskripsi | Yang bisa dilakukan |
 |-------|-----------|---------------------|
-| Pengunjung | Belum punya akun, biasanya datang dari pencarian atau tautan shelf | Menelusuri katalog dan shelf publik, melihat tabel pembanding, memakai filter, membaca usulan substitusi tanpa identitas pengusul |
-| Pengguna Terdaftar | Sudah login, akan kembali lagi | Semua di atas, ditambah mengelola shelf, menyimpan shelf ke Shelf Saya, mengusulkan substitusi dan memberi suara, mengajukan koreksi data, mengatur preferensi nutrisi, dan mencatat riwayat keputusan |
+| Pengunjung | Belum punya akun, biasanya datang dari pencarian atau tautan shelf | Menelusuri katalog dan shelf publik, melihat tabel pembanding, memakai filter, membaca usulan rekomendasi tanpa identitas pengusul |
+| Pengguna Terdaftar | Sudah login, akan kembali lagi | Semua di atas, ditambah mengelola shelf, menyimpan shelf ke Shelf Saya, mengusulkan rekomendasi dan memberi suara, mengajukan koreksi data, mengatur preferensi nutrisi, dan mencatat riwayat keputusan |
 | Kurator Data | Pengguna terdaftar dengan `is_staff` bernilai benar | Meninjau pengajuan koreksi, menyetujui atau menolaknya, dan menyunting entri produk manual milik siapa pun |
 
 Kurator memakai field bawaan Django `is_staff`, tanpa model User kustom, untuk menghindari masalah migrasi `AUTH_USER_MODEL`. Wewenang kurator hanya dipakai di dua tempat: antrean tinjauan `DataCorrection` (Modul 4) dan penyuntingan Product manual milik siapa pun (Modul 1). Produk dari Open Food Facts dikoreksi lewat `DataCorrection`, bukan disunting langsung, supaya koreksinya tercatat dan tidak tertimpa refresh (K-2).
@@ -125,7 +125,7 @@ Lima modul, satu per anggota kelompok. Setiap modul memiliki CRUD penuh atas ent
 |----|-------|---------|---------|
 | 1 | Katalog Produk | Yasmin | `Product` (dan `ProductView`, K-5) |
 | 2 | Shelf dan Tabel Pembanding | Ahmad Rizki Daffaa | `Shelf`, `ShelfItem`, `SavedShelf` |
-| 3 | Substitusi Komunitas | Rafael Arlen Wijanarko | `Substitution`, `SubstitutionVote` |
+| 3 | Rekomendasi Komunitas | Rafael Arlen Wijanarko | `Recommendation`, `RecommendationVote` |
 | 4 | Antrean Data | Muhammad Rayyan Basalamah | `DataCorrection`, `DataCorrectionItem` |
 | 5 | Preferensi Nutrisi dan Riwayat Keputusan | Jonathan Sebastian Sindhu | `Preference`, `Decision` |
 
@@ -157,7 +157,7 @@ Yang ditunda ada di keputusan 39.
 | F-1.3 | Halaman detail menampilkan seluruh skor, kandungan gizi per 100 g, kemasan, dan gambar produk |
 | F-1.4 | Pengguna terdaftar bisa menambahkan produk lewat barcode atau manual. **Hanya produk Indonesia:** lewat barcode, produk dari Open Food Facts diterima hanya bila `is_sold_in_indonesia()` benar; bila tidak, penambahan ditolak dengan pesan alasan yang menawarkan jalur manual. Produk manual dianggap produk Indonesia. Produk baru langsung masuk katalog tanpa persetujuan kurator |
 | F-1.5 | Pengguna terdaftar bisa menyunting dan menghapus entri manual buatannya sendiri. Kurator bisa menyunting entri manual siapa pun. Produk dari Open Food Facts dikoreksi lewat Modul 4 |
-| F-1.6 | Produk yang masih dipakai shelf, usulan substitusi, atau pengajuan koreksi tidak bisa dihapus (K-1). Penghapusan produk yang tidak dipakai berupa soft delete (`is_active` menjadi salah) dan produknya hilang dari katalog |
+| F-1.6 | Produk yang masih dipakai shelf, usulan rekomendasi, atau pengajuan koreksi tidak bisa dihapus (K-1). Penghapusan produk yang tidak dipakai berupa soft delete (`is_active` menjadi salah) dan produknya hilang dari katalog |
 | F-1.7 | Pencarian barcode yang belum ada di katalog mengambil data dari API runtime dan menyimpannya ke database; filter katalog tetap dijalankan pada database, tidak pada API. Barcode dinormalisasi sebelum dicari di katalog lokal. **Hanya produk Indonesia:** hasil dari Open Food Facts diperiksa dengan `is_sold_in_indonesia()` sebelum disimpan, dan refresh memeriksanya lagi (bagian 5). Kode lebih dari 14 digit ditolak |
 | F-1.8 | Pencarian dan pemfilteran berjalan tanpa memuat ulang halaman |
 | F-1.9 | Identitas penambah entri manual dan riwayat produk yang dilihat hanya terlihat setelah login |
@@ -181,7 +181,7 @@ Yang ditunda ada di keputusan 39.
 | F-2.13 | Halaman explore shelf publik punya tombol "Shelf Saya" untuk pengguna terdaftar. Halaman itu memuat dua daftar: shelf yang dibuat pengguna itu, dan shelf publik milik orang lain yang disimpannya |
 | F-2.14 | Tabel membandingkan maksimal 4 produk sekaligus, dipilih dari isi shelf (maksimal 12), sesuai wireframe desktop. Pilihan produk berupa deretan kartu kecil yang bisa dicentang |
 
-### Modul 3: Substitusi Komunitas
+### Modul 3: Rekomendasi Komunitas
 
 | ID | Kebutuhan |
 |----|-----------|
@@ -265,9 +265,9 @@ Tautan ke halaman produk Open Food Facts dan penanda skor estimasi (`environment
 
 **SavedShelf**: `user` FK (`CASCADE`), `shelf` FK (`CASCADE`), `created_at`. Unik pada (`user`, `shelf`). Jumlah penyimpan dihitung dengan `annotate`, bukan disimpan. Hanya pengguna terdaftar; shelf sendiri atau shelf publik orang lain (F-2.12).
 
-**Substitution**: `from_product` FK (`PROTECT`), `to_product` FK (`PROTECT`), `reason`, `proposed_by` FK, `created_at`. `CheckConstraint` agar `from_product` berbeda dari `to_product`. Unik pada (`from_product`, `to_product`) (K-6). Tidak menyimpan penghitung suara.
+**Recommendation**: `from_product` FK (`PROTECT`), `to_product` FK (`PROTECT`), `reason`, `proposed_by` FK, `created_at`. `CheckConstraint` agar `from_product` berbeda dari `to_product`. Unik pada (`from_product`, `to_product`) (K-6). Tidak menyimpan penghitung suara.
 
-**SubstitutionVote**: `substitution` FK (`CASCADE`), `user` FK, `value` (+1 atau -1), `created_at`. Unik pada (`substitution`, `user`). Jumlah suara dihitung dengan `annotate`, bukan disimpan sebagai penghitung yang bisa melenceng.
+**RecommendationVote**: `recommendation` FK (`CASCADE`), `user` FK, `value` (+1 atau -1), `created_at`. Unik pada (`recommendation`, `user`). Jumlah suara dihitung dengan `annotate`, bukan disimpan sebagai penghitung yang bisa melenceng.
 
 **DataCorrection**: `product` FK (`PROTECT`), `submitted_by` FK, `reviewed_by` FK (boleh kosong), `created_at`, `reviewed_at`. Satu pengajuan untuk satu produk. Tidak ada status di tingkat ini: status pengajuan diturunkan dari item (tertunda bila ada item tertunda).
 
@@ -322,7 +322,7 @@ Untuk produknya sendiri, diukur secara manual saat demo: pengguna baru bisa memb
 | Semua pengguna berbagi batas 15 permintaan per menit | Lookup barcode antri atau ditolak saat ramai | Cache lokal, lookup dibatasi 3 per menit per pengguna (keputusan 27) |
 | Barcode tersimpan dalam dua bentuk (12 dan 13 digit) | Produk yang sama masuk katalog dua kali dan constraint unik tidak menangkapnya | `code` selalu diisi dari respons API atau dump. Input dinormalisasi sebelum dicari |
 | Field Product berubah setelah kelima modul punya migrasi | Migrasi bentrok di lima app sekaligus, pekerjaan tertunda berhari-hari | Field Product disetujui seluruh kelompok sebelum `makemigrations` pertama (bagian 7) |
-| Produk dihapus dan data modul lain ikut terhapus | Shelf, usulan, dan pengajuan milik anggota lain hilang tanpa peringatan | Soft delete dan `PROTECT` dari ShelfItem, Substitution, dan DataCorrection; `SET_NULL` dari Decision (K-1). Produk yang masih dipakai tidak bisa dihapus (F-1.6) |
+| Produk dihapus dan data modul lain ikut terhapus | Shelf, usulan, dan pengajuan milik anggota lain hilang tanpa peringatan | Soft delete dan `PROTECT` dari ShelfItem, Recommendation, dan DataCorrection; `SET_NULL` dari Decision (K-1). Produk yang masih dipakai tidak bisa dihapus (F-1.6) |
 | Refresh dari API menimpa koreksi yang sudah disetujui | Pekerjaan kurator hilang dan antrean data tidak bermakna | Refresh melewati field yang punya `DataCorrectionItem` berstatus `approved` (K-2) |
 | Pengajuan koreksi mengubah field yang tidak semestinya | Pengguna bisa mengubah kepemilikan atau barcode produk lewat kurator yang lengah | Daftar field yang boleh dikoreksi bersifat tetap (F-4.2) |
 | Dump Open Food Facts berukuran gigabyte | Seeding lambat atau gagal di mesin anggota | Dump CSV (1,28 GB) dibaca secara streaming dan disaring: 148 detik unduh dan 52 detik saring (terukur). Hanya fixture hasil saringan yang masuk repositori. Dump tidak masuk repositori |
@@ -363,7 +363,7 @@ Jawaban pada bagian ini dicatat dari Ahmad Rizki Daffaa, pemilik Modul 2, pada 2
 | 4 | Seeding dari dump nightly yang disaring ke Indonesia. API runtime hanya untuk pencarian barcode dan refresh satu produk | Selesai |
 | 5 | `DataCorrection` hanya untuk koreksi produk yang sudah ada. Produk baru lewat Modul 1 tanpa persetujuan | Selesai |
 | 6 | Autentikasi dikerjakan Daffaa langsung di `dev` (NF-9) | Selesai |
-| 7 | Satu suara per pengguna per usulan substitusi, disimpan di `SubstitutionVote` | Selesai |
+| 7 | Satu suara per pengguna per usulan rekomendasi, disimpan di `RecommendationVote` | Selesai |
 | 8 | **Hanya produk Indonesia**: `countries_tags` memuat `en:indonesia`, diperiksa satu fungsi `is_sold_in_indonesia()` di seeding, lookup, dan refresh (bagian 5) | Kelompok |
 | 9 | **Lookup produk Open Food Facts non-Indonesia: ditolak** dengan pesan alasan yang menawarkan jalur manual. Refresh yang kehilangan label dilewati, produk tidak dihapus. Produk `source=manual` dianggap Indonesia dan tidak di-refresh | Kelompok |
 | 10 | **K-1: soft delete** dengan `is_active`. Produk yang masih dipakai shelf, usulan, atau pengajuan tidak bisa dihapus (F-1.6) | Kelompok |
@@ -371,7 +371,7 @@ Jawaban pada bagian ini dicatat dari Ahmad Rizki Daffaa, pemilik Modul 2, pada 2
 | 12 | **K-3:** PostgreSQL di produksi, SQLite lokal. Tag di `JSONField` hanya untuk tampilan, filter lewat kolom biasa | Kelompok |
 | 13 | **K-4:** filter tag dihapus dari Modul 5. Kolom `halal_labeled` di Product memberi filter "berlabel halal" di katalog dan kandidat shelf | Kelompok, Modul 1, Modul 5 |
 | 14 | **K-5:** riwayat produk yang dilihat disimpan di model `ProductView` | Modul 1 |
-| 15 | **K-6:** usulan substitusi unik pada (`from_product`, `to_product`); pengguna lain memberi suara | Modul 3 |
+| 15 | **K-6:** usulan rekomendasi unik pada (`from_product`, `to_product`); pengguna lain memberi suara | Modul 3 |
 | 16 | **Seeding** dari dump CSV: produk Indonesia yang minimal 4 dari 6 baris pembanding terisi (sekitar 194), kode lebih dari 14 digit dilewati. **Akan dibahas lagi nanti**; butir ini, K-12, dan K-13 belum final | Kelompok |
 | 17 | **Field Product** (bagian 7): `code` 14 karakter, `product_name` dari `_id`/default/`_en`, satu `image_url`, `origin` tetap, grade lingkungan memuat `a-plus` dan `f`, `halal_labeled`, `is_active`, key gizi bertanda hubung, kategori diterjemahkan lewat peta sendiri | Kelompok |
 | 18 | **Tidak ada fork shelf.** Pengguna terdaftar menyimpan shelf miliknya sendiri atau shelf publik milik orang lain lewat "Simpan ke Shelf Saya" (`SavedShelf`). Identitas penyimpan tidak tampil. Pengunjung tidak bisa menyimpan. Nama dan ikon penanda mengikuti wireframe (keputusan 30) | Modul 2 |
@@ -389,7 +389,7 @@ Jawaban pada bagian ini dicatat dari Ahmad Rizki Daffaa, pemilik Modul 2, pada 2
 | 30 | **Nama fitur simpan shelf (K-17):** "Simpan ke Shelf Saya" dengan ikon penanda, mengikuti wireframe. Entitas `SavedShelf` | Modul 2 |
 | 31 | **Halaman detail produk (K-18):** Open Food Facts menyediakan teks bahan, alergen, berat bersih, dan ukuran porsi, jadi tidak perlu input manual untuk produk dari Open Food Facts. Product bertambah `ingredients_text`, `allergens`, `serving_size`. Produk manual mengisinya lewat form (boleh kosong). "Dapat didaur ulang" tidak ada di Open Food Facts dan dihapus dari wireframe; jumlah porsi dihitung dari berat bersih dan ukuran porsi | Kelompok, Modul 1 |
 | 32 | **Wireframe lanjutan (K-19, K-9):** footer sudah ada di frame Landing (02) dengan baris "© 2026 PilihYuk · Data produk berasal dari Open Food Facts.", kolom "Sumber Data" yang memuat "Open Food Facts", tautan "Kebijakan data", dan baris "PilihYuk bukan alat diagnosis atau nasihat medis.". Yang belum ada: kata lisensi (ODbL, CC BY-SA), target tautan ke https://openfoodfacts.org, dan footer di layar lain. Tim akan menambahkan frame ponsel dan tautan "Lihat di Open Food Facts" di halaman detail produk ke wireframe. Usulan untuk ponsel disimpan: tabel pembanding 2 produk per layar dengan geser horizontal, metrik tetap di kolom kiri. Detailnya ditinjau saat frame ponsel selesai | Kelompok |
-| 33 | **Struktur app dan auth.** Enam app Django: `accounts` (auth), `product_catalog` (Modul 1), `shelves` (Modul 2), `substitutions` (Modul 3), `data_correction` (Modul 4), `preferences` (Modul 5, memuat `Preference` dan `Decision`). Kerangkanya sudah dibuat dan didaftarkan di `INSTALLED_APPS`. Template tiap app di `templates/<app>/`, JavaScript di `static/js/<app>.js`. Daffaa mengerjakan auth, menggantikan keputusan sebelumnya bahwa auth dikerjakan bersama | Semua modul |
+| 33 | **Struktur app dan auth.** Enam app Django: `accounts` (auth), `product_catalog` (Modul 1), `shelves` (Modul 2), `recommendations` (Modul 3), `data_correction` (Modul 4), `preferences` (Modul 5, memuat `Preference` dan `Decision`). Kerangkanya sudah dibuat dan didaftarkan di `INSTALLED_APPS`. Template tiap app di `templates/<app>/`, JavaScript di `static/js/<app>.js`. Daffaa mengerjakan auth, menggantikan keputusan sebelumnya bahwa auth dikerjakan bersama | Semua modul |
 | 34 | **Data halaman landing.** `pilihyuk/views.py` memuat data contoh dari wireframe. Dua fungsi, `featured_shelf()` dan `featured_shelves()`, nantinya diganti dengan query `Shelf` dan `Product`. Kunci data yang dibaca template tercatat di komentar atas `SAMPLE_PRODUCTS`. Nilai kosong tampil sebagai "Tidak diketahui" dan tidak ikut diperingkat. Warna Nutri-Score tersedia untuk A sampai E | Modul 1, 2 |
 | 35 | **Penamaan.** App Modul 1 bernama `product_catalog` (bukan `catalog`), dan entitas serta app Modul 4 bernama `DataCorrection` dan `DataCorrectionItem` di app `data_correction` (bukan `DataFlag` dan `dataflags`), karena isinya pengajuan koreksi per field, bukan sekadar tanda. Kolom penghubungnya `correction`. Berlaku di seluruh dokumen ini dan di ERD (`.drawio` dan Mermaid). Salinan di Google Drive (tautan README) sudah diperbarui | Modul 1, 4 |
 | 36 | **Alur branch.** Tiap modul atau app punya branch sendiri, kecuali auth (`accounts`) yang dikerjakan langsung di `dev` (NF-9). Branch digabung ke `dev` untuk diuji bersama (`manage.py check` dan `manage.py test`), lalu `dev` di-push ke `main`, yang sekaligus men-deploy ke PWS. Branch `dev` dan `shelves` sudah ada di GitHub | Semua modul |

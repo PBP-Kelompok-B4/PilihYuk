@@ -22,7 +22,7 @@ from pilihyuk.views import home_page
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('katalog/', include('product_catalog.urls')),
-    path('substitusi/', include('substitutions.urls')),
+    path('rekomendasi/', include('recommendations.urls')),
     path('', home_page, name='home_page'),
     path('', include('accounts.urls')),
 ]
