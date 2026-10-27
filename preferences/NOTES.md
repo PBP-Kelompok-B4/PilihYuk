@@ -1,215 +1,227 @@
 # Modul 5 — Preferensi Nutrisi dan Riwayat Keputusan
 
-Pemilik: Jonathan Sebastian Sindhu. Catatan implementasi per 26 Oktober 2026.
+Pemilik: Jonathan Sebastian Sindhu. Pembaruan pekerjaan lanjutan: 27 Oktober 2026.
 
-## Acuan terbaru dan penyesuaian
+## Acuan dan kondisi implementasi
 
-- [PRD tim](../.claude/PRD.md), terutama F-5.1–F-5.9, relasi Decision, serta keputusan 20, 28, dan 29.
-- [Handoff](../.claude/HANDOFF.md) dan [timeline](../.claude/timeline.md) untuk kontrak integrasi dengan Shelf.
-- [README proyek](../README.md#tailwind-css) dan `templates/components/tailwind.html` untuk gaya bersama.
+Acuan berkas tim: [PRD](../.claude/PRD.md), [HANDOFF](../.claude/HANDOFF.md), [timeline](../.claude/timeline.md), serta [README proyek](../README.md). First brief adalah arsip. Status Modul 5 dalam handoff/timeline tanggal 24 Oktober mendahului implementasi; kode dan tes menunjukkan S1–S11 telah selesai sebelum pekerjaan lanjutan ini.
 
-Tailwind v4 dijalankan oleh script CDN `@tailwindcss/browser` melalui `base.html`. Tema dan komponen berada di `templates/components/tailwind.html`. Tidak ada langkah build, binary CLI, atau `static/css/output.css` yang perlu dibuat/di-commit. Ini mengikuti keputusan 28 dan pengarahan terbaru pemilik modul, menggantikan instruksi build lama pada AGENTS.md. Koneksi internet diperlukan untuk memuat CDN saat demo. Modul ini hanya menggunakan class yang tersedia dan utility Tailwind; file tema bersama tidak diubah.
+Tailwind v4 memakai script CDN `@tailwindcss/browser` yang sudah dimuat base. Tema/komponen ada di `templates/components/tailwind.html`. Tidak ada build, binary CLI, CDN kedua, atau perubahan output.css. Internet diperlukan untuk memuat CDN saat demo. Header/footer/tema, settings, requirements, README dan app teman tetap dipakai tanpa diubah.
 
-Status Modul 5 dalam handoff/timeline tertanggal 23–24 Oktober mendahului implementasi ini. Status aktual S1–S11 dicatat di sini dan pada penanda Git `feat/preferences-*`. Halaman Masuk saat ini menerima email atau username; reset password sudah tersedia di app accounts. Tidak ada implementasi auth baru di modul ini.
+AGENTS.md pribadi telah diperbarui atas izin pengguna: draft global menggantikan penyimpanan langsung kontrol UI, Reset mengosongkan draft, pratinjau gabungan, field konteks Decision, modal/kartu baca, ekspor, pengujian, dan CDN. AGENTS.md tetap di-exclude dan tidak di-commit. Setup/seeding tidak diulang karena environment sudah tersedia. Sinkronisasi origin/dev menyatakan already up to date.
 
-Kontrak khusus Modul 5 tetap memakai `ok`, `message`, `item`, dan `errors` agar pemanggil Daffaa tidak rusak. Bentuk ini berbeda dari usulan kontrak umum dalam dokumen evaluasi SDK yang lebih lama; penyatuan kontrak lintas app untuk Flutter perlu kesepakatan tim, bukan perubahan sepihak di sini.
+Seluruh commit dan penanda S1–S11 dipertahankan. Penanda lanjutan baru:
 
-## Ringkasan per slice
+| Penanda | Isi |
+|---|---|
+| `feat/preferences-followup-comparison-context` | Field dan validasi jumlah subset pembanding historis |
+| `feat/preferences-followup-draft-api` | Simpan global atomik dan pratinjau gabungan |
+| `feat/preferences-followup-history-api` | Privasi shelf historis, ringkasan, filter bulan, CSV |
+| `feat/preferences-followup-preference-design` | Tampilan preferensi dengan draft, Reset, sidebar |
+| `feat/preferences-followup-history-design` | Kartu baca, modal tambah/edit, konfirmasi, states |
+| `feat/preferences-followup-regression` | Rollback storage, CSV, keamanan endpoint baru |
+| `feat/preferences-followup-docs` | Kontrak, peta demo, dan hasil akhir lanjutan |
 
-| Slice | Hasil | Penanda lokal |
-|---|---|---|
-| S1 | Model Preference/Decision, konstanta, validator, migrasi, admin | `feat/preferences-models` |
-| S2 | Form dan CRUD preferensi HTML, enam baris pengaturan, login wajib | `feat/preferences-preference-crud` |
-| S3 | Pemeriksaan pemilik, 403 ramah untuk HTML/JSON, 404 untuk data hilang | `feat/preferences-authorization` |
-| S4 | CRUD AJAX dan pratinjau ORM; NULL dikecualikan, 0 dihitung, natrium dikonversi ke mg | `feat/preferences-preference-ajax` |
-| S5 | CRUD keputusan; validasi produk aktif, shelf terlihat, keanggotaan produk | `feat/preferences-decision-crud` |
-| S6 | Filter database, sepuluh catatan per halaman, AJAX dan URL yang bisa dibagikan | `feat/preferences-decision-ajax-filter` |
-| S7 | Tampilan 390–1440 px, label dan fokus keyboard, kontrol nonaktif disabled | `feat/preferences-responsive` |
-| S8 | Fungsi murni pengurutan metrik dan ranking produk berbobot | `feat/preferences-ranking` |
-| S9 | Rate limit, hapus massal atomik, tampilan optimistik dengan rollback | `feat/preferences-hardening` |
-| S10 | Cakupan models/forms/views di atas target 90%, regresi keamanan dan browser opsional | `feat/preferences-coverage` |
-| S11 | Kontrak integrasi, peta demo, verifikasi, dan AI disclosure; memakai CDN tanpa build | `feat/preferences-docs` |
+Tidak ada push atau PR oleh Codex. Dokumentasi historis sebelum perubahan tersedia melalui `git show bd76229:preferences/NOTES.md`; perilaku UI saat ini mengikuti dokumen ini.
 
-## URL, metode, dan JSON
+## Preferensi: draft dan simpan global
 
-Semua endpoint memerlukan sesi login. Pengunjung diarahkan ke Masuk dengan `?next=`. Semua POST memerlukan CSRF. Kirim `Accept: application/json` atau `X-Requested-With: XMLHttpRequest` untuk JSON; tanpa header tersebut view menyediakan halaman HTML atau redirect setelah sukses. Pratinjau selalu mengembalikan JSON setelah login.
+Enam baris berurutan: Protein, Serat, Gula, Natrium, Lemak jenuh, Kalori. Label Kalori memakai key `energy` dan Product.energy_kcal_100g yang sama. Bobot Rendah/Sedang/Tinggi = 1/2/3. Default 2; arah awal Protein/Serat=max, lainnya=min. Data pengguna yang sudah tersimpan tidak diubah oleh default baru. Row Preference berarti aktif; tidak ada field status tambahan.
 
-| Metode | URL | Nama URL | Input utama |
+Perubahan switch, arah, dan bobot hanya menjadi draft di memori halaman. Tidak ada autosave UI atau tombol simpan per baris. Ringkasan dan pratinjau mengikuti draft, status menandai perubahan belum disimpan. Tombol Simpan Preferensi mengirim seluruh keadaan akhir melalui satu request. Backend memvalidasi keenam row sebelum transaksi: row aktif dibuat/diperbarui, row nonaktif dihapus pada request.user saja. Baris user dikunci saat transaksi untuk menyelaraskan simpan global. Sukses memperbarui baseline; kegagalan mempertahankan draft untuk diperbaiki/dicoba lagi.
+
+Reset mengosongkan draft: seluruh nutrien nonaktif, bobot 2, arah default. Database belum berubah. Pesan: “Preferensi direset. Klik Simpan Preferensi untuk menerapkan perubahan.” Pengguna boleh mengaktifkan sebagian nutrien lagi sebelum Simpan; request menerapkan draft terakhir. Simpan seluruhnya nonaktif menghapus semua Preference pengguna saja, tanpa mengubah Decision. Draft yang belum disimpan hilang ketika halaman dimuat ulang; tidak ada localStorage/sessionStorage.
+
+## Endpoint dan bentuk respons
+
+Semua endpoint memerlukan sesi login. Pengunjung diarahkan ke Masuk dengan `?next=`. Semua POST, termasuk pratinjau gabungan yang hanya membaca, memerlukan CSRF. Endpoint lama memakai JSON bila Accept application/json atau X-Requested-With XMLHttpRequest; selain itu menyediakan alur HTML. API draft baru mengembalikan JSON.
+
+| Metode | URL | Nama URL | Input |
 |---|---|---|---|
-| GET | `/preferensi/` | `preferences:preference_list` | — |
-| POST | `/preferensi/tambah/` | `preferences:preference_create` | `nutrient`, `direction`, `weight` |
-| POST | `/preferensi/<pk>/ubah/` | `preferences:preference_update` | `direction`, `weight` |
-| POST | `/preferensi/<pk>/hapus/` | `preferences:preference_delete` | — |
-| GET | `/preferensi/pratinjau/` | `preferences:preference_preview` | `nutrient`, `direction` |
-| GET | `/riwayat/` | `preferences:decision_list` | `q`, `shelf`, `dari`, `sampai`, `page` |
-| POST | `/riwayat/tambah/` | `preferences:decision_create` | `product`, `shelf` opsional, `note` opsional |
-| POST | `/riwayat/<pk>/ubah/` | `preferences:decision_update` | `note` |
-| POST | `/riwayat/<pk>/hapus/` | `preferences:decision_delete` | — |
-| POST | `/riwayat/hapus-massal/` | `preferences:decision_bulk_delete` | field `ids` berulang, 1–100 ID |
+| GET | `/preferensi/` | `preference_list` | Daftar tersimpan/halaman draft |
+| POST | `/preferensi/simpan/` | `preference_save` | JSON `preferences`, enam row |
+| POST | `/preferensi/pratinjau-gabungan/` | `preference_combined_preview` | JSON draft yang sama |
+| GET | `/preferensi/pratinjau/` | `preference_preview` | Legacy `nutrient`, `direction` |
+| POST | `/preferensi/tambah/` | `preference_create` | Legacy `nutrient`, `direction`, `weight` |
+| POST | `/preferensi/<pk>/ubah/` | `preference_update` | Legacy `direction`, `weight` |
+| POST | `/preferensi/<pk>/hapus/` | `preference_delete` | Legacy hapus satu row |
+| GET | `/riwayat/` | `decision_list` | `q`, `shelf`, `dari`, `sampai`, `bulan`, `page` |
+| GET | `/riwayat/ekspor/` | `decision_export` | Filter yang sama; page diabaikan |
+| POST | `/riwayat/tambah/` | `decision_create` | Form product/shelf/note/subset |
+| POST | `/riwayat/<pk>/ubah/` | `decision_update` | Form `note` saja |
+| POST | `/riwayat/<pk>/hapus/` | `decision_delete` | Hapus satu keputusan |
+| POST | `/riwayat/hapus-massal/` | `decision_bulk_delete` | Form field `ids` berulang |
 
-Endpoint hapus massal disetujui pemilik modul dalam percakapan pengerjaan. URL CRUD lama tetap sama.
+Semua nama memakai namespace `preferences:`. Tiga endpoint baru telah disetujui pengguna. Endpoint individu dan pratinjau satu nutrien dipertahankan untuk kompatibilitas, bukan untuk autosave UI baru.
 
-Contoh preferensi sukses (201 saat dibuat, 200 saat diubah/dihapus):
-
-```json
-{"ok": true, "message": "Preferensi disimpan.", "item": {"id": 1, "nutrient": "protein", "nutrient_label": "Protein", "direction": "max", "weight": 2}}
-```
-
-Respons mutasi preferensi juga membawa `html` berupa satu baris yang sudah dirender server untuk menggantikan elemen halaman. Daftar preferensi: `{"ok": true, "items": [...]}`. Keberadaan Preference menandakan aktif; tidak ada field status tambahan. Bobot 1/2/3 adalah Rendah/Sedang/Tinggi, default 2. Arah awal `max`; pilihan lain `min` ditampilkan sebagai “Batasi”. Nutrien tidak dapat diganti melalui endpoint ubah.
-
-Kesalahan validasi (400), kepemilikan (403), data hilang (404), metode (405), dan rate limit (429) memakai kode HTTP yang sesuai:
+Contoh JSON draft lengkap (semua key wajib, tidak menerima duplikasi nutrien, active harus boolean, weight integer 1–3):
 
 ```json
-{"ok": false, "message": "Periksa kembali isian.", "errors": {"weight": ["Bobot harus 1 sampai 3."]}}
+{"preferences": [
+  {"nutrient": "protein", "active": true, "direction": "max", "weight": 3},
+  {"nutrient": "fiber", "active": false, "direction": "max", "weight": 2},
+  {"nutrient": "sugar", "active": true, "direction": "min", "weight": 2},
+  {"nutrient": "sodium", "active": false, "direction": "min", "weight": 2},
+  {"nutrient": "saturated_fat", "active": false, "direction": "min", "weight": 2},
+  {"nutrient": "energy", "active": false, "direction": "min", "weight": 2}
+]}
 ```
+
+Simpan global: `{"ok": true, "message": "Preferensi disimpan.", "items": [...]}` (200). Item preferensi tetap memuat id, nutrient, nutrient_label, direction, weight. API CRUD individu tetap memakai `item` (201 untuk tambah, 200 ubah/hapus). Daftar tersimpan: `{"ok": true, "items": [...]}`. API individu juga menyediakan partial HTML untuk pemanggil yang sudah memakainya.
+
+Validasi 400 memakai `{"ok": false, "message": "...", "errors": {"nama_field": ["..."]}}`. Bukan pemilik 403, ID hilang 404, metode salah 405, rate limit 429, dengan ok=false/message. Middleware CSRF atau error server dapat mengembalikan HTML; fetch menangani respons bukan JSON dan redirect sesi kedaluwarsa tanpa menganggap penyimpanan berhasil. Format khusus Modul 5 tetap mengikuti kontrak pengguna/Daffaa; penyatuan format dengan usulan umum SDK Flutter perlu kesepakatan tim.
+
+## Pratinjau gabungan dan interpretasi F-5.7
+
+ORM mengambil Product aktif dengan setidaknya satu nilai bukan NULL pada nutrien draft yang aktif. Setelah kandidat diambil, rank_products() menghitung skor dan memilih maksimal tiga. Tidak ada write Preference atau panggilan OFF. Bobot memengaruhi ranking gabungan; pratinjau satu nutrien lama tetap tidak menggunakan bobot.
+
+Respons gabungan memuat ok, ranked_count, total_active, samples, state. State inactive berarti tidak ada preferensi aktif; empty berarti tidak ada kandidat berdata; ready berarti hasil tersedia. Setiap sampel berisi id, name, dan values (label/value/unit per nutrien aktif). None tetap null, nol tetap 0, natrium dikali 1000 ke mg; nilai ditampilkan satu desimal. Respons lama ditolak melalui nomor versi request, termasuk saat draft berubah sebelum debounce selesai.
+
+Hitungan disebut **“produk dapat diperingkat”**: kandidat dengan sedikitnya satu nilai relevan. F-5.7 PRD menyebut “lolos” tanpa ambang numerik, sehingga implementasi ini mengurutkan data dan tidak mengklaim filter ambang telah disepakati. Istilah/kriteria kelolosan masih perlu diselaraskan kelompok. Angka 7 pada gambar adalah ilustrasi, bukan konstanta implementasi.
+
+Data parsial hanya menyumbang skor pada nutrien yang diketahui. Min-max dihitung antar kandidat untuk tiap nutrien; arah min dibalik, lalu dijumlahkan × bobot. Bila semua nilai diketahui sama, kontribusinya setara 1 × bobot. None bukan 0. Seri stabil mengikuti input yang diambil dalam urutan pk. Produk tanpa seluruh nilai relevan tidak masuk preview. Fungsi ranking umum tetap menempatkan produk tanpa data di akhir jika dipanggil langsung dengan daftar yang memuatnya.
+
+## Kontrak Daffaa: memilih produk dan subset pembanding
+
+POST `/riwayat/tambah/` mempertahankan form `product` wajib, `shelf` opsional, `note` opsional max500, dan CSRF. Sertakan sesi dan Accept application/json. Produk wajib aktif. Shelf bila diisi harus terlihat dan berisi produk pilihan.
+
+Input tambahan opsional **`compared_product_ids` berupa field form berulang**, bukan string JSON atau angka count. Contoh integrasi pada tombol di halaman Shelf:
+
+```javascript
+const body = new FormData();
+body.set('product', selectedProductId);
+body.set('shelf', shelfId);
+body.set('note', note || '');
+for (const id of comparedIds) body.append('compared_product_ids', String(id));
+fetch('/riwayat/tambah/', {
+  method: 'POST', body,
+  headers: {'Accept': 'application/json', 'X-CSRFToken': csrfToken}
+});
+```
+
+`comparedIds` harus berasal dari subset tabel yang benar-benar dipilih, bukan seluruh items shelf. View Shelf saat ini memakai GET `banding` dan membatasi empat produk; JSON `/shelf/<pk>/?format=json` mengembalikan `compared`. Daftar `products` pada respons itu bisa berisi hingga 12 anggota shelf, sehingga tidak boleh digunakan sebagai subset. View tersebut belum menyimpan pilihan pada sesi yang dapat dipercaya modul ini.
+
+Jika subset dikirim: shelf wajib; 1–4 ID unik tanpa duplikasi; seluruh produk aktif dan anggota shelf yang terlihat; subset mencakup produk pilihan. Backend menghitung jumlah valid dalam transaksi bersama Decision. Input `compared_product_count` dari klien diabaikan. Tanpa subset, request lama tetap berhasil dengan count=NULL. Tidak ada penebakan dari jumlah item shelf atau backfill riwayat lama.
+
+Respons tambah (201), contoh:
 
 ```json
-{"ok": false, "message": "Kamu tidak punya akses ke data ini."}
+{"ok": true, "message": "Keputusan disimpan.", "item": {
+  "id": 1, "product_id": 7, "product_name": "Produk contoh",
+  "shelf_id": 2, "shelf_name": "Susu untuk kopi", "note": "Pilihan pagi",
+  "created_at": "2026-10-27T03:00:00+00:00", "compared_product_count": 2
+}}
 ```
 
-Penolakan CSRF ditangani middleware Django dan bisa berupa HTML. JavaScript menangani respons yang bukan JSON serta sesi yang berakhir. Jangan mengandalkan badan JSON untuk penolakan sebelum view dijalankan.
+Item juga menyediakan brand, quantity, image_url, product_url, shelf_url untuk kartu. Relasi product/shelf tetap SET_NULL seperti PRD. Edit Decision hanya mengubah note; ID pemilik/product/shelf/subset/count dari POST edit diabaikan. Jumlah tetap setelah note, preferensi, atau isi shelf berubah, serta setelah relasi dihapus. Badge N produk dibandingkan muncul hanya jika count tersedia. Form manual tidak menebak subset dan menjelaskan bahwa jumlah dapat kosong.
 
-Pratinjau mengembalikan `ok`, `ranked_count`, `total_active`, dan maksimal tiga `samples` berisi `name`, `value`, `unit`. Hanya Product aktif dengan nilai gizi bukan NULL yang dihitung/diurutkan. Nilai sampel dibulatkan satu desimal; natrium dikali 1000. Bobot tidak mengubah pratinjau satu nutrien.
+Validasi ID memastikan konteks yang dikirim sah saat pencatatan, bukan bukti audit isi tabel yang pernah dilihat browser. Tidak ada snapshot penuh nutrisi/kandidat, durasi keputusan, atau alasan otomatis.
 
-Daftar riwayat JSON memuat `ok`, `items`, `page`, `pages`, `total`, `notices`, `url`, dan `html`. `html` memuat hasil serta paginasi; `url` menyimpan filter dan nomor halaman aktual. `q` mencari nama produk atau merek dengan `icontains` pada produk aktif. Tanggal `dari`/`sampai` inklusif, berformat `YYYY-MM-DD`; tanggal tidak valid diabaikan dengan pemberitahuan. Penyaringan tanggal mengikuti zona waktu Django proyek (saat ini UTC). Filter shelf hanya menerima shelf milik pengguna atau publik.
+## Ranking untuk integrasi Shelf
 
-## Kontrak untuk Daffaa: tombol “Pilih produk ini”
-
-Tabel pembanding mengirim `POST /riwayat/tambah/` sebagai form atau FormData:
-
-- `product`: ID produk, wajib dan aktif.
-- `shelf`: ID shelf asal, opsional. Shelf harus milik pengguna atau publik, dan produk harus menjadi item shelf tersebut.
-- `note`: alasan opsional, maksimal 500 karakter.
-- CSRF melalui `csrfmiddlewaretoken` atau header `X-CSRFToken`; sertakan sesi pengguna dan `Accept: application/json`.
-
-Respons sukses adalah 201:
-
-```json
-{"ok": true, "message": "Keputusan disimpan.", "item": {"id": 1, "product_id": 7, "product_name": "Produk contoh", "shelf_id": 2, "shelf_name": "Shelf contoh", "note": "Pilihan hari ini", "created_at": "2026-10-26T03:00:00+00:00"}}
-```
-
-Tanpa shelf, `shelf_id` bernilai null dan nama tampil “Tidak diketahui”. Setelah produk/shelf dihapus, FK Decision menjadi null dan catatan tetap tersedia. Produk nonaktif juga ditampilkan “Tidak diketahui”, tanpa menghapus riwayat. Penyuntingan keputusan hanya mengubah alasan; field pemilik, produk, dan shelf pada POST ubah diabaikan. Endpoint tambah tidak membuat ulang model milik app lain dan tidak memanggil API eksternal.
-
-Untuk hapus massal kirim, misalnya, `ids=1&ids=2`. ID duplikat dihitung sekali. Seluruh pilihan diperiksa sebelum penghapusan dalam satu transaksi; satu pilihan asing/hilang membatalkan seluruh operasi. Respons sukses: `{"ok": true, "message": "2 keputusan dihapus.", "deleted_ids": [1, 2]}`. UI menyediakan checkbox untuk catatan pada halaman aktif.
-
-Tombol di template shelf belum dipasang oleh modul ini karena merupakan file Daffaa. Integrasi tombol dan percobaan di PWS tetap perlu dilakukan bersama pemilik Modul 2.
-
-## Memasang ranking pada tabel pembanding
-
-`ranking.py` tidak mengimpor model, request, atau ORM. Pemanggil memuat produk aktif dan preferensi pengguna terlebih dahulu; fungsi hanya mengolah iterable objek yang diterima.
+`order_metric_rows(preferences, default_rows)` mengurutkan key nutrien preferensi aktif dahulu, bobot besar dahulu, seri mengikuti urutan bawaan, key tidak dikenal di belakang. `rank_products(products, preferences)` fungsi murni untuk urutan produk. Pemanggil memuat produk aktif/shelf terlihat dan preferensi pengguna terlebih dahulu.
 
 ```python
 from preferences.ranking import order_metric_rows, rank_products
 
-# products sudah dibatasi ke produk aktif dalam shelf yang boleh dibuka.
-saved_preferences = list(request.user.nutrition_preferences.all()) if request.user.is_authenticated else []
-products = rank_products(products, saved_preferences)
-metric_keys = order_metric_rows(
-    saved_preferences,
-    ["energy", "protein", "saturated_fat", "sugar", "fiber", "sodium"],
-)
+priorities = list(request.user.nutrition_preferences.all()) if request.user.is_authenticated else []
+products = rank_products(products, priorities)  # products sudah dimuat dari query aktif dalam shelf
+metric_keys = order_metric_rows(priorities, ["energy", "protein", "saturated_fat", "sugar", "fiber", "sodium"])
 ```
 
-`order_metric_rows` mendahulukan nutrien preferensi berbobot besar; seri mengikuti urutan bawaan. Key di luar enam nutrien dipertahankan di belakang. `rank_products` menjumlahkan skor min-max berbobot; arah min dibalik. Nilai None tidak menyumbang skor dan tidak diubah menjadi nol. Bila nilai satu nutrien semuanya sama, setiap nilai diketahui mendapat kontribusi 1 × bobot. Produk tanpa data pada seluruh nutrien preferensi berada terakhir, secara stabil. Tanpa preferensi, urutan produk tetap.
+Daftar baris aktual dibentuk `shelves/comparison.py::comparison_rows()` sebagai dictionary label/kind/unit/direction/cells. Daffaa perlu memasang urutan key ke baris tersebut tanpa mengubah bentuk respons. Gunakan pemetaan kolom NUTRIENTS ke field pada NUTRIENT_FIELDS, bukan mencocokkan label semata: halaman ini memakai “Kalori”, sedangkan tabel Shelf masih “Energi”. Jika produk diurutkan, lakukan sebelum comparison_rows() agar sel tetap selaras.
 
-`shelves/comparison.py` saat ini mengembalikan dictionary baris dengan `label`, bukan key nutrien. Daffaa perlu memetakan label melalui `NUTRIENT_FIELDS`, lalu menyusun baris sesuai `metric_keys`. Grade, NOVA, kemasan, asal, lemak total, dan karbohidrat tetap ditangani oleh Modul 2. Jika kolom produk diurutkan, lakukan sebelum `comparison_rows(products)` agar sel tetap selaras dengan produk. Modul ini menyediakan fungsi dan tes, belum mengubah view/template shelf.
+HANDOFF menyebut protein/serat diperingkat max dan gula/natrium/lemak jenuh min; energi, lemak total, dan karbohidrat belum diberi penanda terbaik. Arah preferensi tersedia pada objek tetapi perubahan aturan penandaan sel dan dukungan arah harus dikoordinasikan dengan Daffaa. Modul ini tidak mengubah ranking sel, warna grade, atau file shelves. **Integrasi tombol/subset serta pengurutan baris Shelf belum dipasang/diuji oleh modul ini.**
 
-## Rate limit dan pembaruan optimistik
+## Riwayat, ringkasan, CSV, dan states
 
-Enam endpoint CRUD tulis dan endpoint hapus massal memakai batas gabungan 30 request per 60 detik per pengguna. Request invalid yang sudah mencapai limiter juga dihitung; GET tidak dihitung. Pemeriksaan login, metode, dan pemilik pada ubah/hapus tunggal berjalan sebelum limiter. Respons 429 membawa `Retry-After: 60` dan pesan ramah.
+Kartu baca menampilkan tanggal, produk/shelf yang masih tersedia, gambar atau placeholder, alasan yang di-escape, tautan detail valid, dan count historis. Produk nonaktif/FK NULL tetap mempertahankan Decision tetapi metadata produk menjadi “Tidak diketahui” dan tautan produk tidak ditampilkan. Shelf yang kini privat milik orang lain disembunyikan nama, ID, dan tautannya dari HTML/JSON/CSV/chip. Pengguna tetap dapat mengubah alasan atau menghapus riwayatnya.
 
-Limiter memakai cache bawaan Django. Konfigurasi saat ini adalah LocMemCache: hitungan berlaku per proses dan hilang saat proses restart atau entri cache dibuang. Ini pembatas sederhana, bukan kuota global antar-worker. Tidak ada dependency Redis, perubahan settings, atau klaim batas global di produksi. Cache bersama memerlukan koordinasi dengan pemilik konfigurasi proyek.
+Form tambah/edit ada di dialog native dengan label, fokus awal, Escape, dan pengembalian fokus. Hapus tunggal/massal meminta konfirmasi dahulu. Checkbox massal mencakup halaman saat ini; API menerima 1–100 ID, membuang ID duplikat, memeriksa seluruh pemilik/keberadaan sebelum delete dalam satu transaksi. Respons `deleted_ids` dipertahankan. Alasan edit yang gagal tetap ada di dialog untuk dicoba lagi; kartu hanya berubah setelah server menyetujui.
 
-Toggle berubah secara visual saat request dikirim; bobot/arah yang baru dipilih terlihat segera. Penghapusan tunggal/massal menyembunyikan baris sementara. Kontrol yang berkaitan dinonaktifkan selama request untuk menghindari pengiriman bersamaan. Toast sukses hanya muncul setelah server menyetujui. Kegagalan mengembalikan toggle/bobot/arah, menampilkan lagi baris yang disembunyikan, dan mengembalikan alasan ke nilai tersimpan terakhir. Fokus keyboard dipulihkan setelah penggantian DOM. Bila mutasi sukses tetapi refresh daftar gagal, pesan menjelaskan bahwa penyimpanan berhasil dan daftar perlu dimuat ulang. Putus koneksi setelah server menyimpan tetap dapat membuat hasil lokal tidak pasti; muat ulang untuk memeriksa database.
+Filter q, shelf, dari, sampai tetap lewat ORM dan dipaginasi sepuluh per halaman. q mencari nama/merek produk aktif. Tanggal inklusif, format YYYY-MM-DD; invalid diabaikan dengan pemberitahuan. `bulan=ini` membatasi bulan kalender saat ini. Waktu dan filter memakai zona Django proyek (UTC), ditampilkan dengan label zona, tanpa perubahan settings bersama. Chip Semua/Bulan ini/shelf nyata mengganti filter cepat; form memungkinkan gabungan filter. URL diperbarui melalui history.replaceState.
+
+Ringkasan selalu seluruh riwayat pengguna: total Decision, shelf unik yang masih dapat diakses, dan produk unik dengan FK yang masih tercatat (termasuk nonaktif). Tidak dibatasi halaman/filter; relasi NULL tidak dihitung sebagai produk/shelf unik. Tidak ada statistik waktu/kebiasaan yang datanya belum disimpan.
+
+JSON riwayat mempertahankan ok/items/page/pages/total/notices/url/html, ditambah summary, tools_html, export_url untuk memperbarui sidebar/chip/tautan ekspor. CSV memakai queryset filter yang sama tanpa paginasi: kolom id, created_at, product_name, shelf_name, note, compared_product_count. Nilai count kosong diekspor kosong. UTF-8 BOM membantu Excel; teks berawalan formula, termasuk whitespace/kontrol sebelum = + - @, diberi apostrof. Relasi NULL dan shelf privat tetap terlindungi.
+
+Ada loading visual/aria-busy, state akun belum punya riwayat yang berbeda dari filter kosong, Bersihkan filter, error dan Coba lagi. Submit berulang dicegah. UI hanya memakai satu notifikasi visual toast; status tambahan sr-only untuk pembaca layar. Request preview/history yang kedaluwarsa tidak menimpa hasil baru. Penghapusan menyembunyikan baris sementara dan menampilkannya kembali bila gagal. Jika mutasi berhasil tetapi refresh gagal, pesan menjelaskan penyimpanan berhasil dan daftar perlu dimuat ulang.
+
+Rate limit gabungan 30 request tulis per 60 detik per pengguna tetap berlaku, termasuk simpan global. Pratinjau gabungan adalah baca dan tidak mengambil kuota tulis walaupun POST/CSRF. Respons 429 membawa Retry-After 60. Cache bawaan saat ini LocMemCache: batas per proses, bisa hilang saat restart/eviction, bukan kuota global antar-worker. Cache bersama memerlukan koordinasi pemilik settings; tidak menambah Redis/dependency.
 
 ## Peta kode untuk demo
 
-**`constants.py`** menyimpan enam pemetaan nutrien, label/satuan/skala, pilihan arah/bobot, default, serta batas rate limit. Perbedaan field Product cukup ditangani di pemetaan ini. Natrium memakai gram di database dan mg pada pratinjau.
+**constants.py**: satu pemetaan enam nutrien, label/satuan/skala dan pilihan arah/bobot; default arah per nutrien serta rate limit. Label Kalori tidak mengubah field Product. Konstanta default arah tunggal lama dipertahankan untuk kompatibilitas kode lama; UI memakai DEFAULT_DIRECTIONS.
 
-**`models.py`** mendefinisikan Preference yang unik per pengguna/nutrien serta Decision dengan relasi SET_NULL. Validator bobot dan panjang alasan menjaga validasi model; `max_length` TextField dilengkapi MaxLengthValidator agar `full_clean()` juga menolak alasan panjang. `__str__` tetap berjalan saat relasi produk kosong.
+**models.py**: Preference unik per user/nutrien, validator bobot, dan Decision dengan SET_NULL serta count nullable. MaxLengthValidator menegakkan max500 saat full_clean, bukan hanya form. __str__ aman saat product hilang.
 
-**`forms.py`** memvalidasi duplikasi preferensi dan mengunci nutrien saat edit. DecisionForm membatasi pilihan produk aktif dan shelf terlihat, lalu memeriksa keanggotaan produk. Edit keputusan hanya menampilkan alasan. DecisionFilterForm membersihkan query/tanggal; DecisionBulkDeleteForm membersihkan daftar ID, membatasi 100 pilihan, dan membuang duplikat.
+**forms.py**: PreferenceForm menjaga API individu; PreferenceDraftForm memvalidasi keenam row sebelum write. DecisionForm memeriksa produk/shelf/subset dan membatasi edit ke note. DecisionFilterForm membersihkan query/tanggal/bulan. DecisionBulkDeleteForm memvalidasi daftar ID massal.
 
-**`decorators.py`** menentukan permintaan JSON, membatasi metode, memeriksa pemilik, dan menerapkan rate limit per pengguna. Pemilik yang berbeda menerima 403; ID yang tidak ada menerima 404. Wrapper memakai `wraps` agar metadata view tetap terbaca Django.
+**views.py**: login/metode/pemilik dipasang sebelum logika; simpan draft dan Decision memakai transaksi. Preview memakai ORM lalu fungsi ranking. filtered_decisions() menyatukan filter HTML/JSON/CSV; decision_item() menyensor metadata yang tidak boleh terlihat. Context mengisi ringkasan/chip, serializer menyediakan partial HTML dan JSON stabil.
 
-**`views.py`** menghubungkan form, ORM, dan respons. Daftar selalu dibatasi ke pengguna aktif. Pratinjau serta filter dilakukan di database sebelum paginasi. Serializer membentuk JSON yang stabil dan mengganti relasi kosong dengan label netral. Hapus massal memakai transaksi dan memeriksa seluruh pemilik sebelum query delete.
+**decorators.py**: deteksi JSON, pembatasan metode, pemilik 403/404, serta limiter cache per pengguna. Metadata view dipertahankan dengan wraps. Middleware CSRF dan sesi tetap milik proyek.
 
-**`urls.py`** menyediakan namespace `preferences` dan sepuluh URL dalam tabel di atas. Root URL proyek hanya menambahkan satu include modul.
+**urls.py**: namespace preferences dan endpoint lama/lanjutan dalam tabel kontrak; root include yang sudah tersedia tidak diubah.
 
-**`ranking.py`** mengurutkan metrik dan produk tanpa database. Fungsi menerima data yang sudah dimuat, tidak mengubah objek input, dan memakai sort stabil untuk nilai seri atau data kosong.
+**ranking.py**: dua fungsi murni tanpa query/request/model; input iterable tidak dimutasi, None tidak dianggap nol dan seri stabil. Query kandidat berada di view.
 
-**`admin.py`** mendaftarkan kedua model untuk admin Django. Akses admin mengikuti autentikasi dan otorisasi admin bawaan proyek.
+**admin.py**: mendaftarkan kedua model pada admin Django; otorisasi admin mengikuti proyek.
 
-**`apps.py`** mendaftarkan app `preferences`. **`__init__.py`** menandai paket Python dan tidak menjalankan logika tambahan.
+**apps.py**: registrasi app preferences. **__init__.py** menandai paket Python tanpa logika tambahan.
 
-**`migrations/0001_initial.py`** membuat tabel, FK, dan constraint. **`migrations/0002_alter_decision_note.py`** mencatat validator panjang alasan tambahan. Keduanya sudah diterapkan lokal; migrasi yang telah dibuat tidak ditulis ulang.
+**migrations/0001_initial.py**: tabel, FK, constraint awal. **0002_alter_decision_note.py**: validator max500. **0003_decision_compared_product_count.py**: count nullable tanpa backfill. **0004_alter_preference_nutrient.py**: label choice energy menjadi Kalori. Migrasi lama tidak ditulis ulang.
 
-**`templates/preferences/preference_list.html`** mewarisi base, menampilkan daftar enam nutrien, status/error, tautan riwayat, dan script modul.
+**templates/preferences/preference_list.html**: breadcrumb, banner, satu kartu enam nutrien, tombol global, sidebar summary/preview/privacy, script pada akhir content.
 
-**`templates/preferences/_preference_row.html`** menampilkan segmented control bobot, select arah, switch aktif, dan pratinjau. Data attribute menyimpan keadaan server terakhir untuk rollback. Radio/select nutrien nonaktif benar-benar disabled.
+**templates/preferences/_preference_row.html**: radio arah/bobot, switch paling kanan, nilai/default data attributes, fieldset disabled untuk nonaktif. Tidak memuat form/tombol simpan per baris.
 
-**`templates/preferences/decision_list.html`** menampilkan form pencatatan dan filter serta region hasil. Label form filter mempunyai ID berbeda dari form pencatatan. Script dimuat pada akhir block content.
+**templates/preferences/decision_list.html**: header tindakan, filter collapsible, region hasil/loading/error, sidebar ringkasan global dan dialog.
 
-**`templates/preferences/_decision_results.html`** merender pemberitahuan, jumlah hasil, form hapus massal, baris, dan tautan paginasi yang membawa filter. Partial yang sama dipakai untuk halaman awal dan JSON AJAX.
+**templates/preferences/_history_tools.html**: chip filter nyata yang dirender ulang melalui AJAX.
 
-**`templates/preferences/_decision_row.html`** menampilkan produk/shelf/tanggal, checkbox yang dihubungkan ke form massal, textarea alasan, dan tombol ubah/hapus. Teks pengguna di-escape Django; tanggal ISO tersedia pada atribut time.
+**templates/preferences/_decision_results.html**: pemberitahuan, form hapus massal, kartu, paginasi berfilter dan dua keadaan kosong.
 
-**`templates/preferences/_forbidden.html`** menyediakan halaman 403 untuk akses data milik pengguna lain, dengan tautan kembali ke profil.
+**templates/preferences/_decision_row.html**: kartu baca, tanggal, gambar, alasan di-escape, tautan yang tersedia, checkbox, tombol edit dan hapus. Tidak ada textarea edit permanen.
 
-**`templates/preferences/_error.html`** menampilkan kegagalan hapus massal atau rate limit pada alur HTML. Status HTTP tetap mengikuti penyebab kesalahan.
+**templates/preferences/_decision_dialogs.html**: form tambah/edit dan konfirmasi hapus; label/fokus/Escape dan ukuran ponsel. Form manual mempertahankan subset kosong.
 
-**`static/js/preferences.js`** mengirim FormData dan header CSRF, memproses JSON, mengganti partial HTML server, dan memanggil toast bersama. Filter memakai debounce serta `history.replaceState`; nomor request mencegah respons lama menimpa hasil lebih baru. Tidak memakai localStorage/sessionStorage.
+**templates/preferences/_forbidden.html**: panel akses data pengguna lain dengan link kembali. **_error.html**: error HTML dan limiter yang tetap menggunakan status HTTP sesuai penyebab.
 
-**`tests/helpers.py`** membuat User/Product/Shelf/ShelfItem yang sesuai model asli; `build_product` membuat objek tanpa penyimpanan untuk tes fungsi murni. Tes tidak bergantung pada fixture seed.
+**static/js/preferences.js**: fetch/CSRF/toast, draft/baseline/Reset, nomor versi preview, modal native, filter/paginasi, request ordering, rollback delete dan retry. Nama produk/nilai preview ditulis melalui textContent; partial HTML berasal dari template Django yang meng-escape input.
 
-**`tests/test_models.py`** memeriksa default, validator, keunikan, urutan keputusan, dan kelangsungan riwayat setelah relasi dihapus. **`tests/test_forms.py`** menguji duplikasi, bobot, shelf terlihat, keanggotaan produk, dan produk aktif.
+**tests/helpers.py**: pembuat User/Product/Shelf/ShelfItem asli dan Product tanpa save untuk ranking; tidak menggunakan fixture seed.
 
-**`tests/test_views_preference.py`** menguji alur HTML/JSON, preferensi tersimpan, kontrol nonaktif, validasi, dan pratinjau termasuk NULL/0/natrium. **`tests/test_views_decision.py`** menguji CRUD, filter/paginasi/tanggal, relasi kosong, serta penolakan field palsu saat edit alasan.
+**tests/test_models.py**: validator, keunikan, ordering, dan SET_NULL. **test_forms.py**: duplikasi/bobot/produk aktif/visibilitas dan keanggotaan shelf.
 
-**`tests/test_authorization.py`** menguji pengunjung, akses lintas pengguna, ID hilang, dan CSRF di seluruh endpoint tulis. **`tests/test_hardening.py`** menguji quota per pengguna, masa berlaku, serta hapus massal tanpa penghapusan parsial.
+**tests/test_views_preference.py**: kompatibilitas CRUD dan preview individu, persisted state dan disabled controls. **test_views_decision.py**: CRUD, filter, tanggal/paginasi, FK NULL dan field edit palsu.
 
-**`tests/test_ranking.py`** menguji skor dan urutan murni, termasuk arah, bobot, nol, kosong, seri, dan iterable. **`tests/test_functional.py`** menjalankan tiga alur browser opsional menggunakan Playwright dan Chrome lokal. Tes browser tidak menambah dependency produksi.
+**tests/test_comparison_context.py**: subset valid/invalid, 1–4 unik, legacy NULL dan count historis tetap setelah edit/delete.
 
-**`NOTES.md`** adalah panduan kontrak, demo, validasi, dan disclosure untuk pemilik modul. Dokumen kelompok dan instruksi pribadi di root tidak ikut diubah.
+**tests/test_draft.py**: atomisitas semua row, isolasi user, invalid payload, kegagalan storage setelah update pertama, serta preview kosong/parsial/nol tanpa write.
 
-Alur request contoh: pengguna mengubah bobot Protein → event change mengirim form lewat fetch dengan CSRF → Django memeriksa sesi/metode/pemilik/rate limit → PreferenceForm memvalidasi arah/bobot → ORM memperbarui Preference → view mengirim item dan partial HTML → JavaScript mengganti baris, memulihkan fokus, dan menampilkan toast. Bila validasi/request gagal, JavaScript mengembalikan keadaan kontrol tersimpan. Tanpa JavaScript, form POST tetap diproses dan diarahkan kembali ke halaman.
+**tests/test_history_followup.py**: privasi setelah shelf berubah, CSV seluruh hasil, formula, NULL, ringkasan global dan batas bulan.
 
-## Verifikasi dan cara menjalankan tes
+**tests/test_authorization.py**: guest/foreign/missing object dan CSRF termasuk endpoint baru. **test_hardening.py**: limiter/expiry dan bulk-delete atomik.
 
-Gunakan Python dari environment proyek; `.env` lokal tetap milik pengguna dan tidak di-commit. Sinkronisasi terakhir terhadap `origin/dev` tidak membawa perubahan baru. Dependency requirements sudah tersedia, migrasi tidak tertinggal, dan seed ulang menambah 0 produk sambil mempertahankan data yang ada.
+**tests/test_ranking.py**: arah, bobot, None/0, semua nilai sama, kosong, iterable dan zero-query. **test_functional.py**: enam tes Playwright/Chrome opsional untuk draft/Reset/gagal save, stale preview/retry, modal/konfirmasi, CRUD/filter/paginasi, rollback massal, keyboard dan layout.
+
+Alur demo: ubah bobot → draft/summary berubah, preview POST membaca database → Simpan Preferensi mengirim enam row → validasi seluruh payload → transaksi user → items sukses → baseline diperbarui/toast. Gagal save mempertahankan draft. Untuk riwayat: buka modal → POST form/CSRF → validasi produk/shelf/subset → simpan Decision/count → refresh partial hasil/sidebar/filter → tutup dialog dan pulihkan fokus.
+
+## Verifikasi 27 Oktober 2026
+
+Gunakan environment proyek, tanpa mengubah requirements atau .env:
 
 ```powershell
 .\env\Scripts\python.exe manage.py check
 .\env\Scripts\python.exe manage.py makemigrations --check --dry-run
 .\env\Scripts\python.exe manage.py test preferences
 .\env\Scripts\python.exe manage.py test
-```
-
-Pengukuran cakupan (tidak mengikutsertakan migrasi dan tes dalam laporan):
-
-```powershell
-$env:COVERAGE_FILE = Join-Path $env:TEMP 'pilihyuk-coverage'
+$env:COVERAGE_FILE = Join-Path $env:TEMP 'pilihyuk-followup-coverage'
 .\env\Scripts\python.exe -m coverage run --source=preferences manage.py test preferences
 .\env\Scripts\python.exe -m coverage report -m --omit='preferences/migrations/*,preferences/tests/*'
 ```
 
-Hasil pada sesi penutup, 26 Oktober 2026:
-
-| Pemeriksaan | Hasil |
-|---|---|
-| Django check | Tanpa error; satu check axes sengaja disenyapkan oleh konfigurasi proyek |
-| Makemigrations check | Tidak ada perubahan model yang belum dimigrasi |
-| Tes modul | 45 ditemukan: 42 lulus, 3 browser dilewati pada run standar |
-| Tes seluruh proyek | 241 ditemukan: 237 lulus, 4 dilewati |
-| Tes browser terpisah | 3 lulus dengan Chrome headless |
-| `models.py` | Cakupan baris 100% |
-| `forms.py` | Cakupan baris 100% |
-| `views.py` | Cakupan baris 100% |
-| `ranking.py` | Cakupan baris 100% |
-| `decorators.py` | Cakupan baris 95%; jalur kedaluwarsa cache di antara add/incr belum dipicu |
-| Total modul | Cakupan baris 99% |
-
-Playwright 1.64.1 dan coverage 7.17.0 dipasang hanya untuk pengembangan lokal. Tidak ada penambahan di requirements. Browser menggunakan Chrome yang sudah terpasang; tidak mengunduh browser atau Tailwind CLI. Tes browser opsional memakai StaticLiveServerTestCase dan Playwright, menggantikan opsi Selenium dalam rencana awal. Tes otomatis dilewati bila opt-in, paket, atau Chrome tidak tersedia.
+Hasil: check tanpa error (satu check axes disenyapkan konfigurasi proyek); migrasi tidak tertinggal; 62 tes modul ditemukan, 56 lulus dan enam browser dilewati pada run standar. Tes seluruh proyek: 258 ditemukan, 251 lulus dan tujuh dilewati. Enam tes browser dijalankan terpisah dan lulus. Cakupan baris models/forms/views/ranking 100%, decorators 95%, total modul 99%. Tiga baris fallback expiry race pada cache belum dipicu. Cakupan baris bukan bukti semua race/jaringan telah diuji.
 
 ```powershell
 $env:PILIHYUK_BROWSER_TESTS = '1'
@@ -217,27 +229,23 @@ $env:PILIHYUK_BROWSER_TESTS = '1'
 $env:PILIHYUK_BROWSER_TESTS = '0'
 ```
 
-Browser menguji CRUD/filter/paginasi tanpa navigasi ulang; layout 390, 768, 1024, dan 1440 px tanpa overflow; label dengan ID unik; keyboard dan pemulihan fokus; rollback perubahan preferensi/alasan; serta penghapusan massal optimistik yang ditolak 403 dan toggle yang ditolak 429. Test database dibuat oleh Django, terpisah dari SQLite pengguna. Tidak ada tes yang memanggil Open Food Facts.
+Playwright 1.64.1 dan coverage 7.17.0 sudah terpasang sebagai paket dev lokal dari sesi sebelumnya, tanpa dependency produksi baru atau download browser. Chrome lokal dipakai. Tanpa opt-in/paket/Chrome, browser auto-skip. Tes browser memeriksa 390, 768, 1024, 1440 px tanpa overflow; screenshot memakai data tes dan disimpan sementara, bukan fixture produksi. Pengujian tidak memanggil OFF. Warning lama staticfiles/paginasi Shelf tidak diubah karena di luar kepemilikan. Proxy dan deployment PWS belum diuji pada sesi ini.
 
-Tes penuh masih mengeluarkan warning lama tentang folder staticfiles lokal dan urutan paginasi shelf; keduanya berada di luar modul ini dan tidak membuat tes gagal. Pemeriksaan browser berjalan lokal, belum membuktikan perilaku pada proxy/worker PWS. Cakupan baris tidak sama dengan pembuktian bahwa semua kemungkinan race atau kegagalan jaringan sudah diuji.
+## Koordinasi dan langkah manual
 
-## Langkah manual pemilik dan integrasi tim
-
-1. Tinjau kode dan catatan demo; lengkapi disclosure manual di bawah.
-2. Push branch `preferences` dan penanda `feat/preferences-*` yang belum dipublikasikan. Codex tidak melakukan push atau membuka PR.
-3. Buka PR berurutan ke `dev`, mulai dari slice yang belum digabung. Gunakan merge commit, bukan squash, agar riwayat tes-dulu dan batas slice tetap terlihat. Minta teman kelompok meninjau.
-4. Minta Daffaa memasang tombol “Pilih produk ini” serta pemakaian fungsi ranking di view/template Shelf, sesuai kontrak di atas. File Modul 2 tidak diubah dalam pengerjaan ini.
-5. Coba alur pengguna dan logout/login di PWS setelah integrasi. Rilis proyek sudah menjalankan migrate/collectstatic; tidak ada build Tailwind. Pastikan CDN dapat diakses saat demo.
-6. Bila tim membutuhkan kuota rate limit global antar-worker, sepakati cache bersama dengan pemilik settings. Implementasi saat ini tetap cache memori bawaan tanpa dependency baru.
+1. Tinjau hasil dan lengkapi disclosure manual di bawah. AGENTS.md pribadi tetap tidak di-commit.
+2. Push branch preferences dan penanda followup baru yang diperlukan; Codex tidak push atau membuat PR. Pertahankan penanda S1–S11 yang sudah dipakai.
+3. Buka PR lanjutan berurutan ke dev dengan merge commit tanpa squash, minta ulasan teman. Jalankan sinkronisasi/check/tes sebelum PR jika ada perubahan dev baru.
+4. Daffaa memasang subset compared pada tombol “Pilih produk ini” dan order_metric_rows pada tabel aktual. Koordinasikan dukungan arah dan aturan penandaan sel; integrasi ini belum selesai.
+5. Selaraskan istilah/kriteria F-5.7 “lolos” dengan “dapat diperingkat” jika kelompok menginginkan filter ambang.
+6. Terapkan migrasi baru di deployment (release proyek sudah migrate/collectstatic), lalu uji PWS dan akses CDN. Tidak ada build Tailwind. Cache rate limit global perlu koordinasi settings bila dibutuhkan.
 
 ## AI disclosure
 
-**Alat dan tujuan.** Modul ini dikerjakan dengan bantuan Codex di VS Code untuk menyusun implementasi Django/JavaScript, menulis tes, memeriksa hasil command, serta menyusun panduan kontrak dan demo. Pemilik modul tetap perlu memahami, meninjau, dan dapat menjelaskan kode saat demo/live coding. AI tidak menggantikan pemeriksaan integrasi oleh kelompok.
+Alat: Codex di VS Code untuk implementasi Django/JavaScript, tes, inspeksi hasil command/browser dan dokumentasi. Prompt memakai AGENTS.md pribadi, dokumen kelompok, tiga gambar desain dan spesifikasi lanjutan pengguna. Batas model/form/HTTP/browser telah ditetapkan pengguna; tes perilaku ditulis/dijalankan gagal sebelum implementasi perubahan utama, lalu commit lokal kecil hingga hijau. Penanda lama dipertahankan dan penanda followup baru ditambahkan.
 
-**Strategi prompt.** AGENTS.md pribadi menjadi spesifikasi terperinci: batas kepemilikan file, model, URL, JSON, slice berurutan, dan Definition of Done. Pengerjaan S1–S6 diawali tes gagal yang di-commit, diikuti implementasi sampai hijau. S8 dan S9 juga dimulai dari tes perilaku. Instruksi lanjutan mengarahkan pemeriksaan dokumen terbaru di `.claude` dan menyelesaikan perbedaan informasi Tailwind. Tes memakai antarmuka model/form/HTTP serta browser nyata; tidak memakai API OFF atau fixture produksi. Commit dan penanda lokal menjaga hasil tiap slice dapat ditinjau terpisah.
+Koreksi selama sesi awal: Shelf sempat belum tersedia sehingga sinkronisasi diperlukan; TextField.max_length ternyata perlu validator untuk full_clean; ID field filter shelf duplikat dan fokus saat DOM diganti perlu diperbaiki. Sesi lanjutan memperbaiki ketidaksesuaian autosave/desain menjadi draft global, serta temuan bahwa shelf historis yang berubah privat masih bisa membocorkan nama. Aturan CLI yang tertinggal diganti CDN, default arah baru dibatasi pada UI, dan tes autosave yang sudah tidak sesuai diadaptasi. Pengujian nyata juga merapikan keselarasan kolom dan modal ponsel.
 
-**Keterbatasan dan koreksi selama sesi.** Pada pemeriksaan pertama Shelf belum tersedia; pekerjaan tidak membuat model pengganti, melainkan menunggu sinkronisasi model asli. Rencana awal mengikuti instruksi CLI Tailwind yang tertinggal; setelah diarahkan ke PRD keputusan 28 dan kode base, dokumentasi dikoreksi menjadi CDN tanpa build. Tes model menemukan `TextField(max_length=500)` belum membatasi `full_clean()` sebagaimana diasumsikan, sehingga ditambahkan MaxLengthValidator. Pemeriksaan label menemukan ID shelf yang sama pada form pencatatan dan filter, lalu diperbaiki. Pemeriksaan browser memperbaiki susunan kontrol responsif dan hilangnya fokus saat DOM diganti lewat AJAX. Pembatasan Git/network sandbox memerlukan persetujuan tool untuk operasi terkait; tidak diatasi dengan mengubah konfigurasi keamanan.
-
-**Batas hasil AI.** Dokumen status `.claude` dan beberapa kalimat README lebih lama daripada kode aktual; status modul dibuktikan lewat Git dan tes, tanpa menulis ulang file kelompok. Rate limit memori belum bersifat global pada produksi, integrasi ranking/tombol Shelf masih perlu pemilik Modul 2, dan proxy PWS belum diuji. Belum ada klaim bahwa pemilik telah melakukan perbaikan manual; koreksi yang dijelaskan di atas adalah hasil inspeksi dan tes selama sesi Codex. Tidak ada pesan yang dikirim kepada anggota kelompok secara otomatis.
+Keterbatasan: dokumen kelompok bertanggal lama tidak otomatis merepresentasikan status kode. Gambar berisi angka/statistik ilustrasi yang tidak boleh dibuat tanpa data; durasi/kebiasaan/alasan otomatis tidak ditambahkan. Count subset mencatat konteks valid dari klien, bukan audit tabel historis. API Shelf/arah/penandaan masih perlu koordinasi, kuota cache per proses, dan PWS belum diuji. Kegagalan koneksi setelah server commit dapat membuat klien belum mengetahui hasil; simpan global idempoten dapat dicoba lagi, sedangkan refresh diperlukan untuk memeriksa riwayat. AI tidak mengklaim pemilik telah melakukan review/perbaikan manual; pemeriksaan pemilik tetap diperlukan untuk demo/live coding.
 
 TODO(Jonathan): tambahkan perbaikan manual
