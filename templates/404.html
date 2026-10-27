@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block meta %}<title>Halaman tidak ditemukan · PilihYuk</title>{% endblock meta %}
+
+{% block content %}
+<main class="section flex w-full flex-1 items-center justify-center py-16">
+    <div class="card w-full max-w-md text-center">
+        <span class="icon-box mx-auto bg-surface"><img src="{% static 'img/search.svg' %}" alt="" class="h-5 w-5"></span>
+        <p class="eyebrow mt-4">404</p>
+        <h1 class="mt-1 text-xl font-bold">Halaman tidak ditemukan.</h1>
+        <p class="mt-2 text-sm text-muted">Tautannya mungkin salah ketik, atau halaman ini sudah dipindah atau dihapus.</p>
+        <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <a href="/" class="btn-brand btn-small">Kembali ke beranda</a>
+            <a href="/katalog/" class="btn-small font-semibold hover:text-brand">Lihat katalog</a>
+        </div>
+    </div>
+</main>
+{% endblock content %}
