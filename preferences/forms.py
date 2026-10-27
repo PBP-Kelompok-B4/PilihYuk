@@ -37,6 +37,8 @@ class ProductChoiceField(forms.ModelChoiceField):
 
 class DecisionForm(forms.ModelForm):
     product = ProductChoiceField(queryset=Product.objects.none(), label="Produk")
+    compared_product_ids = forms.ModelMultipleChoiceField(queryset=Product.objects.none(), required=False,
+                                                         widget=forms.MultipleHiddenInput)
 
     class Meta:
         model = Decision
@@ -48,11 +50,13 @@ class DecisionForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.instance.user = user
         self.fields["product"].queryset = Product.objects.filter(is_active=True).order_by("product_name", "pk")
+        self.fields["compared_product_ids"].queryset = Product.objects.filter(is_active=True)
         self.fields["shelf"].queryset = Shelf.objects.filter(Q(owner=user) | Q(is_private=False)).order_by("name", "pk")
         # Riwayat lama tetap bisa disunting walau relasi asal sudah dihapus.
         if self.instance.pk:
             self.fields.pop("product")
             self.fields.pop("shelf")
+            self.fields.pop("compared_product_ids")
         for field in self.fields.values():
             field.widget.attrs["class"] = "w-full min-w-0 rounded-xl border border-line bg-white p-3 text-sm focus-visible:outline-brand"
 
@@ -61,6 +65,20 @@ class DecisionForm(forms.ModelForm):
         product, shelf = data.get("product"), data.get("shelf")
         if product and shelf and not shelf.items.filter(product=product, product__is_active=True).exists():
             self.add_error("shelf", "Produk tidak ada di shelf ini.")
+        if not self.instance.pk and "compared_product_ids" in self.data:
+            raw = self.data.getlist("compared_product_ids") if hasattr(self.data, "getlist") else self.data["compared_product_ids"]
+            subset = data.get("compared_product_ids")
+            if not isinstance(raw, (list, tuple)) or not 1 <= len(raw) <= 4 or len(set(raw)) != len(raw):
+                self.add_error("compared_product_ids", "Pilih 1 sampai 4 ID produk unik tanpa duplikasi.")
+            elif not shelf:
+                self.add_error("compared_product_ids", "Subset pembanding wajib disertai shelf yang dapat diakses.")
+            elif subset is not None:
+                ids = {item.pk for item in subset}
+                if (len(ids) != len(raw) or not product or product.pk not in ids
+                        or shelf.items.filter(product_id__in=ids, product__is_active=True).count() != len(ids)):
+                    self.add_error("compared_product_ids", "Subset harus berisi produk aktif di shelf dan mencakup produk pilihan.")
+                else:
+                    self.instance.compared_product_count = len(ids)
         return data
 
 

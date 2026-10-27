@@ -110,7 +110,8 @@ def decision_item(item):
     return {"id": item.pk, "product_id": item.product_id,
             "product_name": product.product_name if product else "Tidak diketahui",
             "shelf_id": item.shelf_id, "shelf_name": item.shelf.name if item.shelf else "Tidak diketahui",
-            "note": item.note, "created_at": item.created_at.isoformat()}
+            "note": item.note, "created_at": item.created_at.isoformat(),
+            "compared_product_count": item.compared_product_count}
 
 
 def decision_context(request, form=None):
@@ -173,9 +174,10 @@ def decision_invalid(request, form):
 @module_methods("POST")
 @rate_limit
 def decision_create(request):
-    form = DecisionForm(request.POST, user=request.user)
-    if form.is_valid():
-        return decision_result(request, form.save(), "Keputusan disimpan.", status=201)
+    with transaction.atomic():
+        form = DecisionForm(request.POST, user=request.user)
+        if form.is_valid():
+            return decision_result(request, form.save(), "Keputusan disimpan.", status=201)
     return decision_invalid(request, form)
 
 

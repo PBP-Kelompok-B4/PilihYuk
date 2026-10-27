@@ -25,6 +25,7 @@ class Decision(models.Model):
     product = models.ForeignKey("product_catalog.Product", on_delete=models.SET_NULL, null=True)
     shelf = models.ForeignKey("shelves.Shelf", on_delete=models.SET_NULL, null=True, blank=True)
     note = models.TextField(blank=True, max_length=500, validators=[MaxLengthValidator(500)])
+    compared_product_count = models.PositiveIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
