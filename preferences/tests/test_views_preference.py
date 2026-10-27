@@ -1,3 +1,5 @@
+import re
+
 from django.test import TestCase
 from django.core.cache import cache
 from django.urls import reverse
@@ -46,6 +48,24 @@ class PreferenceViewTests(TestCase):
         self.assertEqual(self.client.get(reverse("preferences:preference_create")).status_code, 405)
         self.assertEqual(self.client.post(self.url).status_code, 405)
         self.assertEqual(self.client.post(reverse("preferences:preference_create"), {}).status_code, 400)
+
+    def test_nutrient_rows_show_distinct_decorative_icons_and_keep_text_labels(self):
+        self.client.force_login(self.user)
+        html = self.client.get(self.url).content.decode()
+        expected = (
+            ("protein", "Protein", "beef"), ("fiber", "Serat", "wheat"),
+            ("sugar", "Gula", "candy"), ("sodium", "Natrium", "droplets"),
+            ("saturated_fat", "Lemak jenuh", "droplet"), ("energy", "Kalori", "flame"),
+        )
+        for nutrient, label, icon in expected:
+            with self.subTest(nutrient=nutrient):
+                heading = re.search(r'data-nutrient="' + nutrient + r'"[^>]*>\s*<h3\b[^>]*>(.*?)</h3>', html, re.S)
+                self.assertIsNotNone(heading)
+                self.assertIn(label, heading.group(1))
+                self.assertRegex(heading.group(1), r'<svg\b[^>]*class="[^"]*\blucide-' + icon + r'\b')
+                self.assertIn('aria-hidden="true"', heading.group(1))
+                self.assertIn('focusable="false"', heading.group(1))
+                self.assertNotIn('<img', heading.group(1))
 
     def test_list_contains_only_current_users_preferences(self):
         Preference.objects.create(user=self.user, nutrient="protein", direction="max", weight=3)
