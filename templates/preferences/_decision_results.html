@@ -1,16 +1,14 @@
 {% for notice in notices %}<p role="status" class="rounded-xl bg-warm p-4 text-sm">{{ notice }}</p>{% endfor %}
-<p class="text-sm text-muted">{{ page_obj.paginator.count }} keputusan</p>
 {% if rows %}
 <form id="decision-bulk-delete" method="post" action="{% url 'preferences:decision_bulk_delete' %}" data-decision-bulk class="flex flex-wrap items-center gap-3">
-    {% csrf_token %}
-    <button type="submit" class="btn-white min-h-11 ring-1 ring-line focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">Hapus yang dipilih</button>
-    <p class="text-sm text-muted">Centang keputusan pada halaman ini untuk menghapus beberapa sekaligus.</p>
+    {% csrf_token %}<button type="submit" class="btn-white btn-small min-h-11 ring-1 ring-line focus-visible:outline-2 focus-visible:outline-brand">Hapus yang dipilih</button><span class="text-xs text-muted">{{ page_obj.paginator.count }} keputusan pada hasil filter</span>
 </form>
-{% endif %}
-{% for row in rows %}{% include "preferences/_decision_row.html" %}
-{% empty %}<p class="card">Belum ada keputusan yang cocok.</p>{% endfor %}
-<nav aria-label="Halaman riwayat" class="flex flex-wrap items-center gap-4">
+{% for row in rows %}{% include "preferences/_decision_row.html" %}{% endfor %}
+<nav aria-label="Halaman riwayat" class="flex flex-wrap items-center gap-4 text-sm">
     {% if page_obj.has_previous %}<a href="{{ previous_url }}" id="history-previous" class="rounded p-2 text-brand underline focus-visible:outline-2 focus-visible:outline-brand" data-page>Sebelumnya</a>{% endif %}
-    <span class="text-sm">Halaman {{ page_obj.number }} dari {{ page_obj.paginator.num_pages }}</span>
+    <span>Halaman {{ page_obj.number }} dari {{ page_obj.paginator.num_pages }}</span>
     {% if page_obj.has_next %}<a href="{{ next_url }}" id="history-next" class="rounded p-2 text-brand underline focus-visible:outline-2 focus-visible:outline-brand" data-page>Berikutnya</a>{% endif %}
 </nav>
+{% else %}
+<section class="card py-12 text-center"><h2 class="text-lg font-bold">{% if has_history %}Tidak ada keputusan yang cocok.{% else %}Belum ada keputusan yang dicatat.{% endif %}</h2><p class="mt-3 text-sm text-muted">{% if has_history %}Coba kata kunci lain atau bersihkan filter yang aktif.{% else %}Catat produk yang kamu pilih untuk melihat riwayatnya di sini.{% endif %}</p>{% if has_history %}<a href="{% url 'preferences:decision_list' %}" data-filter-reset class="btn-brand mt-5">Bersihkan filter</a>{% else %}<button type="button" data-open-create class="btn-brand mt-5">Catat Keputusan Pertama</button>{% endif %}</section>
+{% endif %}

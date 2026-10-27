@@ -266,7 +266,9 @@ def decision_list(request):
         page = context["page_obj"]
         return JsonResponse({"ok": True, "items": [row["item"] for row in context["rows"]],
                              "page": page.number, "pages": page.paginator.num_pages, "total": page.paginator.count,
-                             "notices": context["notices"], "url": context["current_url"], "html": html})
+                             "notices": context["notices"], "url": context["current_url"], "html": html,
+                             "summary": context["summary"], "export_url": context["export_url"],
+                             "tools_html": render_to_string("preferences/_history_tools.html", context, request=request)})
     return render(request, "preferences/decision_list.html", context)
 
 

@@ -24,6 +24,56 @@ CHROME_AVAILABLE = bool(shutil.which("google-chrome") or shutil.which("chrome"))
 @unittest.skipUnless(os.getenv("PILIHYUK_BROWSER_TESTS") == "1" and importlib.util.find_spec("playwright") and CHROME_AVAILABLE,
                      "Tes browser memerlukan opt-in, Playwright, dan Chrome lokal.")
 class DecisionBrowserTests(StaticLiveServerTestCase):
+    def test_preview_ignores_old_response_and_recovers_from_error(self):
+        from playwright.sync_api import expect, sync_playwright
+        from .helpers import make_shelf
+
+        user = make_user()
+        product = make_product(product_name="Minuman oat contoh", brand="Contoh", quantity="1 L", proteins_100g=1.2,
+                               fiber_100g=0, sugars_100g=4, sodium_100g=0.04, saturated_fat_100g=0.2)
+        shelf = make_shelf(user, product, name="Susu untuk kopi")
+        Decision.objects.create(user=user, product=product, shelf=shelf, note="Pilihan untuk kopi pagi.", compared_product_count=1)
+        for key in ("protein", "fiber", "sugar", "sodium", "saturated_fat"):
+            Preference.objects.create(user=user, nutrient=key, direction="max" if key in ("protein", "fiber") else "min", weight=2)
+        self.client.force_login(user)
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(channel="chrome", headless=True)
+            context = browser.new_context(viewport={"width": 1440, "height": 1000})
+            context.add_cookies([{"name": settings.SESSION_COOKIE_NAME, "value": self.client.cookies[settings.SESSION_COOKIE_NAME].value, "url": self.live_server_url}])
+            page = context.new_page()
+            page.goto(self.live_server_url + "/preferensi/")
+            expect(page.locator('[data-combined-preview]')).to_contain_text('1 produk dapat diperingkat')
+            if os.getenv('PILIHYUK_SCREENSHOT_DIR'):
+                directory = Path(os.environ['PILIHYUK_SCREENSHOT_DIR'])
+                directory.mkdir(parents=True, exist_ok=True)
+                page.wait_for_function("getComputedStyle(document.querySelector('.card')).borderRadius === '20px'")
+                page.screenshot(path=str(directory / 'preferensi-realistic-1440.png'), full_page=True)
+            held = []
+            page.route('**/preferensi/pratinjau-gabungan/', lambda route: held.append(route))
+            with page.expect_request('**/preferensi/pratinjau-gabungan/'):
+                page.locator('label', has=page.locator('#weight-protein-3')).click()
+            with page.expect_request('**/preferensi/pratinjau-gabungan/'):
+                page.locator('label', has=page.locator('#weight-protein-1')).click()
+            page.evaluate('true')
+            self.assertEqual(len(held), 2)
+            held[1].fulfill(json={"ok": True, "ranked_count": 2, "samples": [{"name": "Terbaru", "values": []}]})
+            expect(page.locator('[data-combined-preview]')).to_contain_text('Terbaru')
+            held[0].fulfill(json={"ok": True, "ranked_count": 1, "samples": [{"name": "Lama", "values": []}]})
+            page.evaluate('true')
+            expect(page.locator('[data-combined-preview]')).not_to_contain_text('Lama')
+            page.unroute('**/preferensi/pratinjau-gabungan/')
+            page.route('**/preferensi/pratinjau-gabungan/', lambda route: route.fulfill(status=500, body='Gagal'))
+            page.locator('label', has=page.locator('#weight-protein-2')).click()
+            expect(page.locator('[data-preview-retry]')).to_be_visible()
+            page.unroute('**/preferensi/pratinjau-gabungan/')
+            page.locator('[data-preview-retry]').click()
+            expect(page.locator('[data-combined-preview]')).to_contain_text('Minuman oat contoh')
+            page.goto(self.live_server_url + '/riwayat/')
+            if os.getenv('PILIHYUK_SCREENSHOT_DIR'):
+                page.wait_for_function("getComputedStyle(document.querySelector('.card')).borderRadius === '20px'")
+                page.screenshot(path=str(directory / 'riwayat-realistic-1440.png'), full_page=True)
+            browser.close()
+
     def test_history_read_cards_and_confirmation_dialog(self):
         from playwright.sync_api import expect, sync_playwright
 
@@ -110,6 +160,7 @@ class DecisionBrowserTests(StaticLiveServerTestCase):
             held = []
             page.route("**/riwayat/hapus-massal/", lambda route: held.append(route))
             page.locator('[data-decision-bulk] button').click()
+            page.get_by_role('button', name='Hapus', exact=True).click()
             expect(page.locator('[data-decision]:visible')).to_have_count(0)
             self.assertEqual(len(held), 1)
             held.pop().fulfill(status=403, json={"ok": False, "message": "Penghapusan gagal."})
@@ -118,13 +169,18 @@ class DecisionBrowserTests(StaticLiveServerTestCase):
             page.unroute("**/riwayat/hapus-massal/")
 
             page.route("**/riwayat/*/ubah/", lambda route: route.fulfill(status=400, json={"ok": False, "message": "Alasan gagal."}))
-            note = page.locator('[data-decision] textarea').first
-            original = note.input_value()
+            original = page.locator('[data-note-text]').first.text_content()
+            page.locator('[data-decision-edit]').first.click()
+            note = page.locator('[data-edit-dialog] textarea')
             note.fill('Perubahan yang ditolak')
             page.locator('[data-decision-update] button').first.click()
-            expect(note).to_have_value(original)
+            expect(page.locator('[data-module-status]')).to_have_text('Alasan gagal.')
+            expect(note).to_have_value('Perubahan yang ditolak')
+            expect(page.locator('[data-note-text]').first).to_have_text(original)
+            page.keyboard.press('Escape')
             page.unroute("**/riwayat/*/ubah/")
             page.locator('[data-decision-bulk] button').click()
+            page.get_by_role('button', name='Hapus', exact=True).click()
             expect(page.locator('[data-module-status]')).to_have_text('2 keputusan dihapus.')
             expect(page.locator('[data-decision]')).to_have_count(0)
             self.assertEqual(page.evaluate("window.modulePage"), "same-page")
@@ -155,24 +211,28 @@ class DecisionBrowserTests(StaticLiveServerTestCase):
             expect(page).to_have_url(re.compile(r"page=2"))
             page.locator("[data-page]", has_text="Sebelumnya").click()
             expect(page.locator("[data-decision]")).to_have_count(10)
+            page.locator('summary', has_text='Cari dan filter tanggal').click()
             page.locator("[data-decision-filter] [name=q]").fill("Tidak cocok")
             expect(page.locator("[data-decision]")).to_have_count(0)
-            page.locator("[data-filter-reset]").click()
+            page.locator("[data-filter-reset]").first.click()
             expect(page.locator("[data-decision]")).to_have_count(10)
 
+            page.get_by_role('button', name='Catat Keputusan Baru', exact=True).click()
             create = page.locator("[data-decision-create]")
             create.locator("[name=product]").select_option(str(product.pk))
             create.locator("[name=note]").fill("Keputusan browser")
             create.locator("button").click()
-            row = page.locator("[data-decision]").filter(has=page.locator("textarea", has_text="Keputusan browser"))
+            row = page.locator("[data-decision]").filter(has_text="Keputusan browser")
             expect(row).to_have_count(1)
-            row.locator("textarea").fill("Alasan diperbarui")
-            row.locator("[data-decision-update] button").click()
+            row.locator('[data-decision-edit]').click()
+            page.locator('[data-edit-dialog] textarea').fill("Alasan diperbarui")
+            page.locator("[data-decision-update] button").click()
             expect(page.locator("[data-module-status]")).to_have_text("Alasan disimpan.")
-            row = page.locator("[data-decision]").filter(has=page.locator("textarea", has_text="Alasan diperbarui"))
+            row = page.locator("[data-decision]").filter(has_text="Alasan diperbarui")
             row.locator("[data-decision-delete] button").click()
+            page.get_by_role('button', name='Hapus', exact=True).click()
             expect(page.locator("[data-module-status]")).to_have_text("Keputusan dihapus.")
-            expect(page.locator("textarea", has_text="Alasan diperbarui")).to_have_count(0)
+            expect(page.locator("[data-note-text]", has_text="Alasan diperbarui")).to_have_count(0)
             self.assertEqual(page.evaluate("window.modulePage"), "same-page")
             self.assertEqual(errors, [])
             browser.close()
@@ -208,4 +268,3 @@ class DecisionBrowserTests(StaticLiveServerTestCase):
                         page.screenshot(path=str(directory / f"{path.strip('/')}-{width}.png"), full_page=True)
 
             browser.close()
-

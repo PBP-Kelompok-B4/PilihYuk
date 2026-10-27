@@ -1,0 +1,16 @@
+﻿<dialog data-create-dialog {% if form.errors %}data-open-on-load{% endif %} aria-labelledby="create-dialog-title" class="m-auto max-h-[90vh] w-[calc(100%_-_2rem)] max-w-lg overflow-y-auto rounded-[20px] bg-white p-6 text-ink shadow-xl backdrop:bg-night/40">
+    <div class="flex items-center justify-between gap-4"><h2 id="create-dialog-title" class="text-xl font-bold">Catat Keputusan Baru</h2><button type="button" data-close-dialog aria-label="Tutup form pencatatan" class="rounded-lg px-3 py-2 focus-visible:outline-2 focus-visible:outline-brand">Ã—</button></div>
+    <form method="post" action="{% url 'preferences:decision_create' %}" data-decision-create class="mt-5 space-y-4">
+        {% csrf_token %}{% if form.errors %}<div role="alert" class="text-sm">{{ form.errors }}</div>{% endif %}
+        {% for field in form %}{% if field.is_hidden %}{{ field }}{% else %}<div class="min-w-0"><label for="{{ field.id_for_label }}" class="mb-2 block text-sm font-semibold">{{ field.label }}</label>{{ field }}</div>{% endif %}{% endfor %}
+        <p class="text-xs leading-relaxed text-muted">Jumlah pembanding tidak dicatat pada input manual ini. Jumlah tersedia saat alur perbandingan mengirim subset yang valid.</p>
+        <button type="submit" class="btn-brand min-h-11 focus-visible:outline-2 focus-visible:outline-brand">Simpan keputusan</button>
+    </form>
+</dialog>
+<dialog data-edit-dialog aria-labelledby="edit-dialog-title" class="m-auto max-h-[90vh] w-[calc(100%_-_2rem)] max-w-lg overflow-y-auto rounded-[20px] bg-white p-6 text-ink shadow-xl backdrop:bg-night/40">
+    <div class="flex items-center justify-between gap-4"><h2 id="edit-dialog-title" class="text-xl font-bold">Ubah alasan keputusan</h2><button type="button" data-close-dialog aria-label="Tutup form alasan" class="rounded-lg px-3 py-2 focus-visible:outline-2 focus-visible:outline-brand">Ã—</button></div>
+    <form method="post" data-decision-update class="mt-5 space-y-4">{% csrf_token %}<div><label for="edit-decision-note" class="mb-2 block text-sm font-semibold">Alasan (opsional)</label><textarea id="edit-decision-note" name="note" maxlength="500" rows="5" class="w-full min-w-0 rounded-xl border border-line p-3 text-sm focus-visible:outline-2 focus-visible:outline-brand"></textarea></div><p class="text-xs text-muted">Produk, shelf, dan jumlah pembanding historis tetap sama.</p><button type="submit" class="btn-brand min-h-11 focus-visible:outline-2 focus-visible:outline-brand">Simpan alasan</button></form>
+</dialog>
+<dialog data-confirm-dialog aria-labelledby="confirm-dialog-title" class="m-auto w-[calc(100%_-_2rem)] max-w-md rounded-[20px] bg-white p-6 text-ink shadow-xl backdrop:bg-night/40">
+    <h2 id="confirm-dialog-title" class="text-xl font-bold">Hapus keputusan ini?</h2><p data-confirm-message class="mt-3 text-sm leading-relaxed text-muted">Catatan yang dihapus tidak dapat dikembalikan.</p><div class="mt-6 flex flex-wrap justify-end gap-3"><button type="button" data-close-dialog autofocus class="btn-white ring-1 ring-line focus-visible:outline-2 focus-visible:outline-brand">Batal</button><button type="button" data-confirm-delete class="inline-flex min-h-11 items-center justify-center rounded-[10px] bg-red-700 px-5 py-3 text-sm font-semibold text-white focus-visible:outline-2 focus-visible:outline-red-700">Hapus</button></div>
+</dialog>

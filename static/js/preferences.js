@@ -158,61 +158,88 @@
     if (decisions) {
         const results = decisions.querySelector('[data-decision-results]');
         const filterForm = decisions.querySelector('[data-decision-filter]');
+        const loading = decisions.querySelector('[data-history-loading]');
+        const errorPanel = decisions.querySelector('[data-history-error]');
+        const createDialog = decisions.querySelector('[data-create-dialog]');
+        const editDialog = decisions.querySelector('[data-edit-dialog]');
+        const confirmDialog = decisions.querySelector('[data-confirm-dialog]');
+        const openers = new WeakMap();
+        let pendingDelete;
         let latestLoad = 0;
         let filterTimer;
         let writing = false;
-
-        async function loadHistory(url) {
+        let lastHistoryUrl = window.location.href;
+        function openDialog(dialog, opener) {
+            openers.set(dialog, opener);
+            dialog.showModal();
+        }
+        decisions.querySelectorAll('dialog').forEach(dialog => {
+            dialog.addEventListener('close', () => {
+                const opener = openers.get(dialog);
+                if (opener?.isConnected) opener.focus({preventScroll: true});
+            });
+            if (dialog.hasAttribute('data-open-on-load')) dialog.showModal();
+        });
+        async function loadHistory(url, reportError = true) {
             const loadId = ++latestLoad;
-            const hadFocus = results.contains(document.activeElement);
-            const focusedId = hadFocus ? document.activeElement.id : '';
+            lastHistoryUrl = url;
+            const focused = results.contains(document.activeElement) ? document.activeElement.id : '';
+            loading.hidden = false;
+            errorPanel.hidden = true;
             results.setAttribute('aria-busy', 'true');
             try {
                 const data = await request(url);
                 if (loadId !== latestLoad) return false;
                 results.innerHTML = data.html;
+                decisions.querySelector('[data-history-tools]').innerHTML = data.tools_html;
+                decisions.querySelector('[data-export]').href = data.export_url;
+                for (const key of ['total', 'shelves', 'products']) decisions.querySelector(`[data-summary-${key}]`).textContent = data.summary[key];
                 history.replaceState(null, '', data.url);
-                if (hadFocus) (document.getElementById(focusedId) || results).focus({preventScroll: true});
+                lastHistoryUrl = window.location.href;
+                const params = new URL(data.url, window.location.origin).searchParams;
+                for (const control of filterForm.elements) {
+                    if (control.name && document.activeElement !== control) control.value = params.get(control.name) || '';
+                }
+                if (focused) (document.getElementById(focused) || results).focus({preventScroll: true});
                 return true;
             } catch (error) {
-                if (loadId === latestLoad) notify(`Riwayat belum diperbarui. ${error.message}`, 'error');
+                if (loadId === latestLoad) {
+                    errorPanel.hidden = false;
+                    if (reportError) notify(error.message, 'error');
+                }
                 return false;
             } finally {
-                if (loadId === latestLoad) results.removeAttribute('aria-busy');
+                if (loadId === latestLoad) { loading.hidden = true; results.removeAttribute('aria-busy'); }
             }
         }
-
         function applyFilters() {
             clearTimeout(filterTimer);
             if (writing) return;
-            const params = new URLSearchParams(new FormData(filterForm));
-            loadHistory(`${filterForm.action}?${params}`);
+            loadHistory(`${filterForm.action}?${new URLSearchParams(new FormData(filterForm))}`);
         }
-
         decisions.addEventListener('submit', async event => {
             const form = event.target;
-            if (form === filterForm) {
-                event.preventDefault();
-                applyFilters();
-                return;
-            }
+            if (form === filterForm) { event.preventDefault(); applyFilters(); return; }
             if (!form.matches('[data-decision-create], [data-decision-update], [data-decision-delete], [data-decision-bulk]')) return;
             event.preventDefault();
             if (writing) return;
             let removed = [];
             if (form.matches('[data-decision-bulk]')) {
                 const selected = new Set(new FormData(form).getAll('ids'));
-                if (!selected.size) {
-                    notify('Pilih setidaknya satu keputusan.', 'error');
-                    return;
-                }
+                if (!selected.size) { notify('Pilih setidaknya satu keputusan.', 'error'); return; }
                 removed = [...results.querySelectorAll('[data-decision]')].filter(row => selected.has(row.dataset.decision));
-            } else if (form.matches('[data-decision-delete]')) {
-                removed = [form.closest('[data-decision]')];
+            } else if (form.matches('[data-decision-delete]')) removed = [form.closest('[data-decision]')];
+            if (removed.length && form.dataset.confirmed !== 'true') {
+                pendingDelete = form;
+                decisions.querySelector('[data-confirm-message]').textContent = `${removed.length} keputusan akan dihapus permanen. Catatan yang dihapus tidak dapat dikembalikan.`;
+                openDialog(confirmDialog, document.activeElement);
+                return;
             }
+            delete form.dataset.confirmed;
             clearTimeout(filterTimer);
             writing = true;
             ++latestLoad;
+            form.setAttribute('aria-busy', 'true');
             results.setAttribute('aria-busy', 'true');
             const focused = document.activeElement;
             const controls = [...decisions.querySelectorAll('input, select, textarea, button')].filter(control => !control.disabled);
@@ -221,49 +248,67 @@
                 controls.forEach(control => { control.disabled = true; });
                 removed.forEach(row => { row.hidden = true; });
                 let data;
-                try {
-                    data = await pending;
-                } catch (error) {
+                try { data = await pending; }
+                catch (error) {
                     removed.forEach(row => { row.hidden = false; });
-                    const note = form.matches('[data-decision-update]') ? form.querySelector('textarea') : null;
-                    if (note) note.value = note.defaultValue;
                     notify(error.message, 'error');
                     return;
                 }
                 if (form.matches('[data-decision-create]')) form.reset();
-                const refreshed = await loadHistory(window.location.href);
+                form.closest('dialog')?.close();
+                const refreshed = await loadHistory(lastHistoryUrl, false);
                 if (!refreshed) removed.forEach(row => { row.remove(); });
                 notify(refreshed ? data.message : `${data.message} Muat ulang daftar untuk melihat perubahan.`, refreshed ? 'success' : 'normal');
             } finally {
                 writing = false;
+                form.removeAttribute('aria-busy');
+                loading.hidden = true;
                 results.removeAttribute('aria-busy');
                 controls.forEach(control => { control.disabled = false; });
-                if (focused && decisions.contains(focused)) focused.focus({preventScroll: true});
-                else (document.getElementById(focused?.id) || results).focus({preventScroll: true});
+                if (!decisions.querySelector('dialog[open]')) {
+                    if (focused?.isConnected && !focused.closest('dialog')) focused.focus({preventScroll: true});
+                    else results.focus({preventScroll: true});
+                }
             }
         });
-
         decisions.addEventListener('click', event => {
-            const link = event.target.closest('[data-page], [data-filter-reset]');
+            const close = event.target.closest('[data-close-dialog]');
+            if (close) close.closest('dialog').close();
+            const create = event.target.closest('[data-open-create]');
+            if (create && !writing) openDialog(createDialog, create);
+            const edit = event.target.closest('[data-decision-edit]');
+            if (edit && !writing) {
+                const form = editDialog.querySelector('form');
+                form.action = edit.dataset.updateUrl;
+                form.querySelector('textarea').value = edit.closest('[data-decision]').querySelector('[data-note-text]').textContent;
+                openDialog(editDialog, edit);
+            }
+            if (event.target.closest('[data-confirm-delete]') && pendingDelete?.isConnected) {
+                confirmDialog.close();
+                pendingDelete.dataset.confirmed = 'true';
+                pendingDelete.requestSubmit();
+                pendingDelete = null;
+            }
+            if (event.target.closest('[data-history-retry]') && !writing) loadHistory(lastHistoryUrl);
+            const link = event.target.closest('[data-page], [data-filter-reset], [data-history-chip]');
             if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
             event.preventDefault();
             if (writing) return;
             clearTimeout(filterTimer);
-            if (link.matches('[data-filter-reset]')) {
-                for (const control of filterForm.elements) {
-                    if (control.name) control.value = '';
-                }
-            }
             loadHistory(link.href);
         });
         filterForm.addEventListener('input', event => {
             if (event.target.name !== 'q') return;
+            ++latestLoad;
             clearTimeout(filterTimer);
             filterTimer = setTimeout(applyFilters, 300);
         });
-        filterForm.addEventListener('change', event => {
-            if (event.target.name !== 'q') applyFilters();
-        });
+        filterForm.addEventListener('change', event => { if (event.target.name !== 'q') applyFilters(); });
+        decisions.addEventListener('error', event => {
+            if (event.target.matches('[data-product-image]')) {
+                event.target.hidden = true;
+                event.target.parentElement.classList.add('bg-placeholder');
+            }
+        }, true);
     }
 })();
-

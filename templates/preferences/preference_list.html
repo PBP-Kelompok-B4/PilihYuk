@@ -17,7 +17,7 @@
             <div class="mb-4 flex items-start gap-3 rounded-2xl bg-mint px-5 py-4 text-xs leading-relaxed"><img src="{% static 'img/info.svg' %}" alt="" class="mt-0.5 h-4 w-4 shrink-0"><p>Setiap nutrien punya dua arah: Maksimalkan untuk nilai lebih tinggi, atau Batasi untuk nilai lebih rendah. Bobot menentukan seberapa kuat pengaruhnya pada urutan.</p></div>
             <section class="card min-w-0" aria-labelledby="nutrient-title">
                 <h2 id="nutrient-title" class="text-lg font-bold">Nutrien yang dibandingkan</h2><p class="mt-1 text-xs text-muted">Pilih arah dan bobot untuk nutrien yang ingin kamu pakai.</p>
-                <div aria-hidden="true" class="mt-6 hidden grid-cols-[minmax(90px,1fr)_auto_auto_44px] gap-3 text-[11px] font-semibold text-muted lg:grid"><span>Nutrien</span><span>Arah</span><span>Bobot</span><span>Aktif</span></div>
+                <div aria-hidden="true" class="mt-6 hidden grid-cols-[minmax(90px,1fr)_170px_170px_44px] gap-3 text-[11px] font-semibold text-muted lg:grid"><span>Nutrien</span><span>Arah</span><span>Bobot</span><span>Aktif</span></div>
                 <div class="mt-4 divide-y divide-line">{% for row in rows %}{% include "preferences/_preference_row.html" %}{% endfor %}</div>
             </section>
         </div>
