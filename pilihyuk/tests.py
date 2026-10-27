@@ -21,3 +21,11 @@ class HomePageTests(TestCase):
         response = self.client.get("/")
         self.assertContains(response, "Bandingkan sebelum pilih.")
         self.assertContains(response, "Tertinggi")
+
+
+class NotFoundPageTests(TestCase):
+    def test_unknown_url_uses_custom_404_page(self):
+        response = self.client.get("/tentang/")
+        self.assertEqual(response.status_code, 404)
+        self.assertTemplateUsed(response, "404.html")
+        self.assertContains(response, "Halaman tidak ditemukan", status_code=404)
