@@ -105,6 +105,7 @@ class DecisionForm(forms.ModelForm):
 
 
 class DecisionFilterForm(forms.Form):
+    bulan = forms.ChoiceField(required=False, choices=(("", "Semua"), ("ini", "Bulan ini")), widget=forms.HiddenInput)
     q = forms.CharField(required=False, label="Nama produk atau merek", max_length=255)
     shelf = forms.ModelChoiceField(queryset=Shelf.objects.none(), required=False, label="Shelf",
                                    empty_label="Semua shelf")

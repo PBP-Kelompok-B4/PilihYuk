@@ -1,17 +1,20 @@
 import json
+import csv
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.db import transaction
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
+from django.utils import timezone
 
 from product_catalog.models import Product
+from shelves.models import Shelf
 
 from .constants import DEFAULT_DIRECTIONS, DEFAULT_WEIGHT, DIRECTION_CHOICES, NUTRIENT_FIELDS, WEIGHT_CHOICES
 from .decorators import module_methods, owner_required, rate_limit, wants_json
@@ -165,16 +168,21 @@ def preference_preview(request):
     return JsonResponse({"ok": True, "ranked_count": ranked.count(), "total_active": active.count(), "samples": samples})
 
 
-def decision_item(item):
+def decision_item(item, user):
     product = Product.objects.filter(pk=item.product_id, is_active=True).first()
+    shelf = item.shelf if item.shelf and (not item.shelf.is_private or item.shelf.owner_id == user.pk) else None
     return {"id": item.pk, "product_id": item.product_id,
             "product_name": product.product_name if product else "Tidak diketahui",
-            "shelf_id": item.shelf_id, "shelf_name": item.shelf.name if item.shelf else "Tidak diketahui",
+            "brand": product.brand if product else "", "quantity": product.quantity if product else "",
+            "image_url": product.image_url if product else "",
+            "product_url": reverse("product_catalog:product_detail", args=[product.pk]) if product else None,
+            "shelf_id": shelf.pk if shelf else None, "shelf_name": shelf.name if shelf else "Tidak diketahui",
+            "shelf_url": reverse("shelves:detail", args=[shelf.pk]) if shelf else None,
             "note": item.note, "created_at": item.created_at.isoformat(),
             "compared_product_count": item.compared_product_count}
 
 
-def decision_context(request, form=None):
+def filtered_decisions(request):
     queryset = Decision.objects.filter(user=request.user).select_related("shelf").order_by("-created_at", "-pk")
     filters = DecisionFilterForm(request.GET, user=request.user)
     filters.is_valid()
@@ -188,9 +196,22 @@ def decision_context(request, form=None):
         queryset = queryset.filter(created_at__date__gte=data["dari"])
     if data.get("sampai"):
         queryset = queryset.filter(created_at__date__lte=data["sampai"])
+    if data.get("bulan") == "ini":
+        start = timezone.localdate().replace(day=1)
+        end = start.replace(year=start.year + (start.month == 12), month=start.month % 12 + 1)
+        queryset = queryset.filter(created_at__date__gte=start, created_at__date__lt=end)
     notices = [f"Filter {filters.fields[key].label.lower()} tidak valid dan diabaikan." for key in filters.errors]
+    return queryset, filters, notices
+
+
+def decision_context(request, form=None):
+    queryset, filters, notices = filtered_decisions(request)
+    history = Decision.objects.filter(user=request.user)
+    visible_shelves = Q(shelf__owner=request.user) | Q(shelf__is_private=False)
+    summary = history.aggregate(total=Count("pk"), shelves=Count("shelf_id", distinct=True, filter=visible_shelves),
+                                products=Count("product_id", distinct=True))
     page = Paginator(queryset, 10).get_page(request.GET.get("page"))
-    rows = [{"item": decision_item(item), "created_at": item.created_at} for item in page]
+    rows = [{"item": decision_item(item, request.user), "created_at": item.created_at} for item in page]
     params = request.GET.copy()
     params["page"] = page.number
     current_url = reverse("preferences:decision_list") + "?" + params.urlencode()
@@ -198,8 +219,41 @@ def decision_context(request, form=None):
     for key, number in (("previous_url", page.number - 1), ("next_url", page.number + 1)):
         params["page"] = number
         links[key] = "?" + params.urlencode()
+    export_params = request.GET.copy()
+    export_params.pop("page", None)
+    has_filters = any(request.GET.get(key) for key in ("q", "shelf", "dari", "sampai", "bulan"))
+    chips = [{"label": "Semua", "url": reverse("preferences:decision_list"), "active": not has_filters},
+             {"label": "Bulan ini", "url": "?bulan=ini", "active": request.GET.get("bulan") == "ini"}]
+    for shelf in Shelf.objects.filter(Q(owner=request.user) | Q(is_private=False),
+                                      pk__in=history.values("shelf_id")).order_by("name", "pk"):
+        chips.append({"label": shelf.name, "url": f"?shelf={shelf.pk}", "active": request.GET.get("shelf") == str(shelf.pk)})
     return {"rows": rows, "page_obj": page, "form": form if form is not None else DecisionForm(user=request.user),
-            "filter_form": filters, "notices": notices, "current_url": current_url, **links}
+            "filter_form": filters, "notices": notices, "current_url": current_url, "summary": summary, "chips": chips,
+            "export_url": reverse("preferences:decision_export") + "?" + export_params.urlencode(),
+            "has_history": bool(summary["total"]), "has_filters": has_filters, **links}
+
+
+def csv_text(value):
+    text = str(value) if value is not None else ""
+    if text.lstrip(" \t\r\n\ufeff").startswith(("=", "+", "-", "@")) or text.startswith(("\t", "\r", "\n")):
+        return "'" + text
+    return text
+
+
+@login_required
+@module_methods("GET")
+def decision_export(request):
+    queryset, _, _ = filtered_decisions(request)
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = 'attachment; filename="riwayat-keputusan.csv"'
+    response.write("\ufeff")
+    writer = csv.writer(response)
+    columns = ("id", "created_at", "product_name", "shelf_name", "note", "compared_product_count")
+    writer.writerow(columns)
+    for item in queryset.iterator():
+        serialized = decision_item(item, request.user)
+        writer.writerow([csv_text(serialized[key]) for key in columns])
+    return response
 
 
 @login_required
@@ -217,7 +271,7 @@ def decision_list(request):
 
 def decision_result(request, item, message, *, status=200):
     if wants_json(request):
-        return JsonResponse({"ok": True, "message": message, "item": decision_item(item)}, status=status)
+        return JsonResponse({"ok": True, "message": message, "item": decision_item(item, request.user)}, status=status)
     messages.success(request, message)
     return redirect("preferences:decision_list")
 
@@ -257,7 +311,7 @@ def decision_update(request, item):
 @owner_required(Decision)
 @rate_limit
 def decision_delete(request, item):
-    result = decision_item(item)
+    result = decision_item(item, request.user)
     item.delete()
     if wants_json(request):
         return JsonResponse({"ok": True, "message": "Keputusan dihapus.", "item": result})
