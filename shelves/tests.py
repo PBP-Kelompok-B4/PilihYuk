@@ -234,6 +234,14 @@ class ComparisonTests(TestCase):
         rows = comparison_rows([self.make("A", nova_group=4), self.make("B", nova_group=4)])
         self.assertEqual(self.best(rows, "NOVA"), [False, False])
 
+    def test_estimate_shows_only_without_official_score_and_is_not_ranked(self):
+        a = self.make("A", environmental_grade="unknown", environmental_grade_estimated="a")
+        b = self.make("B", environmental_grade="c", environmental_grade_estimated="b")
+        c = self.make("C", environmental_grade="d")
+        green = next(r for r in comparison_rows([a, b, c]) if r["label"] == "Green-Score")["cells"]
+        self.assertEqual([cell["estimate"] for cell in green], ["a", "", ""])
+        self.assertEqual([cell["best"] for cell in green], [False, True, False])
+
     def test_detail_compares_at_most_four_chosen_products(self):
         owner = get_user_model().objects.create_user("rani@example.com", "rani@example.com", "pw-12345678")
         shelf = Shelf.objects.create(name="Mie", owner=owner)

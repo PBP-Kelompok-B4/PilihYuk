@@ -35,9 +35,12 @@ def grade_row(label, kind, values, order):
 
 
 def comparison_rows(products):
+    green = grade_row("Green-Score", "green", [p.environmental_grade for p in products], GREEN_ORDER)
+    for cell, product in zip(green["cells"], products):
+        cell["estimate"] = product.environmental_grade_estimated if cell["rank"] is None else ""
     rows = [
         grade_row("Nutri-Score", "nutri", [p.nutrition_grade for p in products], NUTRI_ORDER),
-        grade_row("Green-Score", "green", [p.environmental_grade for p in products], GREEN_ORDER),
+        green,
         row("NOVA", "nova", [p.nova_group for p in products], [p.nova_group for p in products], "min"),
     ]
     for label, field, unit, direction in NUTRIENTS:
