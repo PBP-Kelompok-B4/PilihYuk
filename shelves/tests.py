@@ -140,6 +140,17 @@ class ShelfViewTests(TestCase):
         self.assertRedirects(self.client.post(url), reverse("shelves:mine"))
         self.assertFalse(Shelf.objects.filter(pk=self.public.pk).exists())
 
+    def test_pagination_links_keep_other_query_params(self):
+        for i in range(13):
+            Shelf.objects.create(name=f"Milik {i}", owner=self.owner)
+            SavedShelf.objects.create(user=self.owner, shelf=Shelf.objects.create(name=f"Orang {i}", owner=self.other))
+        self.client.force_login(self.owner)
+        response = self.client.get(reverse("shelves:mine"), {"saved_page": 2})
+        self.assertContains(response, "?saved_page=2&amp;page=2")
+        self.assertContains(response, "?saved_page=1")
+        response = self.client.get(reverse("shelves:list"), {"q": "orang"})
+        self.assertContains(response, "?q=orang&amp;page=2")
+
     def test_mine_shows_own_and_saved_public_shelves_only(self):
         theirs = Shelf.objects.create(name="Camilan kantor", owner=self.other)
         hidden = Shelf.objects.create(name="Disembunyikan", owner=self.other, is_private=True)
