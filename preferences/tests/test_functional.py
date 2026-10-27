@@ -24,6 +24,39 @@ CHROME_AVAILABLE = bool(shutil.which("google-chrome") or shutil.which("chrome"))
 @unittest.skipUnless(os.getenv("PILIHYUK_BROWSER_TESTS") == "1" and importlib.util.find_spec("playwright") and CHROME_AVAILABLE,
                      "Tes browser memerlukan opt-in, Playwright, dan Chrome lokal.")
 class DecisionBrowserTests(StaticLiveServerTestCase):
+    def test_global_draft_reset_and_failed_save_keep_database_unchanged(self):
+        from playwright.sync_api import expect, sync_playwright
+
+        user = make_user()
+        Preference.objects.create(user=user, nutrient="protein", direction="max", weight=3)
+        self.client.force_login(user)
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(channel="chrome", headless=True)
+            context = browser.new_context(viewport={"width": 1280, "height": 900})
+            context.add_cookies([{"name": settings.SESSION_COOKIE_NAME,
+                                 "value": self.client.cookies[settings.SESSION_COOKIE_NAME].value,
+                                 "url": self.live_server_url}])
+            page = context.new_page()
+            page.goto(self.live_server_url + "/preferensi/")
+            expect(page.get_by_role("button", name="Simpan Preferensi", exact=True)).to_have_count(1)
+            page.locator("#active-fiber").click()
+            items = page.request.get(self.live_server_url + "/preferensi/", headers={"Accept": "application/json"}).json()["items"]
+            self.assertEqual(len(items), 1)
+            page.get_by_role("button", name="Reset", exact=True).click()
+            expect(page.locator('[role="switch"][aria-checked="true"]')).to_have_count(0)
+            page.locator("#active-fiber").click()
+            page.get_by_role("button", name="Simpan Preferensi", exact=True).click()
+            expect(page.locator('[data-draft-status]')).to_have_text("Semua perubahan tersimpan.")
+            items = page.request.get(self.live_server_url + "/preferensi/", headers={"Accept": "application/json"}).json()["items"]
+            self.assertEqual([item["nutrient"] for item in items], ["fiber"])
+            page.route("**/preferensi/simpan/", lambda route: route.fulfill(status=400, json={"ok": False, "message": "Gagal menyimpan."}))
+            page.locator('label', has=page.locator('#weight-fiber-3')).click()
+            page.get_by_role("button", name="Simpan Preferensi", exact=True).click()
+            expect(page.locator('[data-module-status]')).to_have_text("Gagal menyimpan.")
+            expect(page.locator('#weight-fiber-3')).to_be_checked()
+            expect(page.locator('[data-draft-status]')).to_have_text("Ada perubahan belum disimpan.")
+            browser.close()
+
     def setUp(self):
         cache.clear()
         self.addCleanup(cache.clear)
