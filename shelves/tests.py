@@ -62,6 +62,15 @@ class ShelfViewTests(TestCase):
         self.assertTrue(response.context["page"].paginator.object_list.ordered)
         self.assertEqual([s.name for s in response.context["page"]], ["Mie instan", newer.name])
 
+    def test_list_counts_and_shows_only_active_products(self):
+        ShelfItem.objects.create(shelf=self.public, product=Product.objects.create(product_name="Sarimi", source="manual"))
+        ShelfItem.objects.create(shelf=self.public, product=Product.objects.create(
+            product_name="Produk lama", source="manual", is_active=False))
+        data = self.client.get(reverse("shelves:list"), {"format": "json"}).json()
+        self.assertEqual(data["results"][0]["item_count"], 1)
+        response = self.client.get(reverse("shelves:list"))
+        self.assertEqual([i.product.product_name for i in response.context["page"][0].items.all()], ["Sarimi"])
+
     def test_search_filters_by_context(self):
         Shelf.objects.create(name="Kopi pagi", owner=self.other)
         response = self.client.get(reverse("shelves:list"), {"q": "alfamart"})

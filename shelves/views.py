@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Prefetch, Q
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -30,9 +30,11 @@ def owner_name(user):
 
 
 def shelves_with_counts():
+    active_items = ShelfItem.objects.filter(product__is_active=True).select_related("product")
     return (Shelf.objects.select_related("owner")
-            .annotate(item_count=Count("items", distinct=True), save_count=Count("saves", distinct=True))
-            .prefetch_related("items__product").order_by("-updated_at", "-pk"))
+            .annotate(item_count=Count("items", filter=Q(items__product__is_active=True), distinct=True),
+                      save_count=Count("saves", distinct=True))
+            .prefetch_related(Prefetch("items", active_items)).order_by("-updated_at", "-pk"))
 
 
 def serialize_shelf(shelf):

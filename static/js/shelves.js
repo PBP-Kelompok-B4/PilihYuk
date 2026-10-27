@@ -51,7 +51,7 @@
         });
         const isJson = (response.headers.get('Content-Type') || '').includes('application/json');
         const data = isJson ? await response.json() : {};
-        if (!response.ok) throw new Error(data.error || 'Permintaan gagal. Muat ulang halaman lalu coba lagi.');
+        if (!response.ok || !isJson) throw new Error(data.error || 'Permintaan gagal. Muat ulang halaman lalu coba lagi.');
         return data;
     }
 
@@ -179,7 +179,7 @@
             });
             const isJson = (response.headers.get('Content-Type') || '').includes('application/json');
             const data = isJson ? await response.json() : {};
-            if (!response.ok) throw new Error(data.message || 'Muat ulang halaman lalu coba lagi.');
+            if (!response.ok || !isJson) throw new Error(data.message || 'Sesi mungkin berakhir. Muat ulang halaman lalu coba lagi.');
             showToast('Keputusan disimpan', `${data.item.product_name} tercatat di Riwayat Keputusan.`, 'success');
         } catch (error) {
             showToast('Gagal menyimpan keputusan', error.message, 'error');
