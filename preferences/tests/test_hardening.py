@@ -34,7 +34,7 @@ class WriteRateLimitTests(TestCase):
     def test_limit_covers_all_write_endpoints_and_expires(self):
         product = make_product()
         decision = Decision.objects.create(user=self.user, product=product)
-        urls = ["/preferensi/tambah/", f"/preferensi/{self.item.pk}/ubah/", f"/preferensi/{self.item.pk}/hapus/",
+        urls = ["/preferensi/tambah/", "/preferensi/simpan/", f"/preferensi/{self.item.pk}/ubah/", f"/preferensi/{self.item.pk}/hapus/",
                 "/riwayat/tambah/", f"/riwayat/{decision.pk}/ubah/", f"/riwayat/{decision.pk}/hapus/", "/riwayat/hapus-massal/"]
         for _ in range(30):
             self.client.post("/preferensi/tambah/", {})

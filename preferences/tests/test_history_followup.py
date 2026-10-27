@@ -3,6 +3,7 @@ from django.test import TestCase
 from django.utils import timezone
 import csv
 import io
+from datetime import timedelta, datetime, time
 
 from preferences.models import Decision
 from .helpers import make_product, make_shelf, make_user
@@ -22,6 +23,7 @@ class HistoryFollowupTests(TestCase):
         response = self.client.get("/riwayat/", HTTP_ACCEPT="application/json")
         self.assertNotIn("Nama privat rahasia", response.content.decode())
         self.assertIsNone(response.json()["items"][0]["shelf_id"])
+        self.assertNotIn("Nama privat rahasia", self.client.get("/riwayat/ekspor/").content.decode())
 
     def test_export_includes_all_filtered_rows_and_neutralizes_formulas(self):
         for index in range(12):
@@ -43,5 +45,19 @@ class HistoryFollowupTests(TestCase):
         response = self.client.get("/riwayat/", {"q": "tidak-cocok"})
         self.assertEqual(response.context["summary"]["total"], 13)
         self.assertEqual(response.context["summary"]["products"], 1)
+        previous = Decision.objects.create(user=self.user, product=self.product)
+        day = timezone.localdate().replace(day=1) - timedelta(days=1)
+        Decision.objects.filter(pk=previous.pk).update(created_at=timezone.make_aware(datetime.combine(day, time(12))))
         result = self.client.get("/riwayat/", {"bulan": "ini"}, HTTP_ACCEPT="application/json").json()
         self.assertEqual(result["total"], 13)
+
+    def test_export_null_relations_and_spreadsheet_prefixes(self):
+        for note in (" +1", "-1", "@SUM(A1)", "\t=1", "\r=1", "\ufeff=1"):
+            Decision.objects.create(user=self.user, product=None, note=note)
+        response = self.client.get("/riwayat/ekspor/")
+        rows = list(csv.DictReader(io.StringIO(response.content.decode("utf-8-sig"))))
+        self.assertTrue(all(row["note"].startswith("'") for row in rows))
+        self.assertTrue(all(row["product_name"] == "Tidak diketahui" and row["compared_product_count"] == "" for row in rows))
+        self.assertEqual(self.client.post("/riwayat/ekspor/").status_code, 405)
+        self.client.logout()
+        self.assertEqual(self.client.get("/riwayat/ekspor/").status_code, 302)
