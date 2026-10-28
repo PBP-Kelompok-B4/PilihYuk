@@ -416,3 +416,22 @@ class PreferenceIntegrationTests(TestCase):
     def test_visitors_do_not_see_choose_button(self):
         self.client.logout()
         self.assertNotContains(self.client.get(reverse("shelves:detail", args=[self.shelf.pk])), "Pilih ini")
+
+
+class CorrectionLinkTests(TestCase):
+    def test_missing_values_link_to_the_correction_form(self):
+        owner = get_user_model().objects.create_user("rani@example.com", "rani@example.com", "pw-12345678")
+        shelf = Shelf.objects.create(name="Mie", owner=owner)
+        a = Product.objects.create(product_name="A", source="manual", proteins_100g=9, nutrition_grade="b",
+                                   environmental_grade="unknown", packaging_tags=[])
+        b = Product.objects.create(product_name="B", source="manual", proteins_100g=8, nutrition_grade="c",
+                                   environmental_grade="not-applicable", packaging_tags=[])
+        for product in (a, b):
+            ShelfItem.objects.create(shelf=shelf, product=product)
+        response = self.client.get(reverse("shelves:detail", args=[shelf.pk]))
+        submit_a = reverse("data_correction:submit", args=[a.pk])
+        self.assertContains(response, f'href="{submit_a}?field=sugars_100g"')
+        self.assertContains(response, f'href="{submit_a}?field=origin"')
+        self.assertContains(response, f'href="{submit_a}"')
+        self.assertNotContains(response, f'href="{reverse("data_correction:submit", args=[b.pk])}"')
+        self.assertNotContains(response, f'href="{submit_a}?field=proteins_100g"')

@@ -25,10 +25,10 @@ def mark_best(cells, direction):
         cell["best"] = cell["rank"] == target
 
 
-def row(label, kind, values, ranks, direction=None, unit=""):
+def row(label, kind, values, ranks, direction=None, unit="", field=None):
     cells = [{"value": value, "rank": rank, "best": False} for value, rank in zip(values, ranks)]
     mark_best(cells, direction)
-    return {"label": label, "kind": kind, "unit": unit, "direction": direction, "cells": cells}
+    return {"label": label, "kind": kind, "unit": unit, "direction": direction, "field": field, "cells": cells}
 
 
 def grade_row(label, kind, values, order):
@@ -43,7 +43,8 @@ def comparison_rows(products, preferences=()):
     rows = [
         grade_row("Nutri-Score", "nutri", [p.nutrition_grade for p in products], NUTRI_ORDER),
         green,
-        row("NOVA", "nova", [p.nova_group for p in products], [p.nova_group for p in products], "min"),
+        row("NOVA", "nova", [p.nova_group for p in products], [p.nova_group for p in products], "min",
+            field="nova_group"),
     ]
     nutrients = []
     for label, field, unit, direction in NUTRIENTS:
@@ -52,7 +53,7 @@ def comparison_rows(products, preferences=()):
         if field == "sodium_100g":
             values = [None if v is None else round(v * 1000, 1) for v in values]
         top = max((v for v in values if v is not None), default=0)
-        nutrient = row(label, "number", values, values, preference.direction if preference else direction, unit)
+        nutrient = row(label, "number", values, values, preference.direction if preference else direction, unit, field)
         nutrient["preferred"] = preference is not None
         for cell in nutrient["cells"]:
             cell["pct"] = round(100 * cell["value"] / top) if cell["value"] and top else 0
@@ -61,5 +62,8 @@ def comparison_rows(products, preferences=()):
     rows += [nutrient for nutrient, _ in nutrients]
     rows.append(row("Kemasan", "text", [", ".join(tag_name(t) for t in p.packaging_tags) for p in products],
                     [None] * len(products)))
-    rows.append(row("Asal", "text", [p.origin for p in products], [None] * len(products)))
+    rows.append(row("Asal", "text", [p.origin for p in products], [None] * len(products), field="origin"))
+    for line in rows:
+        for cell, product in zip(line["cells"], products):
+            cell["product_id"] = product.pk
     return rows

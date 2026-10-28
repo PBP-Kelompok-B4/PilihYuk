@@ -38,9 +38,11 @@
                 <td class="px-3 py-3 sm:px-4{% if cell.best %} bg-mint{% endif %}">
                     {% if cell.value is None or cell.value == "" %}
                     <span class="chip bg-surface text-muted"><img src="{% static 'img/info.svg' %}" alt="">Tidak diketahui</span>
+                    {% if row.field %}<a href="{% url 'data_correction:submit' cell.product_id %}?field={{ row.field }}" class="mt-1 block text-[11px] font-semibold text-brand hover:underline">Bantu lengkapi data</a>{% endif %}
                     {% elif row.kind == "nutri" or row.kind == "green" %}
                         {% if cell.estimate %}<span class="chip bg-[#fdf3dc] text-estimate"><img src="{% static 'img/leaf-1.svg' %}" alt="">{{ cell.estimate|upper }} · Estimasi</span>
                         {% elif cell.rank is None %}<span class="chip bg-surface text-muted">{{ cell.value }}</span>
+                        {% if cell.value == "unknown" %}<a href="{% url 'data_correction:submit' cell.product_id %}" class="mt-1 block text-[11px] font-semibold text-brand hover:underline">Bantu lengkapi data</a>{% endif %}
                         {% elif row.kind == "nutri" %}<span class="inline-flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-nutri-{{ cell.value }} font-bold text-white">{{ cell.value|upper }}</span>
                         {% else %}<span class="chip bg-leaf"><img src="{% static 'img/leaf-1.svg' %}" alt="">{% if cell.value == "a-plus" %}A+{% else %}{{ cell.value|upper }}{% endif %}</span>{% endif %}
                     {% elif row.kind == "nova" %}
@@ -84,7 +86,7 @@
     <ul class="mt-2 space-y-1">
         <li>Sorotan hijau menandai nilai terbaik di barisnya, hanya bila minimal dua produk punya nilai yang bisa diperingkat.</li>
         <li>"unknown" dan "not-applicable" ditampilkan apa adanya dan tidak ikut diperingkat.</li>
-        <li>"Tidak diketahui" berarti data belum tersedia, bukan nilai buruk.</li>
+        <li>"Tidak diketahui" berarti data belum tersedia, bukan nilai buruk. "Bantu lengkapi data" membuka pengajuan koreksi untuk produk itu.</li>
         <li>Baris gizi yang punya preferensi aktif tampil paling atas, dan arah nilai terbaiknya mengikuti preferensimu.</li>
         <li>"Estimasi" berarti skor lingkungan dihitung PilihYuk, bukan nilai resmi, dan tidak ikut diperingkat.</li>
     </ul>
