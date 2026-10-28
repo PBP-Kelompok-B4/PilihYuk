@@ -54,5 +54,5 @@ Other members' progress is read from Git metadata only, so it says nothing about
 - `preferences/NOTES.md` still says the shelf integration is not installed. Jonathan should update it.
 - The footer links `/tentang/`, `/panduan/`, `/kebijakan-data/` and `/kontak/` have no page in Figma or the PRD. They show the custom 404 for now.
 - Reset password works on PWS since 27 October (`/lupa-password/`, Gmail with an app password). New environment variables only apply after a redeploy. The links in the mail still start with `http://` until `SECURE_PROXY_SSL_HEADER` is set. Figma frames 12 and 13 have the "Lupa password?" link and both reset screens, laid out in two rows so the frames do not overlap their neighbours.
-- Test on the real PWS proxy before turning on `SECURE_PROXY_SSL_HEADER`, `SECURE_SSL_REDIRECT` or a per-IP lockout.
+- `SECURE_PROXY_SSL_HEADER` is on in production (28 October). Before it, HTTPS responses on PWS had no HSTS header, so Django saw every request as HTTP and reset mail linked to `http://`. After deploy, confirm with `curl -sI https://<site>/masuk/ | grep -i strict-transport`. Keep `SECURE_SSL_REDIRECT` and a per-IP lockout off until that header shows.
 - K-7 (Redis) is not studied. PRD section 14 lists what is still unverified.
