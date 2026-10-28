@@ -99,7 +99,7 @@ fetch('/riwayat/tambah/', {
 });
 ```
 
-`comparedIds` harus berasal dari subset tabel yang benar-benar dipilih, bukan seluruh items shelf. View Shelf saat ini memakai GET `banding` dan membatasi empat produk; JSON `/shelf/<pk>/?format=json` mengembalikan `compared`. Daftar `products` pada respons itu bisa berisi hingga 12 anggota shelf, sehingga tidak boleh digunakan sebagai subset. View tersebut belum menyimpan pilihan pada sesi yang dapat dipercaya modul ini.
+`comparedIds` harus berasal dari subset tabel yang benar-benar dipilih, bukan seluruh items shelf. View Shelf saat ini memakai GET `banding` dan membatasi empat produk; JSON `/shelf/<pk>/?format=json` mengembalikan `compared`. Daftar `products` pada respons itu bisa berisi hingga 12 anggota shelf, sehingga tidak boleh digunakan sebagai subset. Sejak 28 Oktober tombol "Pilih ini" di baris Aksi tabel Shelf mengirim form ini dengan `product`, `shelf`, dan setiap ID di `compared` sebagai `compared_product_ids`. Form itu tetap berjalan tanpa JavaScript; dengan JavaScript hasilnya muncul sebagai toast.
 
 Jika subset dikirim: shelf wajib; 1–4 ID unik tanpa duplikasi; seluruh produk aktif dan anggota shelf yang terlihat; subset mencakup produk pilihan. Backend menghitung jumlah valid dalam transaksi bersama Decision. Input `compared_product_count` dari klien diabaikan. Tanpa subset, request lama tetap berhasil dengan count=NULL. Tidak ada penebakan dari jumlah item shelf atau backfill riwayat lama.
 
@@ -129,9 +129,9 @@ products = rank_products(products, priorities)  # products sudah dimuat dari que
 metric_keys = order_metric_rows(priorities, ["energy", "protein", "saturated_fat", "sugar", "fiber", "sodium"])
 ```
 
-Daftar baris aktual dibentuk `shelves/comparison.py::comparison_rows()` sebagai dictionary label/kind/unit/direction/cells. Daffaa perlu memasang urutan key ke baris tersebut tanpa mengubah bentuk respons. Gunakan pemetaan kolom NUTRIENTS ke field pada NUTRIENT_FIELDS, bukan mencocokkan label semata: halaman ini memakai “Kalori”, sedangkan tabel Shelf masih “Energi”. Jika produk diurutkan, lakukan sebelum comparison_rows() agar sel tetap selaras.
+Daftar baris dibentuk `shelves/comparison.py::comparison_rows(products, preferences)`. Fungsi itu memetakan preferensi ke kolom lewat `NUTRIENT_FIELDS[...]["field"]`, bukan lewat label, sehingga "Kalori" di halaman ini cocok dengan baris "Energi" di tabel Shelf. Baris gizi yang punya preferensi aktif naik ke atas (bobot besar dahulu) dan diberi `preferred: true`; urutan produk (kolom) tidak diubah.
 
-HANDOFF menyebut protein/serat diperingkat max dan gula/natrium/lemak jenuh min; energi, lemak total, dan karbohidrat belum diberi penanda terbaik. Arah preferensi tersedia pada objek tetapi perubahan aturan penandaan sel dan dukungan arah harus dikoordinasikan dengan Daffaa. Modul ini tidak mengubah ranking sel, warna grade, atau file shelves. **Integrasi tombol/subset serta pengurutan baris Shelf belum dipasang/diuji oleh modul ini.**
+Tanpa preferensi, tabel memakai arah bawaan: protein dan serat max; gula, natrium, dan lemak jenuh min; energi, lemak total, dan karbohidrat tidak diperingkat. Untuk nutrien yang punya preferensi aktif, penanda nilai terbaik mengikuti arah preferensi, jadi energi pun bisa diperingkat. Bar di atas tabel menampilkan preferensi aktif dan tautan ke halaman ini. **Integrasi tombol/subset dan pengurutan baris sudah dipasang di Modul 2 dan diuji (`shelves/tests.py`, kelas `PreferenceIntegrationTests`) pada 28 Oktober.** Modul ini tetap tidak mengubah file shelves.
 
 ## Riwayat, ringkasan, CSV, dan states
 
