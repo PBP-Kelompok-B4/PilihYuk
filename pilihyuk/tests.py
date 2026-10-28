@@ -1,8 +1,16 @@
-from django.test import TestCase
-from django.urls import reverse
+from datetime import datetime, timezone as dt_timezone
 
-from product_catalog.models import Product, ProductView
+from django.contrib.auth import get_user_model
+from django.http import HttpResponse
+from django.template import Context, Template
+from django.test import RequestFactory, TestCase
+from django.urls import reverse
+from django.utils import timezone
+
+from pilihyuk.middleware import user_timezone
 from pilihyuk.views import comparison_rows, featured_shelf
+from product_catalog.models import Product, ProductView
+from shelves.models import SavedShelf, Shelf, ShelfItem
 
 
 # Data sintetis hanya untuk menguji perhitungan tabel, bukan isi landing page.
@@ -49,7 +57,7 @@ class HomePageTests(TestCase):
             Product.objects.create(source="manual", product_name=name)
             for name in ("Z last", "B second", "A first", "A first", "C third")
         ]
-        with self.assertNumQueries(1):
+        with self.assertNumQueries(2):
             result = featured_shelf()
         expected = [records[2], records[3], records[1], records[4]]
         self.assertEqual(result["count"], 4)
@@ -57,6 +65,37 @@ class HomePageTests(TestCase):
             [p["url"] for p in result["products"]],
             [reverse("product_catalog:product_detail", args=[p.pk]) for p in expected],
         )
+
+    def test_most_saved_public_shelf_leads_and_featured_list_uses_real_shelves(self):
+        User = get_user_model()
+        owner = User.objects.create_user("rani@example.com", "rani@example.com", "pw-12345678", first_name="Rani")
+        fan = User.objects.create_user("bagas@example.com", "bagas@example.com", "pw-12345678")
+        products = [Product.objects.create(source="manual", product_name=f"P{i}") for i in range(3)]
+        quiet = Shelf.objects.create(name="Kopi pagi", owner=owner)
+        loved = Shelf.objects.create(name="Mie instan", owner=owner, store_context="Alfamart")
+        secret = Shelf.objects.create(name="Rahasia", owner=owner, is_private=True)
+        for shelf in (quiet, loved, secret):
+            for product in products[:2]:
+                ShelfItem.objects.create(shelf=shelf, product=product)
+        SavedShelf.objects.create(user=fan, shelf=loved)
+        lonely = Shelf.objects.create(name="Satu produk", owner=owner)
+        ShelfItem.objects.create(shelf=lonely, product=products[2])
+        SavedShelf.objects.create(user=fan, shelf=lonely)
+        response = self.client.get("/")
+        self.assertEqual(response.context["shelf"]["title"], "Mie instan")
+        self.assertContains(response, reverse("shelves:detail", args=[loved.pk]))
+        self.assertContains(response, "Shelf publik")
+        self.assertEqual([s["title"] for s in response.context["shelves"]], ["Mie instan", "Kopi pagi"])
+        self.assertEqual(response.context["shelves"][0]["user"], "Rani")
+        self.assertNotContains(response, "Rahasia")
+        self.assertNotContains(response, "Satu produk")
+        self.assertNotContains(response, "rani@example.com")
+
+    def test_no_public_shelf_shows_empty_state_and_catalog_example(self):
+        Product.objects.create(source="manual", product_name="Contoh A")
+        response = self.client.get("/")
+        self.assertContains(response, "Belum ada shelf publik saat ini.")
+        self.assertContains(response, "Contoh dari katalog")
 
     def test_mapping_uses_stored_values_and_converts_sodium_without_writes(self):
         product = Product.objects.create(
@@ -138,3 +177,24 @@ class NotFoundPageTests(TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertTemplateUsed(response, "404.html")
         self.assertContains(response, "Halaman tidak ditemukan", status_code=404)
+
+
+class UserTimezoneTests(TestCase):
+    def zone_for(self, cookie):
+        request = RequestFactory().get("/")
+        if cookie is not None:
+            request.COOKIES["tz"] = cookie
+        return user_timezone(lambda r: HttpResponse(timezone.get_current_timezone_name()))(request).content.decode()
+
+    def test_browser_zone_is_used_and_bad_values_fall_back_to_utc(self):
+        self.assertEqual(self.zone_for("Asia/Jakarta"), "Asia/Jakarta")
+        for cookie in (None, "", "Bad/Zone", "../../etc/passwd"):
+            self.assertEqual(self.zone_for(cookie), "UTC", cookie)
+
+    def test_stored_times_stay_utc_and_display_follows_cookie(self):
+        moment = datetime(2026, 10, 28, 17, 30, tzinfo=dt_timezone.utc)
+        rendered = user_timezone(lambda r: HttpResponse(Template("{{ t|date:'H:i' }}").render(Context({"t": moment}))))
+        request = RequestFactory().get("/")
+        request.COOKIES["tz"] = "Asia/Jakarta"
+        self.assertEqual(rendered(request).content.decode(), "00:30")
+        self.assertEqual(moment.utcoffset().total_seconds(), 0)
