@@ -5,6 +5,7 @@ from urllib.parse import quote
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.http import Http404
+from django.shortcuts import render
 
 
 def wants_json(request):
@@ -25,6 +26,13 @@ def catalog_login_required(view):
                 return json_error("product_not_found", "Produk tidak ditemukan.", 404)
             raise
     return wrapped
+
+
+def error_response(request, error_id, message, status, back_url):
+    """JSON untuk klien API, halaman pesan biasa untuk form HTML. Status HTTP tetap sama."""
+    if wants_json(request):
+        return json_error(error_id, message, status)
+    return render(request, "product_catalog/action_error.html", {"message": message, "back_url": back_url}, status=status)
 
 
 def json_error(error_id, message, status, **extra):
