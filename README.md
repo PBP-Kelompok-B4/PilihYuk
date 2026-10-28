@@ -115,6 +115,8 @@ def curator_view(request): ...
 
 Untuk class-based view, pakai `LoginRequiredMixin` dan `UserPassesTestMixin`. Di template: `{% if user.is_authenticated %}` dan `{% firstof user.first_name user.username %}` untuk nama. Query data milik pengguna selalu lewat `request.user`, jangan menerima id pengguna dari URL atau form. Halaman `/profil/` menaut ke `/preferensi/`, `/riwayat/`, dan `/shelf/saya/`; kartunya aktif sendiri saat URL itu ada, jadi pakai path itu atau kabari Daffaa bila berbeda.
 
+Waktu disimpan dalam UTC dan ditampilkan menurut zona waktu browser pengguna (cookie `tz`, `pilihyuk/middleware.py`). Di template cukup pakai `|date` atau `|time` seperti biasa.
+
 Batasan yang diketahui: belum ada verifikasi email, pendaftaran belum dibatasi, dan `SECURE_SSL_REDIRECT` menunggu uji di proxy PWS. Reset password lewat email ada di `/lupa-password/`. Login dikunci 15 menit setelah 5 kegagalan per isian (django-axes). Akun dari halaman Daftar memakai email sebagai username, sedangkan nama tampilan bukan username. Admin dari `createsuperuser` bisa masuk dengan username atau emailnya di kolom "Email atau username". `LANGUAGE_CODE = 'id'` membuat desimal di template berkoma ("7,5 g"), jadi jangan menaruh float di nilai CSS atau JS (`style="width: {{ x }}%"`); pakai bilangan bulat atau `{{ x|unlocalize }}`.
 
 ## Modul dan Pembagian Kerja

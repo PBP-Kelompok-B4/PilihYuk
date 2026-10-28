@@ -2,11 +2,12 @@
 
 **Produk:** PilihYuk, pembanding gizi dan dampak lingkungan makanan dan minuman per shelf
 **Konteks:** Proyek Tengah Semester PBP (CSGE602022), Fasilkom UI, Gasal 2026/2027, Kelompok 4 Kelas B, sub-tema Sustainable Food & Diet
-**Versi:** 0.7, 28 Oktober 2026. Tenggat 30 Oktober 2026, 23.59 WIB.
+**Versi:** 0.8, 28 Oktober 2026. Tenggat 30 Oktober 2026, 23.59 WIB.
 **Status:** draf kerja. README adalah sumber kebenaran untuk pembagian modul. Bukti perilaku API ada di `off-api-findings.md`.
 
 ## Riwayat versi
 
+- **v0.8 (28 Okt).** Waktu disimpan UTC dan ditampilkan menurut zona waktu browser pengguna. Landing memakai shelf publik asli.
 - **v0.7 (28 Okt).** Model data disamakan dengan kode di `dev`: Modul 3 memakai `Recommendation` dan `RecommendationVote` (app `recommendations`), `Decision` menyimpan jumlah produk yang dibandingkan, dan `OffLookupQuota` dicatat.
 - **v0.6 (24 Okt).** Login menerima email atau username, password wajib berisi huruf dan angka, centang persetujuan dihapus, masuk dengan Google dibatalkan, reset password direncanakan (`reset-password-plan.md`). Dokumen diringkas dan dipindah dari `pilihyuk-docs/` ke `.claude/`.
 - **v0.5 (23 Okt).** Tenggat diundur ke 30 Oktober. Modul 3 bernama Rekomendasi Komunitas (app dan model tetap `substitutions`). Seeding Modul 1 berisi 406 produk.
@@ -291,6 +292,7 @@ Disetujui kelompok, kecuali yang ditandai belum final. Cakupan: **Kelompok** ata
 | 40 | django-axes: 5 gagal per akun, kunci 15 menit, direset saat berhasil | Kelompok |
 | 41 | Halaman Profil sebagai hub ke modul lain. Ganti email wajib password | Daffaa |
 | 42 | `SECRET_KEY` dari environment, `DEBUG = not PRODUCTION`, `LANGUAGE_CODE = 'id'`, `Procfile` menjalankan `collectstatic` dan `migrate`. Seeding di PWS dijalankan manual | Kelompok |
+| 43 | Waktu disimpan UTC di database. Tampilan mengikuti zona waktu browser lewat cookie `tz` dan middleware, kembali ke UTC bila cookie kosong atau tidak valid | Daffaa |
 
 Nomor 6, 30, dan 35 sudah terserap ke butir lain.
 

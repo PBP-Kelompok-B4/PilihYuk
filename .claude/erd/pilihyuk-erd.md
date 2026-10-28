@@ -3,7 +3,7 @@
 Sumber: model data yang disepakati kelompok. Ada dua versi diagram:
 
 - `pilihyuk.drawio`: acuan utama. Tabel dan garis memakai elemen bawaan sidebar Entity Relation draw.io (Table dan garis relasi), jadi baris bisa disunting, ditambah, dan dihapus langsung, dan tiap garis menempel ke baris kuncinya. Buka di https://app.diagrams.net lewat File, Open from, Device.
-- Blok Mermaid di bawah ini: tata letaknya otomatis sehingga lebih padat. Per 28 Oktober kedua versi sudah dicocokkan dengan model di `dev` (Modul 1, 2, 3, 5). `DataCorrection` dan `DataCorrectionItem` masih mengikuti rancangan karena Modul 4 belum masuk `dev`.
+- Blok Mermaid di bawah ini: tata letaknya otomatis sehingga lebih padat. Per 28 Oktober kedua versi sudah dicocokkan dengan model kelima modul di `dev`.
 
 `pilihyuk.drawio`, PNG di bawah, dan berkas ERD di Google Drive yang ditautkan README juga sudah diperbarui pada 28 Oktober.
 
