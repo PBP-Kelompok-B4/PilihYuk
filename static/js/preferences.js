@@ -180,6 +180,31 @@
             });
             if (dialog.hasAttribute('data-open-on-load')) dialog.showModal();
         });
+        const productSelect = createDialog?.querySelector('select[name=product]');
+        if (productSelect) {
+            const productOptions = [...productSelect.options];
+            const productSearch = document.createElement('input');
+            productSearch.type = 'search';
+            productSearch.placeholder = 'Cari nama atau merek produk';
+            productSearch.setAttribute('aria-label', 'Cari produk');
+            productSearch.setAttribute('aria-controls', productSelect.id);
+            productSearch.className = `${productSelect.className} mb-2`;
+            productSelect.before(productSearch);
+            const filterProducts = () => {
+                const words = productSearch.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+                const selected = productSelect.value;
+                productSelect.replaceChildren(...productOptions.filter(option =>
+                    !option.value || words.every(word => option.text.toLowerCase().includes(word))));
+                productSelect.value = selected;
+                if (!productSelect.value && words.length && productSelect.options.length > 1) productSelect.selectedIndex = 1;
+            };
+            productSearch.addEventListener('input', filterProducts);
+            productSelect.form.addEventListener('reset', () => setTimeout(filterProducts));
+            createDialog.addEventListener('close', () => {
+                productSearch.value = '';
+                filterProducts();
+            });
+        }
         async function loadHistory(url, reportError = true) {
             const loadId = ++latestLoad;
             lastHistoryUrl = url;
