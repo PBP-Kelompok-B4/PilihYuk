@@ -1,0 +1,11 @@
+{% extends 'product_catalog/base.html' %}
+{% block catalog_meta %}<title>Tindakan tidak dapat dilakukan — PilihYuk</title>{% endblock %}
+{% block content %}
+<main class="catalog-page section flex w-full flex-1 items-center justify-center py-16">
+    <div class="card w-full max-w-md text-center">
+        <h1 class="text-xl font-bold">Tindakan tidak dapat dilakukan.</h1>
+        <p class="mt-2 text-sm text-muted">{{ message }}</p>
+        <a class="btn-brand btn-small mt-6" href="{{ back_url }}">Kembali</a>
+    </div>
+</main>
+{% endblock %}

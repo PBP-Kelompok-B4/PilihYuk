@@ -264,3 +264,36 @@ class PopulationPipelineTests(TestCase):
                 with self.assertRaises(CommandError):
                     call_command("seed_products", fixture=str(path), stdout=StringIO())
         self.assertFalse(Product.objects.exists())
+
+
+class CatalogFeedbackTests(TestCase):
+    def setUp(self):
+        self.owner = get_user_model().objects.create_user(username="owner@example.org", email="owner@example.org")
+        self.other = get_user_model().objects.create_user(username="other@example.org")
+        self.product = Product.objects.create(source="manual", product_name="Original", added_by=self.owner)
+        self.detail = reverse("product_catalog:product_detail", args=[self.product.pk])
+        self.delete = reverse("product_catalog:product_delete", args=[self.product.pk])
+
+    def test_adder_is_shown_without_email(self):
+        self.client.force_login(self.other)
+        response = self.client.get(self.detail)
+        self.assertContains(response, "Ditambahkan oleh Pengguna PilihYuk")
+        self.assertNotContains(response, "owner@example.org")
+        self.owner.first_name = "Yasmin"
+        self.owner.save()
+        self.assertContains(self.client.get(self.detail), "Ditambahkan oleh Yasmin")
+
+    def test_delete_asks_for_confirmation_and_reports_success(self):
+        self.client.force_login(self.owner)
+        self.assertContains(self.client.get(self.detail), "return confirm(")
+        response = self.client.post(self.delete, follow=True)
+        self.assertContains(response, "Produk dihapus dari katalog.")
+
+    def test_refused_delete_shows_a_page_not_raw_json(self):
+        self.client.force_login(self.other)
+        response = self.client.post(self.delete)
+        self.assertEqual(response.status_code, 403)
+        self.assertTemplateUsed(response, "product_catalog/action_error.html")
+        self.assertContains(response, self.detail, status_code=403)
+        api = self.client.post(self.delete + "?format=json")
+        self.assertEqual(api.json()["error"]["id"], "forbidden")

@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Prefetch, Q
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -30,9 +30,11 @@ def owner_name(user):
 
 
 def shelves_with_counts():
+    active_items = ShelfItem.objects.filter(product__is_active=True).select_related("product")
     return (Shelf.objects.select_related("owner")
-            .annotate(item_count=Count("items", distinct=True), save_count=Count("saves", distinct=True))
-            .prefetch_related("items__product"))
+            .annotate(item_count=Count("items", filter=Q(items__product__is_active=True), distinct=True),
+                      save_count=Count("saves", distinct=True))
+            .prefetch_related(Prefetch("items", active_items)).order_by("-updated_at", "-pk"))
 
 
 def serialize_shelf(shelf):
@@ -99,13 +101,14 @@ def shelf_detail(request, pk):
     products = [i.product for i in shelf.items.select_related("product").filter(product__is_active=True)]
     chosen = request.GET.getlist("banding")
     compared = [p for p in products if str(p.pk) in chosen][:MAX_COMPARED] or products[:MAX_COMPARED]
-    rows = comparison_rows(compared)
+    preferences = list(request.user.nutrition_preferences.all()) if request.user.is_authenticated else []
+    rows = comparison_rows(compared, preferences)
     is_saved = request.user.is_authenticated and shelf.saves.filter(user=request.user).exists()
     if wants_json(request):
         return JsonResponse({**serialize_shelf(shelf), "products": [product_card(p) for p in products],
                              "compared": [p.pk for p in compared], "rows": rows, "saved": is_saved})
     context = {"shelf": shelf, "products": products, "compared": compared, "rows": rows,
-               "max_compared": MAX_COMPARED}
+               "max_compared": MAX_COMPARED, "preferred_rows": [r for r in rows if r.get("preferred")]}
     if request.GET.get("partial"):
         return render(request, "shelves/_comparison.html", context)
     return render(request, "shelves/detail.html", {

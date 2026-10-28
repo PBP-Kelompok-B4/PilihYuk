@@ -1,29 +1,12 @@
 from django.shortcuts import render
+from django.urls import reverse
 
-# data contoh dari wireframe. Tukar featured_shelf() dan featured_shelves() dengan query Product dan Shelf.
+from product_catalog.models import Product
+from shelves.views import owner_name, shelves_with_counts
+
 # Kunci produk: name, brand (merek dan ukuran), nutri ("a" sampai "e", atau None), green (huruf atau None),
-# estimated, nova, kcal, protein, sugar, sodium (None bila kosong), image dan url (opsional).
-# Kunci shelf: title, context, count, desc, user, thumbs (3 url atau None), url.
-SAMPLE_PRODUCTS = [
-    {"name": "Indomie Mi Goreng", "brand": "Indomie · 85 g", "nutri": "b", "green": "C", "estimated": False,
-     "nova": 4, "kcal": 447, "protein": 9, "sugar": 7, "sodium": 900},
-    {"name": "Mie Sedaap Goreng", "brand": "Mie Sedaap · 91 g", "nutri": "c", "green": "B", "estimated": False,
-     "nova": 4, "kcal": 450, "protein": 8, "sugar": 8, "sodium": 850},
-    {"name": "Sarimi Isi 2 Goreng", "brand": "Sarimi · 88 g", "nutri": "c", "green": None, "estimated": False,
-     "nova": 4, "kcal": 452, "protein": 7.5, "sugar": 6.5, "sodium": 870},
-    {"name": "Supermi Goreng", "brand": "Supermi · 80 g", "nutri": "b", "green": "C", "estimated": True,
-     "nova": 4, "kcal": 440, "protein": 8.5, "sugar": 6, "sodium": 780},
-]
-SAMPLE_SHELVES = [
-    {"context": "Alfamart", "count": 12, "title": "Mie instan goreng di minimarket",
-     "desc": "Pilihan mie instan goreng yang biasa ditemukan di minimarket.", "user": "rani_a"},
-    {"context": "Dapur", "count": 8, "title": "Yang bisa dituang ke kopi",
-     "desc": "Krimer, susu, dan oat milk untuk kopi pagi di kos.", "user": "bagas"},
-    {"context": "Kampus", "count": 9, "title": "Camilan tinggi protein",
-     "desc": "Camilan yang bisa dibawa ke kelas atau kantor.", "user": "dinda"},
-    {"context": "Minimarket", "count": 11, "title": "Minuman rendah gula",
-     "desc": "Teh, soda, dan air kemasan dengan gula lebih rendah.", "user": "farel"},
-]
+# estimated, nova, kcal, protein, sugar, sodium (None bila kosong), image dan url.
+# Kunci shelf pilihan: title, context, count, desc, user, thumbs (3 url atau None), url.
 STEPS = [
     ("img/search-2.svg", "Cari produk", "Telusuri produk makanan dan minuman dari katalog Open Food Facts."),
     ("img/layers-2.svg", "Buat atau pilih shelf", "Susun kumpulan produk yang benar-benar saling menggantikan."),
@@ -53,21 +36,61 @@ def comparison_rows(products):
     for label, key, unit, best in METRICS:
         values = [p[key] for p in products]
         known = [v for v in values if v is not None]
-        target = {"max": max, "min": min}.get(best, lambda _: None)(known) if known else None
-        cells = [{"value": v, "pct": round(100 * v / max(known)) if v and max(known) else 0,
+        target = {"max": max, "min": min}.get(best, lambda _: None)(known) if len(known) >= 2 else None
+        largest = max(known, default=0)
+        cells = [{"value": v, "pct": round(100 * v / largest) if v is not None and largest else 0,
                   "best": v is not None and v == target} for v in values]
         rows.append({"label": label, "unit": unit, "best": best, "cells": cells})
     return rows
 
 
+def product_entry(product):
+    nutri = product.nutrition_grade.strip().lower()
+    green = product.environmental_grade.strip().lower()
+    estimate = product.environmental_grade_estimated.strip()
+    nutri = nutri if nutri in {"a", "b", "c", "d", "e"} else None
+    green = green if green in {"a-plus", "a", "b", "c", "d", "e", "f"} else None
+    if estimate.lower() in {"", "unknown", "not-applicable"}:
+        estimate = None
+    return {
+        "name": product.product_name or "Produk tanpa nama",
+        "brand": " · ".join(value for value in (product.brand, product.quantity) if value),
+        "nutri": nutri,
+        "green": green or estimate,
+        "estimated": green is None and estimate is not None,
+        "nova": product.nova_group,
+        "kcal": product.energy_kcal_100g,
+        "protein": product.proteins_100g,
+        "sugar": product.sugars_100g,
+        "sodium": product.sodium_100g * 1000 if product.sodium_100g is not None else None,
+        "image": product.image_url,
+        "url": reverse("product_catalog:product_detail", args=[product.pk]),
+    }
+
+
+def public_shelves():
+    """Shelf publik yang siap dibandingkan (minimal dua produk aktif), paling banyak disimpan dulu."""
+    return (shelves_with_counts().filter(is_private=False, item_count__gte=2)
+            .order_by("-save_count", "-updated_at", "-pk"))
+
+
 def featured_shelf():
-    """Shelf untuk tabel contoh: kunci shelf ditambah 'public', 'sort', dan 'products' (maksimal 4)."""
-    return {"title": "Mie instan goreng di minimarket", "count": 12, "public": True, "sort": "Protein ↑",
-            "products": SAMPLE_PRODUCTS}
+    """Shelf publik teratas. Tanpa shelf publik, contoh produk dari katalog."""
+    shelf = public_shelves().first()
+    if shelf:
+        products = [product_entry(item.product) for item in shelf.items.all()[:4]]
+        return {"title": shelf.name, "count": len(products), "sort": "Urutan di shelf", "products": products,
+                "url": reverse("shelves:detail", args=[shelf.pk])}
+    products = [product_entry(p) for p in Product.objects.filter(is_active=True).order_by("product_name", "pk")[:4]]
+    return {"title": "Contoh produk dari katalog", "count": len(products), "sort": "Nama produk", "products": products}
 
 
 def featured_shelves():
-    return [{"thumbs": [None] * 3, "url": "/shelf/", **s} for s in SAMPLE_SHELVES]
+    return [{
+        "title": shelf.name, "context": shelf.store_context, "count": shelf.item_count, "desc": shelf.description,
+        "user": owner_name(shelf.owner), "url": reverse("shelves:detail", args=[shelf.pk]),
+        "thumbs": ([item.product.image_url or None for item in shelf.items.all()[:3]] + [None] * 3)[:3],
+    } for shelf in public_shelves()[:4]]
 
 
 def home_page(request):
