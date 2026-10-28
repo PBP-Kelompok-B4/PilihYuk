@@ -5,6 +5,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="{% static 'img/favicon.svg' %}" type="image/svg+xml">
+    <script>
+        (() => {
+            const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            const saved = document.cookie.match(/(?:^|; )tz=([^;]*)/);
+            if (!zone || (saved && saved[1] === zone)) return;
+            document.cookie = `tz=${zone}; path=/; max-age=31536000; samesite=lax${location.protocol === 'https:' ? '; secure' : ''}`;
+            if (document.cookie.includes(`tz=${zone}`)) location.reload();
+        })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
