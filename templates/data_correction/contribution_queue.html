@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+{% load static data_correction_tags %}
+{% block meta %}<title>Antrean Kelengkapan Data — PilihYuk</title>{% endblock meta %}
+{% block content %}
+<main class="section w-full flex-1 py-10">
+    {# Halaman publik. Tidak ada identitas pengaju di halaman ini (F-4.9). Frekuensi shelf = jumlah shelf publik yang memuat produk (shelf_frequency.py); kalau data shelf tidak tersedia, kolom dan kartunya tampil "—". #}
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div class="min-w-0">
+            <h1 class="section-title">Antrean Kelengkapan Data</h1>
+            <p class="mt-2 max-w-3xl text-muted">Bantu lengkapi data produk yang sering muncul di shelf. Data yang kosong menjadi pekerjaan komunitas, bukan disembunyikan.</p>
+        </div>
+        <div class="flex shrink-0 flex-wrap gap-2">
+            <button type="button" popovertarget="panduan-kontribusi" class="btn-white btn-small ring-1 ring-line">{% include 'data_correction/_icon.html' with name='info' %}Panduan kontribusi</button>
+            {% if user.is_authenticated %}
+            <a href="{% url 'data_correction:my_corrections' %}" class="btn-white btn-small ring-1 ring-line">Pengajuan Saya</a>
+            {% endif %}
+        </div>
+    </div>
+
+    {# Penjelasan singkat di halaman yang sama. Atribut popover membukanya tanpa JavaScript; browser lama menampilkannya langsung di sini. #}
+    <div id="panduan-kontribusi" popover role="dialog" aria-labelledby="judul-panduan" class="m-auto max-h-[85vh] w-[min(34rem,calc(100%-2rem))] overflow-y-auto rounded-[20px] bg-white p-6 text-ink shadow-xl backdrop:bg-ink/40">
+        <div class="flex items-start justify-between gap-3">
+            <h2 id="judul-panduan" class="text-lg font-bold">Panduan kontribusi</h2>
+            <button type="button" popovertarget="panduan-kontribusi" popovertargetaction="hide" class="rounded-[10px] px-2 py-1 text-[13px] font-semibold text-muted hover:bg-surface hover:text-ink">Tutup</button>
+        </div>
+        <ol class="mt-3 list-decimal space-y-2 pl-5 text-sm">
+            <li>Pilih produk, lalu klik <span class="font-semibold">Lengkapi Data</span>. Kotak yang datanya kosong sudah ditandai di formulir.</li>
+            <li>Isi sesuai label kemasan. Gizi ditulis per 100 g, dan natrium dalam mg.</li>
+            <li>Angka 0 adalah data yang sah. Kotak yang dibiarkan kosong tidak diubah.</li>
+            <li>Kurator meninjau setiap usulan. Selama menunggu, status produk menjadi <span class="font-semibold">Perlu verifikasi</span>.</li>
+            <li>Kemasan, Green-Score, dan Gizi siap saji hanya informasi; datanya belum bisa diisi lewat formulir.</li>
+        </ol>
+        <p class="mt-4 text-xs text-muted">Kamu perlu masuk untuk mengajukan koreksi. Nama dan emailmu tidak tampil di antrean ini.</p>
+    </div>
+
+    <ul class="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4" aria-label="Ringkasan antrean">
+        {% include 'data_correction/_stat_card.html' with icon='inbox' tone='bg-warm text-[#a33d00]' value=stats.incomplete_products|thousands title='Menunggu kontribusi' text='produk dengan data kosong' %}
+        {% include 'data_correction/_stat_card.html' with icon='calendar' tone='bg-surface text-ink' value=stats.submitted_last_7_days|thousands title='Diajukan minggu ini' text='pengajuan 7 hari terakhir' %}
+        {% include 'data_correction/_stat_card.html' with icon='check-circle' tone='bg-mint text-brand' value=stats.approved|thousands title='Disetujui' text='data berhasil dilengkapi' %}
+        {% if shelf_available %}
+        {% include 'data_correction/_stat_card.html' with icon='layers' tone='bg-leaf text-brand' value=stats.shelf_average|times title='Rata-rata di shelf' text='kemunculan per produk' %}
+        {% else %}
+        {% include 'data_correction/_stat_card.html' with icon='layers' tone='bg-leaf text-brand' value='—' title='Rata-rata di shelf' text='data shelf belum tersedia' %}
+        {% endif %}
+    </ul>
+
+    {# Urutan, filter, dan halaman dimuat ulang lewat data_correction.js tanpa memuat ulang seluruh halaman; tanpa JavaScript tautannya tetap biasa. #}
+    <p class="sr-only" aria-live="polite" data-queue-status></p>
+    <div class="focus:outline-none" tabindex="-1" data-queue-results>
+        <div class="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <nav aria-label="Urutkan" class="flex flex-wrap items-center gap-2">
+                <span class="text-[13px] text-muted">Urutkan:</span>
+                {% for chip in filters.sort_chips %}<a href="{{ chip.url }}" class="chip {% if chip.active %}bg-ink text-white{% else %}bg-white text-ink ring-1 ring-line hover:text-brand{% endif %}"{% if chip.active %} aria-current="true"{% endif %}>{{ chip.label }}</a>{% endfor %}
+            </nav>
+            <nav aria-label="Filter data yang kurang" class="flex flex-wrap items-center gap-2">
+                {% for chip in missing_chips %}<a href="{{ chip.url }}" class="chip {% if chip.active %}bg-ink text-white{% else %}bg-white text-ink ring-1 ring-line hover:text-brand{% endif %}"{% if chip.active %} aria-current="true"{% endif %}>{{ chip.label }}</a>{% endfor %}
+                <span class="text-[13px] text-muted">{{ page_obj.paginator.count|thousands }} produk</span>
+            </nav>
+        </div>
+
+        <section class="card mt-4 min-w-0" aria-labelledby="judul-daftar">
+            <h2 id="judul-daftar" class="sr-only">Produk yang perlu dilengkapi</h2>
+            {% if rows %}
+            {# Judul kolom hanya di desktop. Di layar kecil setiap baris menjadi kartu dan labelnya tampil di dalam kartu. #}
+            <div aria-hidden="true" class="hidden gap-4 px-4 pb-2 text-xs font-semibold text-muted lg:grid lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1.5fr)_8rem_8.5rem_13rem]">
+                <span>Produk</span><span>Data yang kurang</span><span>Frekuensi shelf</span><span>Status</span><span>Aksi</span>
+            </div>
+            <ul class="space-y-3">
+                {% for row in rows %}
+                <li class="grid grid-cols-1 gap-3 rounded-[14px] p-4 ring-1 ring-line lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1.5fr)_8rem_8.5rem_13rem] lg:items-center lg:gap-4">
+                    <div class="flex min-w-0 items-center gap-3">
+                        <span class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[10px] bg-surface text-muted">
+                            {% if row.image_url %}<img src="{{ row.image_url }}" alt="" loading="lazy" class="max-h-full max-w-full">{% else %}{% include 'data_correction/_icon.html' with name='image' css='h-5 w-5' %}{% endif %}
+                        </span>
+                        <div class="min-w-0">
+                            <p class="break-words font-bold">{{ row.product_name|default:'Produk tanpa nama' }}</p>
+                            <p class="break-words text-xs text-muted">{% include 'data_correction/_product_meta.html' with product=row %}</p>
+                        </div>
+                    </div>
+                    <div class="min-w-0">
+                        <p class="text-xs text-muted lg:sr-only">Data yang kurang:</p>
+                        <ul class="mt-1 flex flex-wrap gap-1.5 lg:mt-0">
+                            {% for entry in row.missing %}<li class="chip bg-[#fdf0c4] text-[#6b4d00]">{% include 'data_correction/_icon.html' with name='warning' css='h-3.5 w-3.5' %}{{ entry.label }}</li>{% endfor %}
+                        </ul>
+                    </div>
+                    {# Lebar bar = shelf_bar, persen bilangan bulat relatif terhadap frekuensi terbesar di halaman ini. #}
+                    <div class="min-w-0 text-sm">
+                        <span class="text-xs text-muted lg:sr-only">Frekuensi shelf: </span>{% if shelf_available %}<span class="font-semibold">{{ row.shelf_count|times }}</span> <span class="text-xs text-muted">muncul di shelf</span>
+                        <span aria-hidden="true" class="mt-1.5 block h-1.5 w-full max-w-40 overflow-hidden rounded-full bg-track"><span class="block h-full rounded-full bg-brand" style="width: {{ row.shelf_bar }}%"></span></span>
+                        {% else %}<span aria-hidden="true">—</span><span class="sr-only">belum tersedia</span>{% endif %}
+                    </div>
+                    <div><span class="sr-only">Status: </span>{% include 'data_correction/_status_chip.html' with status=row.status label=row.status_label %}</div>
+                    <div class="flex flex-wrap items-center gap-4">
+                        <a href="{{ row.submit_url }}" class="inline-flex items-center justify-center gap-2 rounded-[10px] bg-mint px-4 py-2.5 text-[13px] font-semibold text-brand hover:bg-faint">{% include 'data_correction/_icon.html' with name='pencil' %}Lengkapi Data</a>
+                        <a href="{{ row.detail_url }}" class="text-[13px] font-semibold text-ink underline hover:text-brand">Detail</a>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+
+            <div class="mt-5 flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <div class="text-xs text-muted">
+                    <p data-queue-summary>Menampilkan {{ page_obj.object_list|length }} dari {{ page_obj.paginator.count|thousands }} produk yang perlu dilengkapi.</p>
+                    <p class="mt-0.5">Halaman {{ page_obj.number }} dari {{ page_obj.paginator.num_pages }}</p>
+                </div>
+                {% if page_obj.paginator.num_pages > 1 %}
+                <nav aria-label="Halaman" class="flex flex-wrap items-center gap-1 text-[13px] font-semibold">
+                    {% if page_links.previous %}<a href="{{ page_links.previous }}" rel="prev" class="inline-flex h-8 min-w-8 items-center justify-center rounded-[10px] px-2 ring-1 ring-line hover:text-brand"><span aria-hidden="true">‹</span><span class="sr-only sm:not-sr-only sm:ml-1">Sebelumnya</span></a>{% endif %}
+                    {% for link in page_links.pages %}
+                    {% if link.ellipsis %}<span aria-hidden="true" class="px-1 text-muted">…</span>{% elif link.current %}<span aria-current="page" class="inline-flex h-8 min-w-8 items-center justify-center rounded-[10px] bg-ink px-2 text-white">{{ link.number }}</span>{% else %}<a href="{{ link.url }}" aria-label="Halaman {{ link.number }}" class="inline-flex h-8 min-w-8 items-center justify-center rounded-[10px] px-2 ring-1 ring-line hover:text-brand">{{ link.number }}</a>{% endif %}
+                    {% endfor %}
+                    {% if page_links.next %}<a href="{{ page_links.next }}" rel="next" class="inline-flex h-8 min-w-8 items-center justify-center rounded-[10px] px-2 ring-1 ring-line hover:text-brand"><span class="sr-only sm:not-sr-only sm:mr-1">Berikutnya</span><span aria-hidden="true">›</span></a>{% endif %}
+                </nav>
+                {% endif %}
+            </div>
+            {% elif filters.missing %}
+            {% include 'data_correction/_empty_state.html' with icon='search' title='Tidak ada produk yang cocok.' text='Tidak ada produk yang kekurangan data jenis ini. Coba jenis data lain.' action_url=clear_url action_label='Bersihkan filter' %}
+            {% else %}
+            {% include 'data_correction/_empty_state.html' with icon='check-circle' title='Semua data produk sudah lengkap.' text='Terima kasih! Saat ini tidak ada produk aktif yang datanya kosong.' %}
+            {% endif %}
+        </section>
+    </div>
+</main>
+<script src="{% static 'js/data_correction.js' %}" defer data-login-url="{% url 'accounts:login' %}"></script>
+{% endblock content %}

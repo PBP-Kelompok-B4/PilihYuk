@@ -1,9 +1,11 @@
 # ERD PilihYuk
 
-Sumber: model data yang disepakati kelompok. Ada dua versi diagram yang isinya sama:
+Sumber: model data yang disepakati kelompok. Ada dua versi diagram:
 
 - `pilihyuk.drawio`: acuan utama. Tabel dan garis memakai elemen bawaan sidebar Entity Relation draw.io (Table dan garis relasi), jadi baris bisa disunting, ditambah, dan dihapus langsung, dan tiap garis menempel ke baris kuncinya. Buka di https://app.diagrams.net lewat File, Open from, Device.
-- Blok Mermaid di bawah ini: dihasilkan dari data yang sama, tata letaknya otomatis sehingga lebih padat.
+- Blok Mermaid di bawah ini: tata letaknya otomatis sehingga lebih padat. Per 28 Oktober kedua versi sudah dicocokkan dengan model di `dev` (Modul 1, 2, 3, 5). `DataCorrection` dan `DataCorrectionItem` masih mengikuti rancangan karena Modul 4 belum masuk `dev`.
+
+`pilihyuk.drawio`, PNG di bawah, dan berkas ERD di Google Drive yang ditautkan README juga sudah diperbarui pada 28 Oktober.
 
 Notasi crow's foot. `||` berarti satu dan wajib, `o|` nol atau satu (kunci asing yang boleh kosong), `o{` nol atau banyak. Pada kotak entitas, `PK` kunci utama, `FK` kunci asing (teks miring, diikuti aturan hapusnya), dan `UK` kolom unik. Baris miring di dasar kotak memuat constraint gabungan.
 
@@ -14,7 +16,8 @@ erDiagram
     User |o--o{ Product : "added_by"
     User ||--o{ Decision : "user"
     User ||--o{ ProductView : "user"
-    User ||--o{ Recommendation : "proposed_by"
+    User ||--o| OffLookupQuota : "user"
+    User ||--o{ Recommendation : "author"
     User ||--o{ RecommendationVote : "user"
     User ||--o{ DataCorrection : "submitted_by"
     User |o--o{ DataCorrection : "reviewed_by"
@@ -27,8 +30,8 @@ erDiagram
     Product ||--o{ ShelfItem : "product"
     Product |o--o{ Decision : "product"
     Product ||--o{ ProductView : "product"
-    Product ||--o{ Recommendation : "from_product"
-    Product ||--o{ Recommendation : "to_product"
+    Product ||--o{ Recommendation : "source_product"
+    Product ||--o{ Recommendation : "replacement_product"
     Product ||--o{ DataCorrection : "product"
     Recommendation ||--o{ RecommendationVote : "recommendation"
     DataCorrection ||--o{ DataCorrectionItem : "correction"
@@ -36,6 +39,7 @@ erDiagram
         int id PK
         string username UK
         string email
+        string first_name "nama tampilan"
         boolean is_staff
         datetime date_joined
     }
@@ -82,6 +86,11 @@ erDiagram
         int product_id FK "CASCADE"
         datetime viewed_at
     }
+    OffLookupQuota {
+        int user_id PK "FK CASCADE"
+        json timestamps "lookup barcode terakhir"
+        int version
+    }
     Shelf {
         int id PK
         string name
@@ -106,11 +115,12 @@ erDiagram
     }
     Recommendation {
         int id PK
-        int from_product_id FK "PROTECT"
-        int to_product_id FK "PROTECT"
-        text reason
-        int proposed_by_id FK "CASCADE"
+        int source_product_id FK "PROTECT"
+        int replacement_product_id FK "PROTECT"
+        text reason "maks 1000"
+        int author_id FK "CASCADE"
         datetime created_at
+        datetime updated_at
     }
     RecommendationVote {
         int id PK
@@ -118,6 +128,7 @@ erDiagram
         int user_id FK "CASCADE"
         int value "+1 | -1"
         datetime created_at
+        datetime updated_at
     }
     DataCorrection {
         int id PK
@@ -141,14 +152,17 @@ erDiagram
         int user_id FK "CASCADE"
         string nutrient
         string direction "max | min"
-        int weight
+        int weight "1 sampai 3"
+        datetime created_at
+        datetime updated_at
     }
     Decision {
         int id PK
         int user_id FK "CASCADE"
         int product_id FK "SET_NULL"
         int shelf_id FK "SET_NULL"
-        text note
+        text note "maks 500"
+        int compared_product_count "boleh kosong"
         datetime created_at
     }
 ```
@@ -158,8 +172,10 @@ erDiagram
 | Hal | Aturan |
 |-----|--------|
 | Hapus produk | Soft delete lewat `Product.is_active`. `ShelfItem`, `Recommendation`, dan `DataCorrection` memakai `PROTECT`, sedangkan `Decision` memakai `SET_NULL` |
-| Unik gabungan | `ShelfItem` (shelf, product), `SavedShelf` (user, shelf), `Recommendation` (from, to) dengan syarat from berbeda dari to, `RecommendationVote` (recommendation, user), `DataCorrectionItem` (correction, field_name), `Preference` (user, nutrient) |
+| Unik gabungan | `ShelfItem` (shelf, product), `SavedShelf` (user, shelf), `Recommendation` (source_product, replacement_product) dengan syarat keduanya berbeda, `RecommendationVote` (recommendation, user), `DataCorrectionItem` (correction, field_name), `Preference` (user, nutrient) |
 | Barcode | `Product.code` boleh kosong untuk produk manual dan disimpan sebagai `NULL`, bukan string kosong |
 | Nilai yang dihitung | Jumlah suara dan jumlah simpanan shelf dihitung dengan `annotate`, tidak ada kolomnya. Status `DataCorrection` diturunkan dari item-itemnya |
+| Disimpan saat dicatat | `Decision.compared_product_count` adalah jumlah produk yang sedang dibandingkan saat tombol "Pilih ini" ditekan. Kosong untuk keputusan yang dicatat manual |
+| Kuota lookup | `OffLookupQuota` menyimpan waktu lookup barcode per pengguna untuk batas 3 per menit. `version` dipakai untuk mencegah dua request menimpa satu sama lain |
 | Tidak disimpan | `environmental_is_estimated` dan tautan halaman produk di Open Food Facts dihitung saat tampil |
-| User | Model bawaan Django. Hanya lima kolom yang dipakai aplikasi yang digambar |
+| User | Model bawaan Django. Hanya enam kolom yang dipakai aplikasi yang digambar. Akun dari halaman Daftar memakai email sebagai `username` |

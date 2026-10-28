@@ -2,11 +2,12 @@
 
 **Produk:** PilihYuk, pembanding gizi dan dampak lingkungan makanan dan minuman per shelf
 **Konteks:** Proyek Tengah Semester PBP (CSGE602022), Fasilkom UI, Gasal 2026/2027, Kelompok 4 Kelas B, sub-tema Sustainable Food & Diet
-**Versi:** 0.6, 24 Oktober 2026. Tenggat 30 Oktober 2026, 23.59 WIB.
+**Versi:** 0.7, 28 Oktober 2026. Tenggat 30 Oktober 2026, 23.59 WIB.
 **Status:** draf kerja. README adalah sumber kebenaran untuk pembagian modul. Bukti perilaku API ada di `off-api-findings.md`.
 
 ## Riwayat versi
 
+- **v0.7 (28 Okt).** Model data disamakan dengan kode di `dev`: Modul 3 memakai `Recommendation` dan `RecommendationVote` (app `recommendations`), `Decision` menyimpan jumlah produk yang dibandingkan, dan `OffLookupQuota` dicatat.
 - **v0.6 (24 Okt).** Login menerima email atau username, password wajib berisi huruf dan angka, centang persetujuan dihapus, masuk dengan Google dibatalkan, reset password direncanakan (`reset-password-plan.md`). Dokumen diringkas dan dipindah dari `pilihyuk-docs/` ke `.claude/`.
 - **v0.5 (23 Okt).** Tenggat diundur ke 30 Oktober. Modul 3 bernama Rekomendasi Komunitas (app dan model tetap `substitutions`). Seeding Modul 1 berisi 406 produk.
 - **v0.4 (4 Okt).** Autentikasi selesai.
@@ -66,7 +67,7 @@ Open Food Facts (OFF), gratis tanpa API key untuk baca. Baca barcode lewat API v
 |----|-------|---------|---------|
 | 1 | Katalog Produk | Yasmin | `Product`, `ProductView` |
 | 2 | Shelf dan Tabel Pembanding | Ahmad Rizki Daffaa | `Shelf`, `ShelfItem`, `SavedShelf` |
-| 3 | Rekomendasi Komunitas | Rafael Arlen Wijanarko | `Substitution`, `SubstitutionVote` |
+| 3 | Rekomendasi Komunitas | Rafael Arlen Wijanarko | `Recommendation`, `RecommendationVote` |
 | 4 | Antrean Data | Muhammad Rayyan Basalamah | `DataCorrection`, `DataCorrectionItem` |
 | 5 | Preferensi Nutrisi dan Riwayat Keputusan | Jonathan Sebastian Sindhu | `Preference`, `Decision` |
 
@@ -193,15 +194,16 @@ PostgreSQL di produksi, SQLite lokal. Tag disimpan di `JSONField` hanya untuk ta
 Tautan ke OFF dan penanda estimasi dihitung saat serialisasi.
 
 - **ProductView:** `user`, `product`, `viewed_at`.
+- **OffLookupQuota:** `user` (kunci utama, `CASCADE`), `timestamps` (waktu lookup barcode terakhir), `version` (compare-and-swap untuk batas 3 lookup per menit).
 - **Shelf:** `name`, `store_context`, `description`, `owner` (`CASCADE`), `is_private`, `created_at`, `updated_at`.
 - **ShelfItem:** `shelf` (`CASCADE`), `product` (`PROTECT`), `added_at`. Unik (`shelf`, `product`). Batas 12 dicek di form.
 - **SavedShelf:** `user` (`CASCADE`), `shelf` (`CASCADE`), `created_at`. Unik (`user`, `shelf`). Jumlah penyimpan dihitung dengan `annotate`.
-- **Substitution:** `from_product` dan `to_product` (`PROTECT`), `reason`, `proposed_by`, `created_at`. `from` berbeda dari `to`, unik (`from_product`, `to_product`).
-- **SubstitutionVote:** `substitution` (`CASCADE`), `user`, `value` (+1 atau -1), `created_at`. Unik (`substitution`, `user`). Jumlah suara dihitung dengan `annotate`.
+- **Recommendation:** `source_product` dan `replacement_product` (`PROTECT`), `reason`, `author`, `created_at`, `updated_at`. Kedua produk berbeda, unik (`source_product`, `replacement_product`).
+- **RecommendationVote:** `recommendation` (`CASCADE`), `user`, `value` (+1 atau -1), `created_at`, `updated_at`. Unik (`recommendation`, `user`). Jumlah suara dihitung dengan `annotate`.
 - **DataCorrection:** `product` (`PROTECT`), `submitted_by`, `reviewed_by` (boleh kosong), `created_at`, `reviewed_at`. Status diturunkan dari item.
 - **DataCorrectionItem:** `correction` (`CASCADE`), `field_name`, `old_value`, `proposed_value`, `status` (`pending`, `approved`, `rejected`), `review_note`. Unik (`correction`, `field_name`). Refresh melewati field berstatus `approved`.
 - **Preference:** `user`, `nutrient`, `direction` (`max` atau `min`), `weight`. Unik (`user`, `nutrient`).
-- **Decision:** `user`, `product` (`SET_NULL`), `shelf` (boleh kosong, `SET_NULL`), `note`, `created_at`.
+- **Decision:** `user`, `product` (`SET_NULL`), `shelf` (boleh kosong, `SET_NULL`), `note`, `compared_product_count` (boleh kosong, jumlah produk yang dibandingkan saat dipilih dari tabel), `created_at`.
 
 ## 8. Kebutuhan non-fungsional
 
@@ -256,7 +258,7 @@ Disetujui kelompok, kecuali yang ditandai belum final. Cakupan: **Kelompok** ata
 | 3 | Kurator memakai `is_staff`, tanpa model User kustom | Kelompok |
 | 4 | Seeding dari dump yang disaring ke Indonesia. API runtime hanya untuk lookup barcode dan refresh satu produk | Kelompok |
 | 5 | `DataCorrection` hanya untuk produk yang sudah ada. Produk baru lewat Modul 1 | Kelompok |
-| 7 | Satu suara per pengguna per usulan (`SubstitutionVote`) | Modul 3 |
+| 7 | Satu suara per pengguna per usulan (`RecommendationVote`) | Modul 3 |
 | 8, 9 | Hanya produk Indonesia. Lookup non-Indonesia ditolak, refresh yang kehilangan label dilewati, produk manual dianggap Indonesia | Kelompok |
 | 10 | Soft delete lewat `is_active`. Produk yang masih dipakai tidak bisa dihapus | Kelompok |
 | 11 | Produk manual tidak di-refresh. Produk OFF di-refresh kecuali field yang koreksinya disetujui | Kelompok |

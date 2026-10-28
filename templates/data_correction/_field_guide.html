@@ -1,0 +1,27 @@
+{# Tab "Panduan field". Isi daftar field dan aturannya dari moderation.field_guide(), yang membacanya dari constants.py, validators.py, dan model Product. #}
+<section class="card mt-6 min-w-0 max-w-3xl" aria-labelledby="judul-panduan">
+    <h2 id="judul-panduan" class="text-lg font-bold">Panduan field</h2>
+    <p class="mt-1 text-sm text-muted">Hanya {{ guide|length }} field berikut yang bisa dikoreksi pengguna. Aturannya sama dengan pemeriksaan otomatis saat pengajuan dibuat dan saat disetujui.</p>
+    <ul class="mt-4 divide-y divide-line">
+        {% for field in guide %}
+        <li class="py-4">
+            <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                <h3 class="font-semibold">{{ field.label }}</h3>
+                <p class="min-w-0 break-all text-xs text-muted">{{ field.kind }} · <code>{{ field.field_name }}</code></p>
+            </div>
+            <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-muted">
+                {% for rule in field.rules %}<li>{{ rule }}</li>{% endfor %}
+            </ul>
+        </li>
+        {% endfor %}
+    </ul>
+
+    <h3 class="mt-6 font-semibold">Cara meninjau</h3>
+    <ul class="mt-2 list-disc space-y-1 pl-5 text-sm">
+        <li>Setujui menulis nilai usulan ke produk saat itu juga; catatan boleh dikosongkan.</li>
+        <li>Tolak tidak mengubah produk dan wajib disertai catatan, karena catatan itu terlihat oleh pengaju.</li>
+        <li>"Tidak diketahui" berarti kolom produk kosong; angka 0 adalah data yang sah.</li>
+        <li>Peringatan muncul bila nilai produk sudah berubah sejak diajukan; menyetujui akan menimpa nilai itu.</li>
+        <li>Item yang sudah ditinjau tidak bisa ditinjau ulang.</li>
+    </ul>
+</section>
