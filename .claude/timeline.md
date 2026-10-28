@@ -2,14 +2,14 @@
 
 Tenggat: Jumat, 30 Oktober 2026, 23.59 WIB. Jadwal harian dibahas di grup, jadi dokumen ini hanya mencatat status, pembagian, aturan kerja, dan sisa tugas.
 
-## Status per 28 Oktober (sore)
+## Status per 28 Oktober (malam)
 
 Status branch anggota lain dibaca dari riwayat Git saja, tanpa membuka atau menjalankan kodenya.
 
 | Branch | Isi | Posisi |
 |--------|-----|--------|
-| `main` (PWS) | Auth, Modul 1, Modul 2, Modul 3, halaman bersama | Ter-deploy 27 Okt (PR #9). Env email terisi, reset password terkirim |
-| `dev` | Kelima modul, integrasi tabel dengan preferensi dan koreksi, landing dengan shelf asli, waktu sesuai zona pengguna, dan dokumen ini | 506 tes lulus (28 Okt). Modul 4 dan 5 belum di `main` |
+| `main` (PWS) | Kelima modul dan halaman bersama | Ter-deploy 28 Okt. Belum ada shelf publik di PWS |
+| `dev` | `main` ditambah `SECURE_PROXY_SSL_HEADER` | 509 tes lulus. PR ke `main` masih terbuka |
 | `product_catalog` (Yasmin) | Katalog, lookup barcode, input manual, riwayat lihat, seeding 406 produk | Di `dev`, termasuk landing dan layout ponsel |
 | `shelves` (Daffaa) | CRUD shelf (HTML dan JSON), tambah dan keluarkan produk lewat AJAX, tabel pembanding, penanda Estimasi, Simpan ke Shelf Saya, urutan dari preferensi, tombol Pilih ini | Di `dev` |
 | `recommendations` (Rafael) | App `recommendations`, model `Recommendation` dan `RecommendationVote`, daftar, usulan, detail, tes | Di `dev` (PR #8, 27 Okt). Belum ada voting, edit, hapus, dan `recommendations.js` masih kosong |

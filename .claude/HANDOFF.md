@@ -10,8 +10,9 @@ PilihYuk is a Django app that compares nutrition and environmental impact of foo
 
 Other members' progress is read from Git metadata only, so it says nothing about whether their code works.
 
-- **`main`** is live on PWS. The last deploy (27 October, PR #9) added Modul 2 and Modul 3. The `Procfile` release step runs `collectstatic` and `migrate`. `seed_products` was run by hand in the PWS terminal. The email variables are set, so reset mail is sent for real.
-- **`dev`** has all five modules, the custom 404 page, the footer accordion and these docs. 506 tests pass (7 browser tests in `preferences` skip without Chrome). Modul 4, Modul 5 and the latest fixes are not on `main` yet.
+- **`main`** is live on PWS with all five modules (deploy of 28 October). PWS has no public shelf yet, so the landing page shows its empty state. The `Procfile` release step runs `collectstatic` and `migrate`. `seed_products` was run by hand in the PWS terminal. The email variables are set, so reset mail is sent for real.
+- **`dev`** equals `main` plus one commit: `SECURE_PROXY_SSL_HEADER` (PR to `main` still open on 28 October). 509 tests pass (7 browser tests in `preferences` skip without Chrome). Coverage 93%.
+- **Audit of 28 October** (code and browser, all modules): Modul 1, 2, 4 and 5 meet the seven Aturan Khusus and their flows work in the browser. Modul 1 got four fixes the same day (no adder email, delete confirm, friendly 403 and 409 pages, success messages). Modul 5's decision dialog got a product search box. Modul 3 is the gap, see Open items.
 - **Times**: the database stores UTC (`USE_TZ = True`, `TIME_ZONE = 'UTC'`). `pilihyuk/middleware.py` activates the browser's time zone from a `tz` cookie that a small script in `base.html` sets from `Intl`, so every `|date` and `|time` in every module shows local time. A missing or bad cookie falls back to UTC. `tzdata` is in `requirements.txt` so `zoneinfo` works on PWS even without a system zone database.
 - **Modul 1 (Yasmin)** is in `dev`, including the landing page and phone layout commits.
 - **Landing page**: the table shows the most saved public shelf with at least two active products, and "Shelf pilihan" lists up to four such shelves. With no public shelf the table falls back to four catalog products labelled "Contoh dari katalog", and the shelf section says "Belum ada shelf publik saat ini".
@@ -49,8 +50,10 @@ Other members' progress is read from Git metadata only, so it says nothing about
 
 ## Open items
 
-- Merge `dev` into `main` so Modul 4, Modul 5 and the latest fixes go live, then test every flow on PWS and create a few public shelves as demo data.
-- Modul 3 still needs voting by AJAX (Aturan Khusus 5) and its edit and delete views. `recommendations.js` is empty.
+- Merge the proxy-header PR into `main`, then run `curl -sI https://ahmad-rizki53-pilihyuk.pws.cs.ui.ac.id/masuk/ | grep -i strict-transport`. Output means HTTPS is recognised and reset mail links use `https://`.
+- Create 2 or 3 public shelves on PWS, each with at least two products, and save one, so the landing page shows real shelves.
+- Test every flow on PWS once before 30 October.
+- Modul 3 (Rafael) misses Aturan Khusus 2 and 5: no vote, edit or delete views, no JSON, empty `recommendations.js`, no pagination, and a placeholder "Voting akan tersedia pada langkah berikutnya" on the detail page. Create and its form validation work.
 - `preferences/NOTES.md` still says the shelf integration is not installed. Jonathan should update it.
 - The footer links `/tentang/`, `/panduan/`, `/kebijakan-data/` and `/kontak/` have no page in Figma or the PRD. They show the custom 404 for now.
 - Reset password works on PWS since 27 October (`/lupa-password/`, Gmail with an app password). New environment variables only apply after a redeploy. The links in the mail still start with `http://` until `SECURE_PROXY_SSL_HEADER` is set. Figma frames 12 and 13 have the "Lupa password?" link and both reset screens, laid out in two rows so the frames do not overlap their neighbours.
