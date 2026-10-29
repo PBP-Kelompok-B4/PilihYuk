@@ -120,6 +120,8 @@ def recommendation_delete(request, pk):
 @require_POST
 def recommendation_vote(request, pk):
     recommendation = get_object_or_404(Recommendation, pk=pk)
+    if recommendation.author_id == request.user.pk:
+        return JsonResponse({"error": "Kamu tidak dapat memberi suara pada rekomendasimu sendiri."}, status=403)
     try:
         value = int(request.POST.get("value", ""))
     except ValueError:

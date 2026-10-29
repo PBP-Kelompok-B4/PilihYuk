@@ -19,6 +19,8 @@ from django.urls import include, path
 
 from pilihyuk.views import home_page
 
+handler404 = 'pilihyuk.views.not_found'
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('katalog/', include('product_catalog.urls')),

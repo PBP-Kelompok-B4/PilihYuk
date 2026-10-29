@@ -30,11 +30,13 @@
             <div><dt class="text-sm text-muted">Skor bersih</dt><dd class="mt-1 text-xl font-bold" data-score>{{ recommendation.score }}</dd></div>
         </dl>
 
-        {% if user.is_authenticated %}
+        {% if user == recommendation.author %}
+            <p class="mt-6 text-sm text-muted">Kamu tidak dapat memberi suara pada rekomendasimu sendiri.</p>
+        {% elif user.is_authenticated %}
             <form class="mt-6 flex flex-wrap gap-3" method="post" action="{% url 'recommendations:vote' recommendation.pk %}" data-vote-form data-current-vote="{{ user_vote|default_if_none:'' }}">
                 {% csrf_token %}
-                <button class="btn-secondary" type="submit" name="value" value="1" data-vote-button>Setuju</button>
-                <button class="btn-secondary" type="submit" name="value" value="-1" data-vote-button>Tidak setuju</button>
+                <button class="btn-secondary aria-pressed:bg-brand aria-pressed:text-white" type="submit" name="value" value="1" aria-pressed="{% if user_vote == 1 %}true{% else %}false{% endif %}" data-vote-button>Setuju</button>
+                <button class="btn-secondary aria-pressed:bg-brand aria-pressed:text-white" type="submit" name="value" value="-1" aria-pressed="{% if user_vote == -1 %}true{% else %}false{% endif %}" data-vote-button>Tidak setuju</button>
                 <span class="self-center text-sm text-muted" data-vote-status></span>
             </form>
         {% else %}

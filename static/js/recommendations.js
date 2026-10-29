@@ -10,6 +10,7 @@
 
     function showCurrentVote(value) {
         form.dataset.currentVote = value ?? '';
+        buttons.forEach(item => item.setAttribute('aria-pressed', String(Number(item.value) === value)));
     }
 
     form.addEventListener('submit', async event => {

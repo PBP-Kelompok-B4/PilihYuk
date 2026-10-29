@@ -1,3 +1,4 @@
+from django.http import JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
 
@@ -91,6 +92,12 @@ def featured_shelves():
         "user": owner_name(shelf.owner), "url": reverse("shelves:detail", args=[shelf.pk]),
         "thumbs": ([item.product.image_url or None for item in shelf.items.all()[:3]] + [None] * 3)[:3],
     } for shelf in public_shelves()[:4]]
+
+
+def not_found(request, exception=None):
+    if request.GET.get("format") == "json" or "application/json" in request.headers.get("Accept", ""):
+        return JsonResponse({"error": "Tidak ditemukan."}, status=404)
+    return render(request, "404.html", status=404)
 
 
 def home_page(request):

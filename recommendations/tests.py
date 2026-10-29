@@ -234,6 +234,16 @@ class RecommendationVotingTests(TestCase):
         self.assertEqual(response.context["user_vote"], RecommendationVote.AGREE)
         self.assertContains(response, 'data-current-vote="1"')
 
+    def test_author_cannot_vote_on_their_own_recommendation(self):
+        self.client.force_login(self.author)
+
+        response = self.client.post(self.url, {"value": RecommendationVote.AGREE}, HTTP_ACCEPT="application/json")
+        page = self.client.get(reverse("recommendations:detail", args=[self.recommendation.pk]))
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(RecommendationVote.objects.exists())
+        self.assertNotContains(page, "data-vote-form")
+
     def test_vote_form_has_a_redirect_fallback_without_javascript(self):
         self.client.force_login(self.voter)
 
