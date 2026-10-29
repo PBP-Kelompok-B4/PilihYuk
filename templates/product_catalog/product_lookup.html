@@ -3,13 +3,13 @@
 {% block content %}
 <main class="catalog-page section w-full flex-1 py-10">
     <h1 class="section-title">Cari produk lewat barcode</h1>
+    {% include 'product_catalog/_add_tabs.html' with active='barcode' %}
     <p class="mt-3">Produk yang sudah tercatat memakai data lokal. Pencarian ke Open Food Facts dibatasi 3 kali dalam 60 detik per pengguna.</p>
     {% if error %}<p class="card mt-5" role="alert">{{ error }}</p>{% endif %}
     <form class="catalog-form card my-5 space-y-4" method="post">
         {% csrf_token %}{{ form.as_p }}
         <button class="btn-brand" type="submit">Cari produk</button>
     </form>
-    <a class="text-brand underline" href="{% url 'product_catalog:product_add_manual' %}">Tambah produk manual yang dijual di Indonesia</a>
-    <p class="mt-4"><a class="text-brand underline" href="{% url 'product_catalog:product_list' %}">Kembali ke katalog</a></p>
+    <p class="mt-4"><a class="back-link" href="{% url 'product_catalog:product_list' %}"><span aria-hidden="true">&larr;</span>Kembali ke katalog</a></p>
 </main>
 {% endblock %}

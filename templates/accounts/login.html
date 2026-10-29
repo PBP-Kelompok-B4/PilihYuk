@@ -26,5 +26,5 @@
 <p class="mt-6 text-center text-[13px] text-muted">Belum punya akun?
     <a href="{% url 'accounts:register' %}{% if next %}?next={{ next|urlencode }}{% endif %}" class="font-semibold text-brand hover:underline">Daftar sekarang</a>
 </p>
-<p class="mt-2 text-center text-xs text-muted"><a href="{% url 'product_catalog:product_list' %}" class="hover:text-brand">&larr; Kembali ke katalog</a></p>
+<p class="mt-2 text-center"><a href="{% url 'product_catalog:product_list' %}" class="back-link"><span aria-hidden="true">&larr;</span>Kembali ke katalog</a></p>
 {% endblock form_content %}

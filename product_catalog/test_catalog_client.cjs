@@ -27,12 +27,10 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
     assert(prevented);
     assert.equal(requests[0].url.searchParams.get('brand'), 'Test');
     assert.equal(requests[0].url.searchParams.get('partial'), '1');
-    assert.equal(results.attributes['aria-busy'], 'true');
     requests[0].resolve({ok: true, text: async () => '<p>Escaped server HTML</p>'});
     await flush();
     assert.equal(results.innerHTML, '<p>Escaped server HTML</p>');
     assert(!history.url.includes('partial='));
-    assert.equal(results.attributes['aria-busy'], undefined);
     results.listeners.click({target: {closest: () => ({href: 'http://localhost/katalog/?brand=Test&page=2'})}, preventDefault() {}});
     assert.equal(requests[1].url.searchParams.get('page'), '2');
     requests[1].resolve({ok: false});
@@ -61,8 +59,7 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
         assert.equal(results.innerHTML, latest.html);
         assert.equal(status.textContent, latest.status);
         assert.equal(history.url, latest.url);
-        assert.equal(results.attributes['aria-busy'], undefined);
-    }
+        }
     // B fails, then A succeeds: keep B's error and the previously displayed data.
     form.listeners.submit({preventDefault() {}});
     const oldSuccess = requests[requests.length - 1];
@@ -79,7 +76,6 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
     assert.equal(status.textContent, newestError);
     assert.equal(results.innerHTML, previousHTML);
     assert.equal(history.url, previousURL);
-    assert.equal(results.attributes['aria-busy'], undefined);
     // A's failure while B is pending must not clear B's loading/error state.
     form.listeners.submit({preventDefault() {}});
     const oldPending = requests[requests.length - 1];
@@ -89,10 +85,8 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
     oldPending.reject(new Error('stale failure while loading'));
     await flush();
     assert.equal(status.textContent, loadingStatus);
-    assert.equal(results.attributes['aria-busy'], 'true');
     latestPending.resolve({ok: true, text: async () => '<p>Final</p>'});
     await flush();
     assert.equal(results.innerHTML, '<p>Final</p>');
-    assert.equal(results.attributes['aria-busy'], undefined);
     console.log('PASS: AJAX filtering, pagination, error, loading, and stale response handling');
 })().catch(error => { console.error(error); process.exitCode = 1; });

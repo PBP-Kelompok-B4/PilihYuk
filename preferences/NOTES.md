@@ -45,12 +45,12 @@ Semua endpoint memerlukan sesi login. Pengunjung diarahkan ke Masuk dengan `?nex
 | POST | `/preferensi/tambah/` | `preference_create` | Legacy `nutrient`, `direction`, `weight` |
 | POST | `/preferensi/<pk>/ubah/` | `preference_update` | Legacy `direction`, `weight` |
 | POST | `/preferensi/<pk>/hapus/` | `preference_delete` | Legacy hapus satu row |
-| GET | `/riwayat/` | `decision_list` | `q`, `shelf`, `dari`, `sampai`, `bulan`, `page` |
-| GET | `/riwayat/ekspor/` | `decision_export` | Filter yang sama; page diabaikan |
-| POST | `/riwayat/tambah/` | `decision_create` | Form product/shelf/note/subset |
-| POST | `/riwayat/<pk>/ubah/` | `decision_update` | Form `note` saja |
-| POST | `/riwayat/<pk>/hapus/` | `decision_delete` | Hapus satu keputusan |
-| POST | `/riwayat/hapus-massal/` | `decision_bulk_delete` | Form field `ids` berulang |
+| GET | `/keputusan/` | `decision_list` | `q`, `shelf`, `dari`, `sampai`, `bulan`, `page` |
+| GET | `/keputusan/ekspor/` | `decision_export` | Filter yang sama; page diabaikan |
+| POST | `/keputusan/tambah/` | `decision_create` | Form product/shelf/note/subset |
+| POST | `/keputusan/<pk>/ubah/` | `decision_update` | Form `note` saja |
+| POST | `/keputusan/<pk>/hapus/` | `decision_delete` | Hapus satu keputusan |
+| POST | `/keputusan/hapus-massal/` | `decision_bulk_delete` | Form field `ids` berulang. ID milik orang lain dan ID yang tidak ada sama-sama 404 |
 
 Semua nama memakai namespace `preferences:`. Tiga endpoint baru telah disetujui pengguna. Endpoint individu dan pratinjau satu nutrien dipertahankan untuk kompatibilitas, bukan untuk autosave UI baru.
 
@@ -83,7 +83,7 @@ Data parsial hanya menyumbang skor pada nutrien yang diketahui. Min-max dihitung
 
 ## Kontrak Daffaa: memilih produk dan subset pembanding
 
-POST `/riwayat/tambah/` mempertahankan form `product` wajib, `shelf` opsional, `note` opsional max500, dan CSRF. Sertakan sesi dan Accept application/json. Produk wajib aktif. Shelf bila diisi harus terlihat dan berisi produk pilihan.
+POST `/keputusan/tambah/` mempertahankan form `product` wajib, `shelf` opsional, `note` opsional max500, dan CSRF. Sertakan sesi dan Accept application/json. Produk wajib aktif. Shelf bila diisi harus terlihat dan berisi produk pilihan.
 
 Input tambahan opsional **`compared_product_ids` berupa field form berulang**, bukan string JSON atau angka count. Contoh integrasi pada tombol di halaman Shelf:
 
@@ -93,7 +93,7 @@ body.set('product', selectedProductId);
 body.set('shelf', shelfId);
 body.set('note', note || '');
 for (const id of comparedIds) body.append('compared_product_ids', String(id));
-fetch('/riwayat/tambah/', {
+fetch('/keputusan/tambah/', {
   method: 'POST', body,
   headers: {'Accept': 'application/json', 'X-CSRFToken': csrfToken}
 });

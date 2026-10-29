@@ -1,5 +1,7 @@
+from django.http import JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
+from django.utils.cache import patch_vary_headers
 
 from product_catalog.models import Product
 from shelves.views import owner_name, shelves_with_counts
@@ -91,6 +93,15 @@ def featured_shelves():
         "user": owner_name(shelf.owner), "url": reverse("shelves:detail", args=[shelf.pk]),
         "thumbs": ([item.product.image_url or None for item in shelf.items.all()[:3]] + [None] * 3)[:3],
     } for shelf in public_shelves()[:4]]
+
+
+def not_found(request, exception=None):
+    if request.GET.get("format") == "json" or "application/json" in request.headers.get("Accept", ""):
+        response = JsonResponse({"error": "Tidak ditemukan."}, status=404)
+    else:
+        response = render(request, "404.html", status=404)
+    patch_vary_headers(response, ["Accept"])
+    return response
 
 
 def home_page(request):

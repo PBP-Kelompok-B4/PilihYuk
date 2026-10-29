@@ -50,10 +50,10 @@
         <div class="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <nav aria-label="Urutkan" class="flex flex-wrap items-center gap-2">
                 <span class="text-[13px] text-muted">Urutkan:</span>
-                {% for chip in filters.sort_chips %}<a href="{{ chip.url }}" class="chip {% if chip.active %}bg-ink text-white{% else %}bg-white text-ink ring-1 ring-line hover:text-brand{% endif %}"{% if chip.active %} aria-current="true"{% endif %}>{{ chip.label }}</a>{% endfor %}
+                {% for chip in filters.sort_chips %}<a href="{{ chip.url }}" class="chip {% if chip.active %}bg-mint text-brand ring-1 ring-brand{% else %}bg-white text-ink ring-1 ring-line hover:text-brand{% endif %}"{% if chip.active %} aria-current="true"{% endif %}>{{ chip.label }}</a>{% endfor %}
             </nav>
             <nav aria-label="Filter data yang kurang" class="flex flex-wrap items-center gap-2">
-                {% for chip in missing_chips %}<a href="{{ chip.url }}" class="chip {% if chip.active %}bg-ink text-white{% else %}bg-white text-ink ring-1 ring-line hover:text-brand{% endif %}"{% if chip.active %} aria-current="true"{% endif %}>{{ chip.label }}</a>{% endfor %}
+                {% for chip in missing_chips %}<a href="{{ chip.url }}" class="chip {% if chip.active %}bg-mint text-brand ring-1 ring-brand{% else %}bg-white text-ink ring-1 ring-line hover:text-brand{% endif %}"{% if chip.active %} aria-current="true"{% endif %}>{{ chip.label }}</a>{% endfor %}
                 <span class="text-[13px] text-muted">{{ page_obj.paginator.count|thousands }} produk</span>
             </nav>
         </div>
@@ -107,7 +107,7 @@
                 <nav aria-label="Halaman" class="flex flex-wrap items-center gap-1 text-[13px] font-semibold">
                     {% if page_links.previous %}<a href="{{ page_links.previous }}" rel="prev" class="inline-flex h-8 min-w-8 items-center justify-center rounded-[10px] px-2 ring-1 ring-line hover:text-brand"><span aria-hidden="true">‹</span><span class="sr-only sm:not-sr-only sm:ml-1">Sebelumnya</span></a>{% endif %}
                     {% for link in page_links.pages %}
-                    {% if link.ellipsis %}<span aria-hidden="true" class="px-1 text-muted">…</span>{% elif link.current %}<span aria-current="page" class="inline-flex h-8 min-w-8 items-center justify-center rounded-[10px] bg-ink px-2 text-white">{{ link.number }}</span>{% else %}<a href="{{ link.url }}" aria-label="Halaman {{ link.number }}" class="inline-flex h-8 min-w-8 items-center justify-center rounded-[10px] px-2 ring-1 ring-line hover:text-brand">{{ link.number }}</a>{% endif %}
+                    {% if link.ellipsis %}<span aria-hidden="true" class="px-1 text-muted">…</span>{% elif link.current %}<span aria-current="page" class="inline-flex h-8 min-w-8 items-center justify-center rounded-[10px] bg-mint px-2 text-brand ring-1 ring-brand">{{ link.number }}</span>{% else %}<a href="{{ link.url }}" aria-label="Halaman {{ link.number }}" class="inline-flex h-8 min-w-8 items-center justify-center rounded-[10px] px-2 ring-1 ring-line hover:text-brand">{{ link.number }}</a>{% endif %}
                     {% endfor %}
                     {% if page_links.next %}<a href="{{ page_links.next }}" rel="next" class="inline-flex h-8 min-w-8 items-center justify-center rounded-[10px] px-2 ring-1 ring-line hover:text-brand"><span class="sr-only sm:not-sr-only sm:mr-1">Berikutnya</span><span aria-hidden="true">›</span></a>{% endif %}
                 </nav>

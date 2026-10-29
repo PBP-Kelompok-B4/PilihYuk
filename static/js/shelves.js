@@ -61,7 +61,6 @@
         controller = current;
         const url = new URL(root.dataset.candidatesUrl, window.location.href);
         url.searchParams.set('q', query.value.trim());
-        candidates.setAttribute('aria-busy', 'true');
         try {
             const response = await fetch(url, {signal: current.signal, headers: {'Accept': 'application/json'}});
             if (!response.ok) throw new Error('request failed');
@@ -76,7 +75,6 @@
         } catch (error) {
             if (error.name !== 'AbortError') status.textContent = 'Gagal memuat produk. Coba lagi.';
         } finally {
-            if (controller === current) candidates.removeAttribute('aria-busy');
         }
     }
 
@@ -89,7 +87,6 @@
             const data = await post(root.dataset.addUrl, new URLSearchParams({product: row.dataset.productId}));
             const item = fill(clone('[data-item-template]'), data.product);
             item.querySelector('[data-remove]').action = `${root.dataset.addUrl}${data.product.id}/hapus/`;
-            item.querySelector('[data-remove] button').setAttribute('aria-label', `Keluarkan ${data.product.name}`);
             items.append(item);
             markAdded(row, true);
             setTotal(data.item_count);
@@ -153,7 +150,6 @@
         boxes.filter(box => box.checked).forEach(box => url.searchParams.append('banding', box.value));
         const partial = new URL(url);
         partial.searchParams.set('partial', '1');
-        table.setAttribute('aria-busy', 'true');
         try {
             const response = await fetch(partial, {signal: current.signal});
             if (!response.ok) throw new Error('request failed');
@@ -163,7 +159,6 @@
         } catch (error) {
             if (error.name !== 'AbortError') status.textContent = 'Gagal memperbarui tabel. Coba lagi.';
         } finally {
-            if (controller === current) table.removeAttribute('aria-busy');
         }
     }
 
@@ -219,7 +214,6 @@
             if (!response.ok || !isJson) throw new Error('request failed');
             const data = await response.json();
             input.value = data.saved ? '0' : '1';
-            button.setAttribute('aria-pressed', String(data.saved));
             label.textContent = data.saved ? 'Tersimpan di Shelf Saya' : 'Simpan ke Shelf Saya';
             if (count) count.textContent = `Disimpan ${data.save_count} pengguna`;
             showToast(data.saved ? 'Shelf disimpan' : 'Simpanan dibatalkan',

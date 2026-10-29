@@ -21,8 +21,8 @@
         </div>
         {% endfor %}
     </div>
-<nav class="catalog-pagination" aria-label="Paginasi katalog">
-{% if page_obj.has_previous %}<a data-page href="?{{ query }}&page={{ page_obj.previous_page_number }}">Sebelumnya</a>{% endif %}
-<span class="catalog-page-number">Halaman {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
-{% if page_obj.has_next %}<a data-page href="?{{ query }}&page={{ page_obj.next_page_number }}">Berikutnya</a>{% endif %}
+<nav aria-label="Halaman" class="catalog-pagination mt-6 flex flex-wrap items-center justify-center gap-2">
+{% if page_obj.has_previous %}<a data-page class="nav-chip" href="?{{ query }}&page={{ page_obj.previous_page_number }}">Sebelumnya</a>{% endif %}
+<span class="nav-chip catalog-page-number" aria-current="page">Halaman {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+{% if page_obj.has_next %}<a data-page class="nav-chip" href="?{{ query }}&page={{ page_obj.next_page_number }}">Berikutnya</a>{% endif %}
 </nav>

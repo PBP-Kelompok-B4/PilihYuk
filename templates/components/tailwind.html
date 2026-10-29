@@ -43,9 +43,13 @@
     .btn-brand { @apply inline-flex items-center justify-center gap-2 rounded-[10px] bg-brand px-5 py-3 text-sm font-semibold text-white hover:bg-brand/90; }
     .btn-white { @apply inline-flex items-center justify-center gap-2 rounded-[10px] bg-white px-5 py-3 text-sm font-semibold text-ink hover:bg-white/80; }
     .btn-small { @apply px-4 py-2.5 text-[13px]; }
+    .btn-secondary { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] border border-line bg-white px-5 py-3 text-sm font-semibold text-ink transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-60; }
+    .back-link { @apply inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-brand hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand; }
 
-    .nav-link { @apply hover:text-brand; }
-    .nav-link[aria-current] { @apply font-semibold text-brand; }
+    .nav-link { @apply rounded-lg px-3 py-1.5 hover:text-brand; }
+    .nav-link[aria-current] { @apply bg-mint text-brand; }
+    .nav-chip { @apply inline-flex min-h-8 items-center justify-center rounded-[10px] bg-white px-3 text-[13px] font-semibold text-ink ring-1 ring-line hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand; }
+    .nav-chip[aria-current] { @apply bg-mint text-brand ring-brand; }
 
     .toast-component {
         position: fixed;

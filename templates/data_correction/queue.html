@@ -45,11 +45,11 @@
             {% endif %}
 
             <nav aria-label="Filter field" class="mt-4 flex flex-wrap gap-2">
-                {% for chip in filters.field_chips %}<a href="{{ chip.url }}" class="chip {% if chip.active %}bg-ink text-white{% else %}bg-surface text-ink hover:text-brand{% endif %}"{% if chip.active %} aria-current="true"{% endif %}>{{ chip.label }}</a>{% endfor %}
+                {% for chip in filters.field_chips %}<a href="{{ chip.url }}" class="chip {% if chip.active %}bg-mint text-brand ring-1 ring-brand{% else %}bg-surface text-ink hover:text-brand{% endif %}"{% if chip.active %} aria-current="true"{% endif %}>{{ chip.label }}</a>{% endfor %}
             </nav>
             {% with status_chips=filters.status_chips %}{% if status_chips %}
             <nav aria-label="Filter status" class="mt-2 flex flex-wrap gap-2">
-                {% for chip in status_chips %}<a href="{{ chip.url }}" class="chip {% if chip.active %}bg-ink text-white{% else %}bg-white text-ink ring-1 ring-line hover:text-brand{% endif %}"{% if chip.active %} aria-current="true"{% endif %}>{{ chip.label }}</a>{% endfor %}
+                {% for chip in status_chips %}<a href="{{ chip.url }}" class="chip {% if chip.active %}bg-mint text-brand ring-1 ring-brand{% else %}bg-white text-ink ring-1 ring-line hover:text-brand{% endif %}"{% if chip.active %} aria-current="true"{% endif %}>{{ chip.label }}</a>{% endfor %}
             </nav>
             {% endif %}{% endwith %}
 

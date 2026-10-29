@@ -7,11 +7,11 @@
         {% if row.product.is_active %}<a class="catalog-history-link text-brand underline" href="{% url 'product_catalog:product_detail' row.product_id %}">{{ row.product.product_name }}</a>{% else %}{{ row.product.product_name }} (tidak aktif){% endif %}
         <time datetime="{{ row.viewed_at|date:'c' }}">{{ row.viewed_at }}</time>
     </li>{% empty %}<li>Belum ada riwayat.</li>{% endfor %}</ul>
-    <nav class="catalog-pagination" aria-label="Paginasi riwayat">
-        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">Sebelumnya</a>{% endif %}
-        <span class="catalog-page-number">Halaman {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
-        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">Berikutnya</a>{% endif %}
+    <nav class="catalog-pagination mt-6 flex flex-wrap items-center justify-center gap-2" aria-label="Paginasi riwayat">
+        {% if page_obj.has_previous %}<a class="nav-chip" href="?page={{ page_obj.previous_page_number }}">Sebelumnya</a>{% endif %}
+        <span class="nav-chip catalog-page-number" aria-current="page">Halaman {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}<a class="nav-chip" href="?page={{ page_obj.next_page_number }}">Berikutnya</a>{% endif %}
     </nav>
-    <p class="mt-5"><a href="{% url 'product_catalog:product_list' %}">Kembali ke katalog</a></p>
+    <p class="mt-5"><a class="back-link" href="{% url 'product_catalog:product_list' %}"><span aria-hidden="true">&larr;</span>Kembali ke katalog</a></p>
 </main>
 {% endblock %}

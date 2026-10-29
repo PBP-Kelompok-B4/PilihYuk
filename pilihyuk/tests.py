@@ -178,6 +178,14 @@ class NotFoundPageTests(TestCase):
         self.assertTemplateUsed(response, "404.html")
         self.assertContains(response, "Halaman tidak ditemukan", status_code=404)
 
+    def test_json_clients_get_json_404(self):
+        for url, headers in (("/rekomendasi/999/", {"HTTP_ACCEPT": "application/json"}),
+                             ("/rekomendasi/999/?format=json", {})):
+            response = self.client.get(url, **headers)
+            self.assertEqual(response.status_code, 404)
+            self.assertEqual(response.json(), {"error": "Tidak ditemukan."})
+            self.assertIn("Accept", response["Vary"])
+
 
 class UserTimezoneTests(TestCase):
     def zone_for(self, cookie):

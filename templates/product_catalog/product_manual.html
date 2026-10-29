@@ -3,12 +3,13 @@
 {% block content %}
 <main class="catalog-page section w-full flex-1 py-10">
     <h1 class="section-title">{% if editing %}Sunting produk manual{% else %}Tambah produk manual{% endif %}</h1>
+    {% if not editing %}{% include 'product_catalog/_add_tabs.html' with active='manual' %}{% endif %}
     <p class="mt-3">Nutrisi diisi per 100 g. Natrium disimpan dalam gram. Kolom alergen dan kemasan memakai daftar tag JSON, misalnya ["en:milk"].</p>
     <p class="mt-3">Dengan menambahkan produk, Anda menyatakan produk ini dijual di Indonesia.</p>
     <form class="catalog-form card my-5 space-y-4" method="post">
         {% csrf_token %}{{ form.as_p }}
         <button class="btn-brand" type="submit">Simpan produk</button>
     </form>
-    <a class="text-brand underline" href="{% url 'product_catalog:product_lookup' %}">Kembali ke pencarian barcode</a>
+    <a class="back-link" href="{% url 'product_catalog:product_list' %}"><span aria-hidden="true">&larr;</span>Kembali ke katalog</a>
 </main>
 {% endblock %}

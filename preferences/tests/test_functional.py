@@ -68,7 +68,7 @@ class DecisionBrowserTests(StaticLiveServerTestCase):
             page.unroute('**/preferensi/pratinjau-gabungan/')
             page.locator('[data-preview-retry]').click()
             expect(page.locator('[data-combined-preview]')).to_contain_text('Minuman oat contoh')
-            page.goto(self.live_server_url + '/riwayat/')
+            page.goto(self.live_server_url + '/keputusan/')
             if os.getenv('PILIHYUK_SCREENSHOT_DIR'):
                 page.wait_for_function("getComputedStyle(document.querySelector('.card')).borderRadius === '20px'")
                 page.screenshot(path=str(directory / 'riwayat-realistic-1440.png'), full_page=True)
@@ -85,7 +85,7 @@ class DecisionBrowserTests(StaticLiveServerTestCase):
             context = browser.new_context(viewport={"width": 1280, "height": 900})
             context.add_cookies([{"name": settings.SESSION_COOKIE_NAME, "value": self.client.cookies[settings.SESSION_COOKIE_NAME].value, "url": self.live_server_url}])
             page = context.new_page()
-            page.goto(self.live_server_url + "/riwayat/")
+            page.goto(self.live_server_url + "/keputusan/")
             expect(page.get_by_role("button", name="Catat Keputusan Baru", exact=True)).to_have_count(1)
             expect(page.locator('[data-decision] textarea')).to_have_count(0)
             page.get_by_role("button", name="Catat Keputusan Baru", exact=True).click()
@@ -151,14 +151,14 @@ class DecisionBrowserTests(StaticLiveServerTestCase):
                                  "value": self.client.cookies[settings.SESSION_COOKIE_NAME].value,
                                  "url": self.live_server_url}])
             page = context.new_page()
-            page.goto(self.live_server_url + "/riwayat/")
+            page.goto(self.live_server_url + "/keputusan/")
             page.evaluate("window.modulePage = 'same-page'")
             page.locator('[data-decision-bulk] button').click()
             expect(page.locator('[data-module-status]')).to_have_text('Pilih setidaknya satu keputusan.')
             for checkbox in page.locator('[data-decision] [name=ids]').all():
                 checkbox.check()
             held = []
-            page.route("**/riwayat/hapus-massal/", lambda route: held.append(route))
+            page.route("**/keputusan/hapus-massal/", lambda route: held.append(route))
             page.locator('[data-decision-bulk] button').click()
             page.get_by_role('button', name='Hapus', exact=True).click()
             expect(page.locator('[data-decision]:visible')).to_have_count(0)
@@ -166,9 +166,9 @@ class DecisionBrowserTests(StaticLiveServerTestCase):
             held.pop().fulfill(status=403, json={"ok": False, "message": "Penghapusan gagal."})
             expect(page.locator('[data-decision]:visible')).to_have_count(2)
             expect(page.locator('[data-module-status]')).to_have_text('Penghapusan gagal.')
-            page.unroute("**/riwayat/hapus-massal/")
+            page.unroute("**/keputusan/hapus-massal/")
 
-            page.route("**/riwayat/*/ubah/", lambda route: route.fulfill(status=400, json={"ok": False, "message": "Alasan gagal."}))
+            page.route("**/keputusan/*/ubah/", lambda route: route.fulfill(status=400, json={"ok": False, "message": "Alasan gagal."}))
             original = page.locator('[data-note-text]').first.text_content()
             page.locator('[data-decision-edit]').first.click()
             note = page.locator('[data-edit-dialog] textarea')
@@ -178,7 +178,7 @@ class DecisionBrowserTests(StaticLiveServerTestCase):
             expect(note).to_have_value('Perubahan yang ditolak')
             expect(page.locator('[data-note-text]').first).to_have_text(original)
             page.keyboard.press('Escape')
-            page.unroute("**/riwayat/*/ubah/")
+            page.unroute("**/keputusan/*/ubah/")
             page.locator('[data-decision-bulk] button').click()
             page.get_by_role('button', name='Hapus', exact=True).click()
             expect(page.locator('[data-module-status]')).to_have_text('2 keputusan dihapus.')
@@ -204,7 +204,7 @@ class DecisionBrowserTests(StaticLiveServerTestCase):
             page = context.new_page()
             errors = []
             page.on("pageerror", lambda error: errors.append(str(error)))
-            page.goto(self.live_server_url + "/riwayat/")
+            page.goto(self.live_server_url + "/keputusan/")
             page.evaluate("window.modulePage = 'same-page'")
             page.locator("[data-page]", has_text="Berikutnya").click()
             expect(page.locator("[data-decision]")).to_have_count(2)
@@ -254,7 +254,7 @@ class DecisionBrowserTests(StaticLiveServerTestCase):
             page = context.new_page()
             for width in (390, 768, 1024, 1440):
                 page.set_viewport_size({"width": width, "height": 900})
-                for path in ("/preferensi/", "/riwayat/"):
+                for path in ("/preferensi/", "/keputusan/"):
                     page.goto(self.live_server_url + path)
                     page.wait_for_function("getComputedStyle(document.querySelector('.card')).borderRadius === '20px'")
                     self.assertTrue(page.locator("main [id]").evaluate_all(

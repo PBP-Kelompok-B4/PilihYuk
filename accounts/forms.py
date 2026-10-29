@@ -8,7 +8,7 @@ User = get_user_model()
 
 INPUT = (
     "w-full rounded-[10px] bg-white px-4 py-3 text-sm ring-1 ring-line placeholder:text-muted "
-    "focus:outline-none focus:ring-2 focus:ring-brand aria-[invalid=true]:ring-[#b42318]"
+    "focus:outline-none focus:ring-2 focus:ring-brand"
 )
 CHECKBOX = "mt-0.5 h-4 w-4 shrink-0 accent-brand"
 
@@ -20,7 +20,7 @@ def email_taken(email, exclude_pk=None):
 
 
 class Styled:
-    """Kelas Tailwind untuk semua field, supaya template tidak mengulang. aria-invalid sudah diisi Django."""
+    """Kelas Tailwind untuk semua field, supaya template tidak mengulang."""
 
     icons = {}  # nama field -> nama berkas static/img/<nama>.svg (sesuai wireframe)
 

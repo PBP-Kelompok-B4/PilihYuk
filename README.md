@@ -87,7 +87,7 @@ Setiap anggota memfilter data dari database lokal, bukan dari Public/mock API. A
 
 ## Tailwind CSS
 
-Tampilan memakai Tailwind CSS v4 lewat script CDN (`@tailwindcss/browser`), jadi tidak ada CLI, Node.js, atau langkah build. Tema (warna, font) dan kelas komponen (`btn-brand`, `card`, `chip`, dan lainnya) ditulis di `templates/components/tailwind.html` dan dimuat oleh `base.html`. Warna baru ditambahkan di blok `@theme`, kelas berulang di `@layer components` dengan `@apply`. Script CDN membuat CSS di browser, jadi butuh internet.
+Tampilan memakai Tailwind CSS v4 lewat script CDN (`@tailwindcss/browser`), jadi tidak ada CLI, Node.js, atau langkah build. Tema (warna, font) dan kelas komponen (`btn-brand`, `btn-secondary`, `card`, `chip`, `back-link`, `nav-chip`, dan lainnya) ditulis di `templates/components/tailwind.html` dan dimuat oleh `base.html`. Warna baru ditambahkan di blok `@theme`, kelas berulang di `@layer components` dengan `@apply`. Script CDN membuat CSS di browser, jadi butuh internet.
 
 
 ## Autentikasi dan pengaturan lokal
@@ -113,7 +113,7 @@ def my_view(request): ...
 def curator_view(request): ...
 ```
 
-Untuk class-based view, pakai `LoginRequiredMixin` dan `UserPassesTestMixin`. Di template: `{% if user.is_authenticated %}` dan `{% firstof user.first_name user.username %}` untuk nama. Query data milik pengguna selalu lewat `request.user`, jangan menerima id pengguna dari URL atau form. Halaman `/profil/` menaut ke `/preferensi/`, `/riwayat/`, dan `/shelf/saya/`; kartunya aktif sendiri saat URL itu ada, jadi pakai path itu atau kabari Daffaa bila berbeda.
+Untuk class-based view, pakai `LoginRequiredMixin` dan `UserPassesTestMixin`. Di template: `{% if user.is_authenticated %}` dan `{% firstof user.first_name user.username %}` untuk nama. Query data milik pengguna selalu lewat `request.user`, jangan menerima id pengguna dari URL atau form. Halaman `/profil/` menaut ke `/preferensi/`, `/keputusan/`, dan `/shelf/saya/`; kartunya aktif sendiri saat URL itu ada, jadi pakai path itu atau kabari Daffaa bila berbeda.
 
 Waktu disimpan dalam UTC dan ditampilkan menurut zona waktu browser pengguna (cookie `tz`, `pilihyuk/middleware.py`). Di template cukup pakai `|date` atau `|time` seperti biasa.
 
