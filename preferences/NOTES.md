@@ -50,7 +50,7 @@ Semua endpoint memerlukan sesi login. Pengunjung diarahkan ke Masuk dengan `?nex
 | POST | `/keputusan/tambah/` | `decision_create` | Form product/shelf/note/subset |
 | POST | `/keputusan/<pk>/ubah/` | `decision_update` | Form `note` saja |
 | POST | `/keputusan/<pk>/hapus/` | `decision_delete` | Hapus satu keputusan |
-| POST | `/keputusan/hapus-massal/` | `decision_bulk_delete` | Form field `ids` berulang |
+| POST | `/keputusan/hapus-massal/` | `decision_bulk_delete` | Form field `ids` berulang. ID milik orang lain dan ID yang tidak ada sama-sama 404 |
 
 Semua nama memakai namespace `preferences:`. Tiga endpoint baru telah disetujui pengguna. Endpoint individu dan pratinjau satu nutrien dipertahankan untuk kompatibilitas, bukan untuk autosave UI baru.
 

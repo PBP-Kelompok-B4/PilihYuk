@@ -2,17 +2,17 @@
 
 Tenggat: Jumat, 30 Oktober 2026, 23.59 WIB. Jadwal harian dibahas di grup, jadi dokumen ini hanya mencatat status, pembagian, aturan kerja, dan sisa tugas.
 
-## Status per 28 Oktober (malam)
+## Status per 29 Oktober (malam)
 
 Status branch anggota lain dibaca dari riwayat Git saja, tanpa membuka atau menjalankan kodenya.
 
 | Branch | Isi | Posisi |
 |--------|-----|--------|
 | `main` (PWS) | Kelima modul dan halaman bersama | Ter-deploy 28 Okt. Belum ada shelf publik di PWS |
-| `dev` | `main` ditambah `SECURE_PROXY_SSL_HEADER` | 509 tes lulus. PR ke `main` masih terbuka |
+| `dev` | `main` ditambah `SECURE_PROXY_SSL_HEADER` | 524 tes lulus. PR ke `main` masih terbuka |
 | `product_catalog` (Yasmin) | Katalog, lookup barcode, input manual, riwayat lihat, seeding 406 produk | Di `dev`, termasuk landing dan layout ponsel |
 | `shelves` (Daffaa) | CRUD shelf (HTML dan JSON), tambah dan keluarkan produk lewat AJAX, tabel pembanding, penanda Estimasi, Simpan ke Shelf Saya, urutan dari preferensi, tombol Pilih ini | Di `dev` |
-| `recommendations` (Rafael) | App `recommendations`, model `Recommendation` dan `RecommendationVote`, daftar, usulan, detail, tes | Di `dev` (PR #8, 27 Okt). Belum ada voting, edit, hapus, dan `recommendations.js` masih kosong |
+| `recommendations` (Rafael) | App `recommendations`, model `Recommendation` dan `RecommendationVote`, daftar, usulan, detail, tes | Di `dev` (PR #8, 27 Okt; PR #15, 29 Okt). Voting, edit, hapus, dan JSON sudah ada. Belum diaudit terhadap tujuh Aturan Khusus |
 | `data_correction` (Rayyan, per 27 Okt) | Ajukan dan tinjau koreksi, antrean kurator dan kontribusi, AJAX di semua halaman, frekuensi shelf, tes | Di `dev` (28 Okt) |
 | `preferences` (Jonathan) | Preferensi dengan pratinjau AJAX, `Decision` privat, ranking berbobot, riwayat, tes | Di `dev` (PR #10, 27 Okt) |
 
@@ -65,7 +65,7 @@ Template di `templates/<app>/`, JavaScript di `static/js/<app>.js`, semua halama
 ### Rafael (`recommendations`)
 
 - Sepakati satu baris di `product_detail.html` dengan Yasmin.
-- Voting lewat AJAX dengan `RecommendationVote` (Aturan Khusus nomor 5), plus view edit dan hapus usulan: satu suara per pengguna per usulan, bisa diubah atau ditarik, dihitung dengan `annotate`.
+- Selesai (PR #15, 29 Okt): voting lewat AJAX, edit, dan hapus usulan. Pada 29 Okt Daffaa menyunting file Modul 3: pembuat usulan tidak bisa memilih usulannya sendiri, tombol vote menandai pilihan aktif, usulan dengan produk nonaktif disembunyikan, dan vote memakai transaksi atomik. Periksa perubahan itu sebelum merge.
 - Kandidat pengganti difilter menurut kategori dan skor. Pengunjung tidak melihat pengusul.
 - Tes: arah usulan, pasangan unik, satu suara per pengguna, akses pengunjung.
 
@@ -78,13 +78,14 @@ Template di `templates/<app>/`, JavaScript di `static/js/<app>.js`, semua halama
 
 - Sudah di `dev`. Tombol "Pilih ini" (kirim `compared_product_ids`) dan urutan baris dari preferensi sudah dipasang di Modul 2 pada 28 Okt.
 - Perbarui `preferences/NOTES.md`, yang masih menyebut integrasi Shelf belum dipasang.
+- Pada 29 Okt Daffaa memindahkan rute riwayat keputusan dari `/riwayat/` ke `/keputusan/`, mengubah hapus massal agar ID milik orang lain menjawab 404, dan menyesuaikan tes serta `NOTES.md`. Tarik `dev` sebelum merge.
 - Teks antarmuka tidak boleh terbaca sebagai saran kesehatan.
 
 ## Risiko
 
 | Risiko | Penanganan |
 |--------|------------|
-| Modul 3 belum punya voting AJAX, edit, dan hapus | Selesaikan sebelum 30 Okt, karena Aturan Khusus nomor 5 dinilai per anggota |
+| Modul 3 sudah punya voting, edit, dan hapus, tetapi belum diaudit terhadap tujuh Aturan Khusus | Audit sebelum 30 Okt, karena Aturan Khusus dinilai per anggota. Uji juga paginasi `/rekomendasi/` dengan banyak data |
 | Konflik di `urls.py`, `base.html`, `pilihyuk/views.py` | Satu baris per app, merge cepat. `base.html` hanya diubah Daffaa |
 | Tailwind CDN butuh internet | Pastikan koneksi saat demo |
 | Akun terkunci karena salah login berulang | Tunggu 15 menit atau `python manage.py axes_reset` |
