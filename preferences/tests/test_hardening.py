@@ -71,7 +71,7 @@ class BulkDeleteTests(TestCase):
         self.assertEqual(self.client.get("/keputusan/", HTTP_ACCEPT="application/json").json()["items"][0]["id"], self.foreign.pk)
 
     def test_mixed_owner_or_missing_ids_never_partially_delete(self):
-        for ids, code in (([self.first.pk, self.foreign.pk], 403), ([self.first.pk, 99999], 404)):
+        for ids, code in (([self.first.pk, self.foreign.pk], 404), ([self.first.pk, 99999], 404)):
             for headers in ({}, {"HTTP_ACCEPT": "application/json"}):
                 response = self.client.post("/keputusan/hapus-massal/", {"ids": ids}, **headers)
                 self.assertEqual(response.status_code, code)

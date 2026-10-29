@@ -341,9 +341,7 @@ def decision_bulk_delete(request):
         return error_response(request, "Periksa kembali pilihan keputusan.", 400, form.errors)
     ids = form.cleaned_data["ids"]
     with transaction.atomic():
-        items = list(Decision.objects.select_for_update().filter(pk__in=ids))
-        if any(item.user_id != request.user.pk for item in items):
-            return error_response(request, "Kamu tidak punya akses ke data ini.", 403)
+        items = list(Decision.objects.select_for_update().filter(pk__in=ids, user=request.user))
         if len(items) != len(ids):
             return error_response(request, "Data tidak ditemukan.", 404)
         Decision.objects.filter(user=request.user, pk__in=ids).delete()
