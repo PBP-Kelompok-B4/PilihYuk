@@ -1,0 +1,4 @@
+<nav aria-label="Cara menambah produk" class="mt-4 flex flex-wrap gap-2">
+    <a href="{% url 'product_catalog:product_lookup' %}" class="nav-chip"{% if active == 'barcode' %} aria-current="page"{% endif %}>Lewat barcode</a>
+    <a href="{% url 'product_catalog:product_add_manual' %}" class="nav-chip"{% if active == 'manual' %} aria-current="page"{% endif %}>Isi manual</a>
+</nav>
