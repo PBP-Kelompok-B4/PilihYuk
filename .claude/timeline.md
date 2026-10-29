@@ -2,19 +2,19 @@
 
 Tenggat: Jumat, 30 Oktober 2026, 23.59 WIB. Jadwal harian dibahas di grup, jadi dokumen ini hanya mencatat status, pembagian, aturan kerja, dan sisa tugas.
 
-## Status per 24 Oktober
+## Status per 28 Oktober (malam)
 
 Status branch anggota lain dibaca dari riwayat Git saja, tanpa membuka atau menjalankan kodenya.
 
 | Branch | Isi | Posisi |
 |--------|-----|--------|
-| `main` (PWS) | Auth, Modul 1, halaman bersama, rename Rekomendasi | Ter-deploy 23 Okt. `seed_products` dijalankan manual |
-| `dev` | `main` ditambah Modul 2, perubahan login, favicon, dan dokumen ini | 196 tes lulus (24 Okt) |
-| `product_catalog` (Yasmin) | Katalog, lookup barcode, input manual, riwayat lihat, seeding 406 produk | Di `dev`. Dua commit (produk di landing, layout ponsel) belum masuk |
-| `shelves` (Daffaa) | CRUD shelf, tambah dan keluarkan produk lewat AJAX, tabel pembanding, Simpan ke Shelf Saya | Di `dev` (24 Okt) |
-| `recommendations` (Rafael, per 23 Okt) | Model `Substitution`, form, view, template, tes, di folder `substitutions/` | Belum di `dev` |
-| `data_correction` (Rayyan, per 23 Okt) | Model, ajukan dan tinjau koreksi, antrean kurator dan kontribusi, JSON, tes | Belum di `dev`. `data_correction.js` belum diisi |
-| `preferences` (Jonathan, per 23 Okt) | Belum ada kode | `Shelf` sudah ada, jadi `Decision` bisa ditulis |
+| `main` (PWS) | Kelima modul dan halaman bersama | Ter-deploy 28 Okt. Belum ada shelf publik di PWS |
+| `dev` | `main` ditambah `SECURE_PROXY_SSL_HEADER` | 509 tes lulus. PR ke `main` masih terbuka |
+| `product_catalog` (Yasmin) | Katalog, lookup barcode, input manual, riwayat lihat, seeding 406 produk | Di `dev`, termasuk landing dan layout ponsel |
+| `shelves` (Daffaa) | CRUD shelf (HTML dan JSON), tambah dan keluarkan produk lewat AJAX, tabel pembanding, penanda Estimasi, Simpan ke Shelf Saya, urutan dari preferensi, tombol Pilih ini | Di `dev` |
+| `recommendations` (Rafael) | App `recommendations`, model `Recommendation` dan `RecommendationVote`, daftar, usulan, detail, tes | Di `dev` (PR #8, 27 Okt). Belum ada voting, edit, hapus, dan `recommendations.js` masih kosong |
+| `data_correction` (Rayyan, per 27 Okt) | Ajukan dan tinjau koreksi, antrean kurator dan kontribusi, AJAX di semua halaman, frekuensi shelf, tes | Di `dev` (28 Okt) |
+| `preferences` (Jonathan) | Preferensi dengan pratinjau AJAX, `Decision` privat, ranking berbobot, riwayat, tes | Di `dev` (PR #10, 27 Okt) |
 
 ## Pembagian
 
@@ -22,7 +22,7 @@ Status branch anggota lain dibaca dari riwayat Git saja, tanpa membuka atau menj
 |-------|---------|------------|-------|
 | 1. Katalog Produk | Yasmin | `product_catalog` | `Product`, `ProductView` |
 | 2. Shelf dan Tabel Pembanding | Daffaa | `shelves` | `Shelf`, `ShelfItem`, `SavedShelf` |
-| 3. Rekomendasi Komunitas | Rafael | `substitutions` (branch `recommendations`) | `Substitution`, `SubstitutionVote` |
+| 3. Rekomendasi Komunitas | Rafael | `recommendations` | `Recommendation`, `RecommendationVote` |
 | 4. Antrean Data | Rayyan | `data_correction` | `DataCorrection`, `DataCorrectionItem` |
 | 5. Preferensi dan Riwayat Keputusan | Jonathan | `preferences` | `Preference`, `Decision` |
 | Auth | Daffaa | `accounts` | `User` bawaan Django |
@@ -41,7 +41,7 @@ Template di `templates/<app>/`, JavaScript di `static/js/<app>.js`, semua halama
 
 ## Bonus (setelah bagian wajib beres)
 
-- Urutan tabel pembanding mengikuti preferensi pengguna (`preferences/ranking.py`). Paling diutamakan. Baris tabel berasal dari `comparison_rows()` di `shelves/comparison.py`, jadi cukup urutkan ulang list itu.
+- Urutan tabel pembanding mengikuti preferensi pengguna. Sudah ada (28 Okt).
 - Antrean kontribusi diurutkan dari produk yang paling sering masuk shelf.
 - Skor lingkungan estimasi.
 - Refresh data satu produk dari Open Food Facts.
@@ -50,7 +50,7 @@ Template di `templates/<app>/`, JavaScript di `static/js/<app>.js`, semua halama
 
 ### Yasmin (`product_catalog`)
 
-- PR dua commit yang belum di `dev`. Commit landing menyentuh `pilihyuk/views.py` dan `templates/index.html`, jadi pertahankan perubahan dari kedua sisi.
+- Commit landing dan layout ponsel sudah di `dev`. Commit landing menyentuh `pilihyuk/views.py` (juga diubah Modul 3) dan `templates/index.html`, jadi pertahankan perubahan dari kedua sisi.
 - Catatan: path sampel di `product_catalog/fixture_data.py` dan `fixtures/README.md` sudah diubah ke `.claude/off-samples/` (24 Okt), karena folder `pilihyuk-docs/` diratakan.
 - Rapikan dropdown kategori dan merek (ada isian ganda dan ngawur dari tag OFF).
 - Sesuaikan katalog dan detail dengan Figma frame 03 dan 04.
@@ -58,42 +58,33 @@ Template di `templates/<app>/`, JavaScript di `static/js/<app>.js`, semua halama
 
 ### Daffaa (`shelves`, `accounts`, integrasi)
 
-- Isi `featured_shelves()` di landing setelah commit landing Yasmin masuk.
-- Penanda "Estimasi" untuk Green-Score di tabel pembanding.
-- Integrasi: `"unknown"` menaut ke koreksi Rayyan, dan tombol "Pilih produk ini" menyimpan `Decision` lewat view Jonathan.
+- Integrasi selesai (28 Okt): urutan dari preferensi, tombol "Pilih ini", dan tautan "Bantu lengkapi data" ke koreksi Rayyan. Landing memakai shelf publik asli.
 - Coba semua alur di PWS sebelum pengumpulan.
-- Reset password sudah jalan. Untuk PWS, isi `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` di environment. Bonus: urutan dari `preferences/ranking.py`.
+- Gabungkan `dev` ke `main` supaya Modul 5 ikut live, lalu buat 2 sampai 3 shelf publik sebagai data demo di PWS.
 
 ### Rafael (`recommendations`)
 
-- PR ke `dev`, dengan URL modul di `/rekomendasi/`.
 - Sepakati satu baris di `product_detail.html` dengan Yasmin.
-- `SubstitutionVote` dan voting lewat AJAX: satu suara per pengguna per usulan, bisa diubah atau ditarik, dihitung dengan `annotate`.
+- Voting lewat AJAX dengan `RecommendationVote` (Aturan Khusus nomor 5), plus view edit dan hapus usulan: satu suara per pengguna per usulan, bisa diubah atau ditarik, dihitung dengan `annotate`.
 - Kandidat pengganti difilter menurut kategori dan skor. Pengunjung tidak melihat pengusul.
 - Tes: arah usulan, pasangan unik, satu suara per pengguna, akses pengunjung.
 
 ### Rayyan (`data_correction`)
 
-- PR ke `dev`.
-- AJAX kirim dan tinjau di `static/js/data_correction.js`.
-- Responsif ponsel dan akun kurator untuk demo.
-- Bonus: antrean diurutkan dari produk yang paling sering masuk shelf.
+- Sudah di `dev`. Rute modul ini sudah diawali `antrean/` dan `moderasi/`, jadi `pilihyuk/urls.py` cukup memuatnya sekali di `''`.
+- Akun kurator untuk demo.
 
 ### Jonathan (`preferences`)
 
-- `git merge origin/dev`, lalu `migrate`.
-- `Preference` (nutrient, direction, weight; unik per pengguna dan nutrien) dan `Decision` (shelf dan product dengan `SET_NULL`, note, created_at).
-- CRUD preferensi untuk protein, serat, gula, natrium, lemak jenuh, dan energi, dengan pratinjau jumlah produk lewat AJAX.
-- CRUD riwayat keputusan, hanya untuk pemiliknya. Tombol "Pilih produk ini" dikerjakan bersama Daffaa.
+- Sudah di `dev`. Tombol "Pilih ini" (kirim `compared_product_ids`) dan urutan baris dari preferensi sudah dipasang di Modul 2 pada 28 Okt.
+- Perbarui `preferences/NOTES.md`, yang masih menyebut integrasi Shelf belum dipasang.
 - Teks antarmuka tidak boleh terbaca sebagai saran kesehatan.
-- Bonus: `preferences/ranking.py`, dengan `"unknown"` tidak diperingkat.
 
 ## Risiko
 
 | Risiko | Penanganan |
 |--------|------------|
-| Modul 5 baru mulai | Tujuh Aturan Khusus dulu, bonus belakangan |
-| Modul 3 dan 4 belum pernah digabung | PR ke `dev` secepatnya supaya konflik ketahuan lebih awal |
+| Modul 3 belum punya voting AJAX, edit, dan hapus | Selesaikan sebelum 30 Okt, karena Aturan Khusus nomor 5 dinilai per anggota |
 | Konflik di `urls.py`, `base.html`, `pilihyuk/views.py` | Satu baris per app, merge cepat. `base.html` hanya diubah Daffaa |
 | Tailwind CDN butuh internet | Pastikan koneksi saat demo |
 | Akun terkunci karena salah login berulang | Tunggu 15 menit atau `python manage.py axes_reset` |

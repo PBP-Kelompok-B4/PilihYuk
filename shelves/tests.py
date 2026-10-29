@@ -6,6 +6,7 @@ from django.db.models.deletion import ProtectedError
 from django.test import TestCase
 from django.urls import reverse
 
+from preferences.models import Decision, Preference
 from product_catalog.models import Product
 
 from .comparison import comparison_rows
@@ -53,6 +54,22 @@ class ShelfViewTests(TestCase):
         response = self.client.get(reverse("shelves:list"))
         self.assertContains(response, "Mie instan")
         self.assertNotContains(response, "Rahasia")
+
+    def test_public_list_is_ordered_by_last_update(self):
+        newer = Shelf.objects.create(name="Kopi pagi", owner=self.other)
+        self.public.save()
+        response = self.client.get(reverse("shelves:list"))
+        self.assertTrue(response.context["page"].paginator.object_list.ordered)
+        self.assertEqual([s.name for s in response.context["page"]], ["Mie instan", newer.name])
+
+    def test_list_counts_and_shows_only_active_products(self):
+        ShelfItem.objects.create(shelf=self.public, product=Product.objects.create(product_name="Sarimi", source="manual"))
+        ShelfItem.objects.create(shelf=self.public, product=Product.objects.create(
+            product_name="Produk lama", source="manual", is_active=False))
+        data = self.client.get(reverse("shelves:list"), {"format": "json"}).json()
+        self.assertEqual(data["results"][0]["item_count"], 1)
+        response = self.client.get(reverse("shelves:list"))
+        self.assertEqual([i.product.product_name for i in response.context["page"][0].items.all()], ["Sarimi"])
 
     def test_search_filters_by_context(self):
         Shelf.objects.create(name="Kopi pagi", owner=self.other)
@@ -122,6 +139,17 @@ class ShelfViewTests(TestCase):
         self.client.force_login(self.owner)
         self.assertRedirects(self.client.post(url), reverse("shelves:mine"))
         self.assertFalse(Shelf.objects.filter(pk=self.public.pk).exists())
+
+    def test_pagination_links_keep_other_query_params(self):
+        for i in range(13):
+            Shelf.objects.create(name=f"Milik {i}", owner=self.owner)
+            SavedShelf.objects.create(user=self.owner, shelf=Shelf.objects.create(name=f"Orang {i}", owner=self.other))
+        self.client.force_login(self.owner)
+        response = self.client.get(reverse("shelves:mine"), {"saved_page": 2})
+        self.assertContains(response, "?saved_page=2&amp;page=2")
+        self.assertContains(response, "?saved_page=1")
+        response = self.client.get(reverse("shelves:list"), {"q": "orang"})
+        self.assertContains(response, "?q=orang&amp;page=2")
 
     def test_mine_shows_own_and_saved_public_shelves_only(self):
         theirs = Shelf.objects.create(name="Camilan kantor", owner=self.other)
@@ -234,6 +262,14 @@ class ComparisonTests(TestCase):
         rows = comparison_rows([self.make("A", nova_group=4), self.make("B", nova_group=4)])
         self.assertEqual(self.best(rows, "NOVA"), [False, False])
 
+    def test_estimate_shows_only_without_official_score_and_is_not_ranked(self):
+        a = self.make("A", environmental_grade="unknown", environmental_grade_estimated="a")
+        b = self.make("B", environmental_grade="c", environmental_grade_estimated="b")
+        c = self.make("C", environmental_grade="d")
+        green = next(r for r in comparison_rows([a, b, c]) if r["label"] == "Green-Score")["cells"]
+        self.assertEqual([cell["estimate"] for cell in green], ["a", "", ""])
+        self.assertEqual([cell["best"] for cell in green], [False, True, False])
+
     def test_detail_compares_at_most_four_chosen_products(self):
         owner = get_user_model().objects.create_user("rani@example.com", "rani@example.com", "pw-12345678")
         shelf = Shelf.objects.create(name="Mie", owner=owner)
@@ -291,3 +327,111 @@ class SaveShelfTests(TestCase):
         response = self.client.get(url)
         self.assertContains(response, "Disimpan 1 pengguna")
         self.assertNotContains(response, "bagas")
+
+
+class ShelfJsonCrudTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.owner = User.objects.create_user("rani@example.com", "rani@example.com", "pw-12345678", first_name="Rani")
+        self.other = User.objects.create_user("bagas@example.com", "bagas@example.com", "pw-12345678")
+        self.shelf = Shelf.objects.create(name="Mie instan", owner=self.owner)
+        self.client.force_login(self.owner)
+
+    def post(self, url, data=None):
+        return self.client.post(url, data or {}, HTTP_ACCEPT="application/json")
+
+    def test_create_returns_shelf_or_field_errors(self):
+        response = self.post(reverse("shelves:create"), {"name": "Susu untuk kopi", "is_private": "True"})
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["name"], "Susu untuk kopi")
+        self.assertTrue(response.json()["is_private"])
+        self.assertEqual(response.json()["owner"], "Rani")
+        response = self.post(reverse("shelves:create"), {"name": ""})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("name", response.json()["errors"])
+
+    def test_edit_returns_updated_shelf_and_stays_owner_only(self):
+        url = reverse("shelves:edit", args=[self.shelf.pk])
+        data = self.post(url, {"name": "Mie goreng", "is_private": "False"}).json()
+        self.assertEqual((data["id"], data["name"], data["item_count"]), (self.shelf.pk, "Mie goreng", 0))
+        self.client.force_login(self.other)
+        self.assertEqual(self.post(url, {"name": "Dibajak"}).status_code, 404)
+
+    def test_delete_returns_json(self):
+        response = self.post(reverse("shelves:delete", args=[self.shelf.pk]))
+        self.assertEqual(response.json(), {"id": self.shelf.pk, "deleted": True})
+        self.assertFalse(Shelf.objects.exists())
+
+    def test_mine_returns_own_and_saved_shelves(self):
+        theirs = Shelf.objects.create(name="Camilan kantor", owner=self.other)
+        SavedShelf.objects.create(user=self.owner, shelf=theirs)
+        data = self.client.get(reverse("shelves:mine"), {"format": "json"}).json()
+        self.assertEqual([s["name"] for s in data["own"]], ["Mie instan"])
+        self.assertEqual([s["name"] for s in data["saved"]], ["Camilan kantor"])
+        self.assertNotIn("bagas@example.com", str(data))
+
+
+class PreferenceIntegrationTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user("rani@example.com", "rani@example.com", "pw-12345678")
+        self.shelf = Shelf.objects.create(name="Mie", owner=self.user)
+        self.a = Product.objects.create(product_name="A", source="manual", energy_kcal_100g=450, sugars_100g=7)
+        self.b = Product.objects.create(product_name="B", source="manual", energy_kcal_100g=400, sugars_100g=9)
+        for product in (self.a, self.b):
+            ShelfItem.objects.create(shelf=self.shelf, product=product)
+        self.client.force_login(self.user)
+
+    def labels(self, rows):
+        return [r["label"] for r in rows if r["kind"] == "number"]
+
+    def test_preferred_rows_come_first_and_follow_their_direction(self):
+        Preference.objects.create(user=self.user, nutrient="sugar", direction="min", weight=1)
+        Preference.objects.create(user=self.user, nutrient="energy", direction="min", weight=3)
+        rows = comparison_rows([self.a, self.b], self.user.nutrition_preferences.all())
+        self.assertEqual(self.labels(rows)[:3], ["Energi", "Gula", "Protein"])
+        self.assertEqual(rows[3]["cells"][1]["best"], True)
+        self.assertEqual(self.labels(comparison_rows([self.a, self.b]))[0], "Energi")
+        self.assertEqual(comparison_rows([self.a, self.b])[3]["direction"], None)
+
+    def test_detail_uses_viewer_preferences(self):
+        Preference.objects.create(user=self.user, nutrient="sugar", direction="min", weight=3)
+        data = self.client.get(reverse("shelves:detail", args=[self.shelf.pk]), {"format": "json"}).json()
+        self.assertEqual(self.labels(data["rows"])[0], "Gula")
+        self.client.logout()
+        data = self.client.get(reverse("shelves:detail", args=[self.shelf.pk]), {"format": "json"}).json()
+        self.assertEqual(self.labels(data["rows"])[0], "Energi")
+
+    def test_choose_button_records_decision_with_compared_products(self):
+        response = self.client.get(reverse("shelves:detail", args=[self.shelf.pk]))
+        self.assertContains(response, reverse("preferences:decision_create"))
+        self.assertContains(response, 'name="compared_product_ids"', count=4)
+        response = self.client.post(reverse("preferences:decision_create"),
+                                    {"product": self.b.pk, "shelf": self.shelf.pk,
+                                     "compared_product_ids": [self.a.pk, self.b.pk]},
+                                    HTTP_ACCEPT="application/json")
+        self.assertEqual(response.status_code, 201)
+        decision = Decision.objects.get()
+        self.assertEqual((decision.product, decision.shelf, decision.compared_product_count), (self.b, self.shelf, 2))
+
+    def test_visitors_do_not_see_choose_button(self):
+        self.client.logout()
+        self.assertNotContains(self.client.get(reverse("shelves:detail", args=[self.shelf.pk])), "Pilih ini")
+
+
+class CorrectionLinkTests(TestCase):
+    def test_missing_values_link_to_the_correction_form(self):
+        owner = get_user_model().objects.create_user("rani@example.com", "rani@example.com", "pw-12345678")
+        shelf = Shelf.objects.create(name="Mie", owner=owner)
+        a = Product.objects.create(product_name="A", source="manual", proteins_100g=9, nutrition_grade="b",
+                                   environmental_grade="unknown", packaging_tags=[])
+        b = Product.objects.create(product_name="B", source="manual", proteins_100g=8, nutrition_grade="c",
+                                   environmental_grade="not-applicable", packaging_tags=[])
+        for product in (a, b):
+            ShelfItem.objects.create(shelf=shelf, product=product)
+        response = self.client.get(reverse("shelves:detail", args=[shelf.pk]))
+        submit_a = reverse("data_correction:submit", args=[a.pk])
+        self.assertContains(response, f'href="{submit_a}?field=sugars_100g"')
+        self.assertContains(response, f'href="{submit_a}?field=origin"')
+        self.assertContains(response, f'href="{submit_a}"')
+        self.assertNotContains(response, f'href="{reverse("data_correction:submit", args=[b.pk])}"')
+        self.assertNotContains(response, f'href="{submit_a}?field=proteins_100g"')

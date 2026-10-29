@@ -1,0 +1,44 @@
+/* Catalog-only layout: keep shared pages and theme unchanged. */
+.catalog-page { min-width: 0; overflow-wrap: anywhere; }
+.catalog-page .card { min-width: 0; }
+.catalog-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
+.catalog-page a, .catalog-page button, .catalog-page input, .catalog-page select,
+.catalog-page textarea { touch-action: manipulation; }
+.catalog-page a:focus-visible, .catalog-page button:focus-visible,
+.catalog-page input:focus-visible, .catalog-page select:focus-visible,
+.catalog-page textarea:focus-visible { outline: 2px solid #1e6f4c; outline-offset: 3px; }
+.catalog-page label { min-width: 0; }
+.catalog-page input:not([type="checkbox"]):not([type="hidden"]),
+.catalog-page select, .catalog-page textarea {
+    box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%;
+    min-height: 44px; font-size: 1rem;
+}
+.catalog-page select { text-overflow: ellipsis; }
+.catalog-page textarea { resize: vertical; }
+.catalog-form { max-width: 48rem; }
+.catalog-form p { min-width: 0; }
+.catalog-form label { display: block; margin-bottom: .5rem; font-weight: 600; }
+.catalog-form input:not([type="checkbox"]):not([type="hidden"]),
+.catalog-form select, .catalog-form textarea {
+    display: block; border: 1px solid #e9e5db; border-radius: .5rem;
+    padding: .75rem; background: #fff; color: #16201a;
+}
+.catalog-page input[type="checkbox"] { width: 1.25rem; height: 1.25rem; flex-shrink: 0; }
+.catalog-form .helptext { display: block; margin-top: .375rem; font-size: .875rem; }
+.catalog-form .errorlist { margin: .5rem 0; color: #b42318; list-style: disc; padding-left: 1.25rem; }
+.catalog-pagination { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; margin-top: 1.5rem; }
+.catalog-pagination a { display: inline-flex; align-items: center; justify-content: center;
+    min-height: 44px; padding: .5rem .75rem; border: 1px solid #e9e5db;
+    border-radius: .625rem; background: white; color: #1e6f4c; }
+.catalog-page .chip { max-width: 100%; white-space: normal; }
+.catalog-history-link { display: inline-block; padding: .5rem 0; }
+.catalog-page time { display: block; margin-top: .5rem; font-size: .875rem; color: #6e756e; }
+@media (max-width: 639px) {
+    body:has(.catalog-page) > header > div { column-gap: .5rem; }
+    .catalog-page { padding-top: 1.5rem; padding-bottom: 2rem; }
+    .catalog-page .card { padding: 1rem; }
+    .catalog-actions > .btn-brand, .catalog-form > button { width: 100%; min-height: 44px; }
+    .catalog-actions > a:not(.btn-brand) { display: inline-flex; align-items: center; min-height: 44px; }
+    .catalog-pagination .catalog-page-number { width: 100%; order: -1; }
+    .catalog-pagination a { flex: 1 1 0; }
+}

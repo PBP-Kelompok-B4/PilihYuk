@@ -1,6 +1,7 @@
 from urllib.parse import quote
 
 import requests
+from django.contrib import messages
 from django.core.paginator import Paginator
 from django.core.exceptions import ValidationError
 from django.db import DatabaseError, transaction
@@ -14,7 +15,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from .forms import BarcodeLookupForm, ManualProductForm, has_valid_gtin
 from .lookup import reserve_off_lookup, save_imported_product
 from .models import Product, ProductView
-from .responses import catalog_login_required, json_error, serialize_product, wants_json
+from .responses import catalog_login_required, error_response, json_error, serialize_product, wants_json
 from .off_mapping import product_fields, tag_name
 from . import open_food_facts as off
 from .name_eligibility import screen_name
@@ -128,6 +129,7 @@ def product_add_manual(request):
             return render(request, "product_catalog/product_manual.html", {"form": form}, status=503)
         if wants_json(request):
             return JsonResponse(serialize_product(product, request.user), status=201)
+        messages.success(request, "Produk ditambahkan ke katalog.")
         return redirect("product_catalog:product_detail", pk=product.pk)
     if wants_json(request):
         if request.method == "POST":
@@ -233,10 +235,13 @@ def product_detail(request, pk):
 def product_edit(request, pk):
     product = get_object_or_404(Product, pk=pk, is_active=True)
     if product.source != "manual" or not (request.user.is_staff or product.added_by_id == request.user.pk):
-        return json_error("forbidden", "Produk OFF dikoreksi lewat modul Antrean Data; entri manual hanya dapat disunting pemilik atau kurator.", 403)
+        return error_response(request, "forbidden", "Produk OFF dikoreksi lewat modul Antrean Data; entri manual hanya dapat disunting pemilik atau kurator.", 403,
+                              reverse("product_catalog:product_detail", args=[product.pk]))
     form = ManualProductForm(request.POST if request.method == "POST" else None, instance=product)
     if request.method == "POST" and form.is_valid():
         form.save()
+        if not wants_json(request):
+            messages.success(request, "Perubahan produk disimpan.")
         return lookup_result(request, product)
     if wants_json(request):
         if request.method == "POST":
@@ -252,14 +257,18 @@ def product_delete(request, pk):
     with transaction.atomic():
         product = get_object_or_404(Product.objects.select_for_update(), pk=pk, is_active=True)
         if product.source != "manual" or product.added_by_id != request.user.pk:
-            return json_error("forbidden", "Hanya pemilik dapat menghapus produk manual.", 403)
+            return error_response(request, "forbidden", "Hanya pemilik dapat menghapus produk manual.", 403,
+                                  reverse("product_catalog:product_detail", args=[product.pk]))
         for relation in Product._meta.related_objects:
             if relation.on_delete is PROTECT and relation.related_model.objects.filter(**{relation.field.name: product}).exists():
-                return json_error("product_in_use", "Produk masih digunakan dan tidak dapat dihapus.", 409)
+                return error_response(request, "product_in_use",
+                                      "Produk masih dipakai di shelf, rekomendasi, atau pengajuan koreksi, jadi tidak dapat dihapus.",
+                                      409, reverse("product_catalog:product_detail", args=[product.pk]))
         product.is_active = False
         product.save(update_fields=["is_active", "updated_at"])
     if wants_json(request):
         return JsonResponse({"deleted": True, "id": product.pk})
+    messages.success(request, "Produk dihapus dari katalog.")
     return redirect("product_catalog:product_list")
 
 

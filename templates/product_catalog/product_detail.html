@@ -1,10 +1,10 @@
-{% extends 'base.html' %}
-{% block meta %}<title>{{ product.product_name|default:'Detail Produk' }} — PilihYuk</title>{% endblock %}
+{% extends 'product_catalog/base.html' %}
+{% block catalog_meta %}<title>{{ product.product_name|default:'Detail Produk' }} — PilihYuk</title>{% endblock %}
 {% block content %}
-<main class="section w-full flex-1 py-10">
+<main class="catalog-page section w-full flex-1 py-10">
     <a class="text-sm text-brand underline" href="{% url 'product_catalog:product_list' %}">Kembali ke katalog</a>
     <p class="mt-3"><a class="btn-brand" href="{% url 'recommendations:create' product.pk %}">Buat rekomendasi</a></p>
-    {% if user.is_authenticated and product.source == 'manual' and product.added_by %}<p class="mt-3">Ditambahkan oleh {{ product.added_by.get_full_name|default:product.added_by.username }}</p>{% endif %}
+    {% if user.is_authenticated and product.source == 'manual' and product.added_by %}<p class="mt-3">Ditambahkan oleh {{ product.added_by.first_name|default:"Pengguna PilihYuk" }}</p>{% endif %}
     {% if can_edit %}<p class="mt-3"><a class="text-brand underline" href="{% url 'product_catalog:product_edit' product.pk %}">Sunting produk manual</a></p>{% endif %}
     {% if can_delete %}<form class="mt-3" method="post" action="{% url 'product_catalog:product_delete' product.pk %}">{% csrf_token %}<button class="text-brand underline" type="submit">Hapus produk manual</button></form>{% endif %}
 

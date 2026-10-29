@@ -62,6 +62,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'pilihyuk.middleware.user_timezone',
     'axes.middleware.AxesMiddleware',  # harus terakhir
 ]
 
@@ -184,6 +185,7 @@ SILENCED_SYSTEM_CHECKS = ['axes.W006']  # sengaja tanpa ip_address: semua penggu
 AXES_RESET_ON_SUCCESS = True
 AXES_LOCKOUT_TEMPLATE = 'accounts/locked.html'
 if PRODUCTION:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_HSTS_SECONDS = 3600  # ponytail: naikkan (dan SECURE_SSL_REDIRECT) setelah PWS terbukti HTTPS penuh
