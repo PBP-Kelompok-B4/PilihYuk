@@ -184,6 +184,7 @@ class NotFoundPageTests(TestCase):
             response = self.client.get(url, **headers)
             self.assertEqual(response.status_code, 404)
             self.assertEqual(response.json(), {"error": "Tidak ditemukan."})
+            self.assertIn("Accept", response["Vary"])
 
 
 class UserTimezoneTests(TestCase):

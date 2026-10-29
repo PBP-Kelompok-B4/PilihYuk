@@ -1,4 +1,5 @@
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.db.models import Count, Q
 from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -11,7 +12,9 @@ from .models import Recommendation, RecommendationVote
 
 
 def recommendations_with_vote_counts():
-    return Recommendation.objects.select_related("source_product", "replacement_product").annotate(
+    return Recommendation.objects.filter(
+        source_product__is_active=True, replacement_product__is_active=True,
+    ).select_related("source_product", "replacement_product").annotate(
         agree_count=Count("votes", filter=Q(votes__value=RecommendationVote.AGREE)),
         disagree_count=Count("votes", filter=Q(votes__value=RecommendationVote.DISAGREE)),
         score=Count("votes", filter=Q(votes__value=RecommendationVote.AGREE))
@@ -121,23 +124,29 @@ def recommendation_delete(request, pk):
 def recommendation_vote(request, pk):
     recommendation = get_object_or_404(Recommendation, pk=pk)
     if recommendation.author_id == request.user.pk:
-        return JsonResponse({"error": "Kamu tidak dapat memberi suara pada rekomendasimu sendiri."}, status=403)
+        message = "Kamu tidak dapat memberi suara pada rekomendasimu sendiri."
+        if wants_json(request):
+            return JsonResponse({"error": message}, status=403)
+        return HttpResponseForbidden(message)
     try:
         value = int(request.POST.get("value", ""))
     except ValueError:
         value = None
     if value not in {RecommendationVote.AGREE, RecommendationVote.DISAGREE}:
         return JsonResponse({"error": "Pilihan suara tidak valid."}, status=400)
-    vote = RecommendationVote.objects.filter(recommendation=recommendation, user=request.user).first()
-    if vote and vote.value == value:
-        vote.delete()
-        value = None
-    else:
-        RecommendationVote.objects.update_or_create(
-            recommendation=recommendation,
-            user=request.user,
-            defaults={"value": value},
-        )
+    with transaction.atomic():
+        vote = RecommendationVote.objects.select_for_update().filter(
+            recommendation=recommendation, user=request.user,
+        ).first()
+        if vote and vote.value == value:
+            vote.delete()
+            value = None
+        else:
+            RecommendationVote.objects.update_or_create(
+                recommendation=recommendation,
+                user=request.user,
+                defaults={"value": value},
+            )
     recommendation = get_object_or_404(recommendations_with_vote_counts(), pk=pk)
     data = {
         "value": value,
