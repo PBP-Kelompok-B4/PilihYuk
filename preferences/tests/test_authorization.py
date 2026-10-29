@@ -39,8 +39,8 @@ class AuthorizationTests(TestCase):
         client.force_login(self.owner)
         decision = Decision.objects.create(user=self.owner, product=make_product())
         urls = ["/preferensi/tambah/", "/preferensi/simpan/", "/preferensi/pratinjau-gabungan/", f"/preferensi/{self.item.pk}/ubah/", f"/preferensi/{self.item.pk}/hapus/",
-                "/riwayat/tambah/", f"/riwayat/{decision.pk}/ubah/", f"/riwayat/{decision.pk}/hapus/",
-                "/riwayat/hapus-massal/"]
+                "/keputusan/tambah/", f"/keputusan/{decision.pk}/ubah/", f"/keputusan/{decision.pk}/hapus/",
+                "/keputusan/hapus-massal/"]
         for url in urls:
             with self.subTest(url=url):
                 self.assertEqual(client.post(url, HTTP_ACCEPT="application/json").status_code, 403)

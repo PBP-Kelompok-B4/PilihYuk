@@ -15,7 +15,7 @@ REMEMBER_SECONDS = 30 * 24 * 3600
 # Kartu di halaman profil. Path mengikuti navigasi header; kartu aktif sendiri saat app-nya punya URL.
 PROFILE_LINKS = [
     ("Preferensi Nutrisi", "Atur nutrien yang ingin kamu prioritaskan.", "/preferensi/", False),
-    ("Riwayat Keputusan", "Produk yang pernah kamu pilih beserta alasannya.", "/riwayat/", False),
+    ("Riwayat Keputusan", "Produk yang pernah kamu pilih beserta alasannya.", "/keputusan/", False),
     ("Shelf Saya", "Shelf buatanmu dan shelf publik yang kamu simpan.", "/shelf/saya/", False),
     ("Moderasi Data", "Tinjau pengajuan koreksi data produk.", "/moderasi/", True),
 ]
