@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block meta %}<title>{{ recommendation.source_product.product_name|default:'Rekomendasi' }} — PilihYuk</title>{% endblock %}
 {% block content %}
 <main class="section w-full flex-1 py-10">
@@ -8,17 +9,40 @@
         <p class="eyebrow">REKOMENDASI KOMUNITAS</p>
         <h1 class="section-title mt-2 break-words">
             <a class="hover:text-brand hover:underline" href="{% url 'product_catalog:product_detail' recommendation.source_product.pk %}">{{ recommendation.source_product.product_name|default:'Produk tanpa nama' }}</a>
-            <span aria-hidden="true">→</span>
+            <span>→</span>
             <a class="hover:text-brand hover:underline" href="{% url 'product_catalog:product_detail' recommendation.replacement_product.pk %}">{{ recommendation.replacement_product.product_name|default:'Produk tanpa nama' }}</a>
         </h1>
         <p class="mt-6 whitespace-pre-line leading-relaxed">{{ recommendation.reason }}</p>
 
+        {% if user == recommendation.author %}
+            <div class="mt-5 flex flex-wrap gap-4 text-sm">
+                <a class="font-semibold text-brand underline" href="{% url 'recommendations:edit' recommendation.pk %}">Sunting alasan</a>
+                <form method="post" action="{% url 'recommendations:delete' recommendation.pk %}" onsubmit="return confirm('Tarik rekomendasi ini?');">
+                    {% csrf_token %}
+                    <button class="font-semibold text-red-700 underline" type="submit">Tarik rekomendasi</button>
+                </form>
+            </div>
+        {% endif %}
+
         <dl class="mt-8 grid gap-4 border-t border-line pt-5 text-center sm:grid-cols-3">
-            <div><dt class="text-sm text-muted">Setuju</dt><dd class="mt-1 text-xl font-bold text-brand">{{ recommendation.agree_count }}</dd></div>
-            <div><dt class="text-sm text-muted">Tidak setuju</dt><dd class="mt-1 text-xl font-bold">{{ recommendation.disagree_count }}</dd></div>
-            <div><dt class="text-sm text-muted">Skor bersih</dt><dd class="mt-1 text-xl font-bold">{{ recommendation.score }}</dd></div>
+            <div><dt class="text-sm text-muted">Setuju</dt><dd class="mt-1 text-xl font-bold text-brand" data-agree-count>{{ recommendation.agree_count }}</dd></div>
+            <div><dt class="text-sm text-muted">Tidak setuju</dt><dd class="mt-1 text-xl font-bold" data-disagree-count>{{ recommendation.disagree_count }}</dd></div>
+            <div><dt class="text-sm text-muted">Skor bersih</dt><dd class="mt-1 text-xl font-bold" data-score>{{ recommendation.score }}</dd></div>
         </dl>
-        <p class="mt-6 text-xs text-muted">Dibuat {{ recommendation.created_at|date:'j F Y, H:i' }}. Voting akan tersedia pada langkah berikutnya.</p>
+
+        {% if user.is_authenticated %}
+            <form class="mt-6 flex flex-wrap gap-3" method="post" action="{% url 'recommendations:vote' recommendation.pk %}" data-vote-form data-current-vote="{{ user_vote|default_if_none:'' }}">
+                {% csrf_token %}
+                <button class="btn-secondary" type="submit" name="value" value="1" data-vote-button>Setuju</button>
+                <button class="btn-secondary" type="submit" name="value" value="-1" data-vote-button>Tidak setuju</button>
+                <span class="self-center text-sm text-muted" data-vote-status></span>
+            </form>
+        {% else %}
+            <p class="mt-6 text-sm text-muted"><a class="text-brand underline" href="{% url 'accounts:login' %}?next={{ request.path|urlencode }}">Masuk</a> untuk memberi suara.</p>
+        {% endif %}
+
+        <p class="mt-6 text-xs text-muted">Dibuat {{ recommendation.created_at|date:'j F Y, H:i' }}.</p>
     </article>
 </main>
+<script src="{% static 'js/recommendations.js' %}" defer></script>
 {% endblock %}

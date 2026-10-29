@@ -14,7 +14,7 @@
     {% endif %}
     <p class="mt-3 text-muted">Jelajahi informasi gizi dan lingkungan produk yang dijual di Indonesia.</p>
 
-    <form id="catalog-filter" method="get" class="card my-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Filter katalog">
+    <form id="catalog-filter" method="get" class="card my-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <label class="text-sm font-semibold" for="search">Cari nama, merek, atau barcode
             <input class="mt-2 w-full rounded-lg border border-line p-3" id="search" name="q" value="{{ filters.q }}" type="search">
         </label>
@@ -49,8 +49,8 @@
         </div>
     </form>
 
-    <p id="catalog-status" role="status" aria-live="polite"></p>
-    <div id="catalog-results" class="min-w-0">{% include "product_catalog/_product_results.html" %}</div>
+    <p id="catalog-status" role="status"></p>
+    <div id="catalog-results">{% include "product_catalog/_product_results.html" %}</div>
 </main>
 <script src="{% static 'js/product_catalog.js' %}" defer></script>
 {% endblock %}

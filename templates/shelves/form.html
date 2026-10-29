@@ -5,7 +5,7 @@
 
 {% block content %}
 <main class="section w-full max-w-[760px] flex-1 py-10">
-    <nav aria-label="Breadcrumb" class="text-xs text-muted">
+    <nav class="text-xs text-muted">
         <a href="{% url 'shelves:list' %}" class="hover:text-brand">Shelf</a> ›
         {% if shelf %}<a href="{% url 'shelves:detail' shelf.pk %}" class="hover:text-brand">{{ shelf.name }}</a> › Edit{% else %}Buat Shelf{% endif %}
     </nav>
@@ -41,12 +41,12 @@
     </form>
 
     {% if shelf %}
-    <section id="produk" class="card mt-6" aria-labelledby="products-title" data-shelf-products
+    <section id="produk" class="card mt-6" data-shelf-products
              data-candidates-url="{% url 'shelves:candidates' shelf.pk %}" data-add-url="{% url 'shelves:item_add' shelf.pk %}" data-max="{{ max_items }}">
         <h2 id="products-title" class="text-lg font-bold">Tambah produk</h2>
         <p class="mt-1 text-xs text-muted">Cari di katalog lalu tambahkan. Produk yang kamu tambahkan muncul sebagai kolom di tabel perbandingan.</p>
         <form role="search" data-candidate-search>{% include "accounts/_field.html" with field=search_form.q %}</form>
-        <p class="sr-only" aria-live="polite" data-status></p>
+        <p class="sr-only" data-status></p>
         <ul class="mt-3 divide-y divide-line rounded-xl ring-1 ring-line" data-candidates></ul>
 
         <div class="mt-6 flex items-center justify-between">

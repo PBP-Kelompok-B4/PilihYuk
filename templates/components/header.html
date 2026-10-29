@@ -5,14 +5,14 @@
             <span class="logo-mark"><img src="{% static 'img/scale.svg' %}" alt=""></span>PilihYuk
         </a>
 
-        <nav id="menu" aria-label="Navigasi utama"
+        <nav id="menu"
              class="absolute inset-x-0 top-[68px] hidden flex-col gap-4 border-b border-line bg-white p-4 text-sm font-medium md:static md:flex md:flex-row md:items-center md:gap-7 md:border-0 md:p-0">
-            <a href="/katalog/" class="nav-link" {% if '/katalog' in request.path %}aria-current="page"{% endif %}>Katalog</a>
-            <a href="/shelf/" class="nav-link" {% if '/shelf' in request.path %}aria-current="page"{% endif %}>Shelf</a>
-            <a href="/rekomendasi/" class="nav-link" {% if '/rekomendasi' in request.path %}aria-current="page"{% endif %}>Rekomendasi</a>
-            <a href="/antrean/" class="nav-link" {% if '/antrean' in request.path %}aria-current="page"{% endif %}>Lengkapi Data</a>
+            <a href="/katalog/" class="nav-link">Katalog</a>
+            <a href="/shelf/" class="nav-link">Shelf</a>
+            <a href="/rekomendasi/" class="nav-link">Rekomendasi</a>
+            <a href="/antrean/" class="nav-link">Lengkapi Data</a>
             {% if user.is_staff %}
-            <a href="/moderasi/" class="nav-link" {% if '/moderasi' in request.path %}aria-current="page"{% endif %}>Moderasi Data</a>
+            <a href="/moderasi/" class="nav-link">Moderasi Data</a>
             {% endif %}
             {% if not user.is_authenticated %}
             <a href="{% url 'accounts:login' %}" class="nav-link sm:hidden">Masuk</a>
@@ -23,13 +23,13 @@
         <div class="flex items-center gap-2">
             <form action="/katalog/" class="hidden w-56 items-center gap-2 rounded-[10px] bg-surface px-3 py-2.5 lg:flex">
                 <img src="{% static 'img/search.svg' %}" alt="">
-                <input type="search" name="q" placeholder="Cari produk, merek, atau shelf…" aria-label="Cari"
+                <input type="search" name="q" placeholder="Cari produk, merek, atau shelf…"
                        class="w-full bg-transparent text-[13px] placeholder:text-muted focus:outline-none">
             </form>
 
             {% if user.is_authenticated %}
             {% firstof user.first_name user.username as display_name %}
-            <a href="{% url 'accounts:profile' %}" class="flex items-center gap-2" aria-label="Profil {{ display_name }}">
+            <a href="{% url 'accounts:profile' %}" class="flex items-center gap-2">
                 <span class="flex h-9 w-9 items-center justify-center rounded-full bg-mint text-sm font-bold text-brand">{{ display_name|slice:":1"|upper }}</span>
                 <span class="hidden text-[13px] font-semibold leading-tight sm:block">
                     {{ display_name }}{% if user.is_staff %}<small class="block text-[11px] font-normal text-muted">Admin</small>{% endif %}
@@ -43,9 +43,9 @@
             <a href="{% url 'accounts:register' %}" class="hidden rounded-[10px] bg-brand px-3 py-2.5 text-sm font-semibold text-white hover:bg-brand/90 sm:block">Daftar</a>
             {% endif %}
 
-            <a href="/katalog/" aria-label="Cari produk" class="p-2 lg:hidden"><img src="{% static 'img/search.svg' %}" alt=""></a>
+            <a href="/katalog/" class="p-2 lg:hidden"><img src="{% static 'img/search.svg' %}" alt=""></a>
 
-            <button type="button" aria-label="Buka menu" aria-controls="menu" class="px-2 text-2xl md:hidden"
+            <button type="button" class="px-2 text-2xl md:hidden"
                     onclick="const m = document.getElementById('menu'); m.classList.toggle('hidden'); m.classList.toggle('flex')">&#9776;</button>
         </div>
     </div>
