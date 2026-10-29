@@ -14,6 +14,16 @@
         </h1>
         <p class="mt-6 whitespace-pre-line leading-relaxed">{{ recommendation.reason }}</p>
 
+        {% if user == recommendation.author %}
+            <div class="mt-5 flex flex-wrap gap-4 text-sm">
+                <a class="font-semibold text-brand underline" href="{% url 'recommendations:edit' recommendation.pk %}">Sunting alasan</a>
+                <form method="post" action="{% url 'recommendations:delete' recommendation.pk %}" onsubmit="return confirm('Tarik rekomendasi ini?');">
+                    {% csrf_token %}
+                    <button class="font-semibold text-red-700 underline" type="submit">Tarik rekomendasi</button>
+                </form>
+            </div>
+        {% endif %}
+
         <dl class="mt-8 grid gap-4 border-t border-line pt-5 text-center sm:grid-cols-3">
             <div><dt class="text-sm text-muted">Setuju</dt><dd class="mt-1 text-xl font-bold text-brand" data-agree-count>{{ recommendation.agree_count }}</dd></div>
             <div><dt class="text-sm text-muted">Tidak setuju</dt><dd class="mt-1 text-xl font-bold" data-disagree-count>{{ recommendation.disagree_count }}</dd></div>

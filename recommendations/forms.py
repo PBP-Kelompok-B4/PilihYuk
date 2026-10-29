@@ -45,3 +45,17 @@ class RecommendationForm(forms.ModelForm):
         if commit:
             recommendation.save()
         return recommendation
+
+
+class RecommendationReasonForm(forms.ModelForm):
+    class Meta:
+        model = Recommendation
+        fields = ("reason",)
+        widgets = {
+            "reason": forms.Textarea(attrs={
+                "rows": 5,
+                "placeholder": "Jelaskan alasan penggantian ini.",
+                "class": "mt-2 w-full rounded-lg border border-line p-3",
+            }),
+        }
+        labels = {"reason": "Alasan"}

@@ -4,7 +4,7 @@ import requests
 from django.core.paginator import Paginator
 from django.core.exceptions import ValidationError
 from django.db import DatabaseError, transaction
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.db.models.deletion import PROTECT
 from django.http import JsonResponse
 from django.urls import reverse
@@ -177,8 +177,27 @@ def product_detail(request, pk):
         product = get_object_or_404(Product, pk=pk, is_active=True)
     if request.user.is_authenticated:
         ProductView.objects.create(user=request.user, product=product)
+    recommendations = product.outgoing_recommendations.annotate(
+        agree_count=Count("votes", filter=Q(votes__value=1)),
+        disagree_count=Count("votes", filter=Q(votes__value=-1)),
+    ).select_related("replacement_product").order_by("-agree_count", "disagree_count", "-created_at")
+    for recommendation in recommendations:
+        recommendation.score = recommendation.agree_count - recommendation.disagree_count
     if wants_json(request):
-        return JsonResponse(serialize_product(product, request.user))
+        data = serialize_product(product, request.user)
+        data["recommendations"] = [
+            {
+                "id": recommendation.pk,
+                "replacement_product": serialize_product(recommendation.replacement_product, request.user),
+                "reason": recommendation.reason,
+                "agree_count": recommendation.agree_count,
+                "disagree_count": recommendation.disagree_count,
+                "score": recommendation.score,
+                "created_at": recommendation.created_at.isoformat(),
+            }
+            for recommendation in recommendations
+        ]
+        return JsonResponse(data)
     nutrient_fields = (
         ("Energi", "energy_kcal_100g", "kkal"),
         ("Protein", "proteins_100g", "g"),
@@ -200,6 +219,7 @@ def product_detail(request, pk):
         off_url = "https://world.openfoodfacts.org/product/" + quote(product.code, safe="")
     return render(request, "product_catalog/product_detail.html", {
         "product": product, "nutrients": nutrients, "off_url": off_url,
+        "recommendations": recommendations,
         "packaging": [tag_name(tag) for tag in product.packaging_tags],
         "allergens": [tag_name(tag) for tag in product.allergens],
         "can_edit": request.user.is_authenticated and product.source == "manual" and
