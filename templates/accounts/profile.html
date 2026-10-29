@@ -11,7 +11,7 @@
 
     <div class="mt-8 grid gap-6 lg:grid-cols-2">
         <div class="space-y-6">
-            <section class="card" aria-labelledby="akun-title">
+            <section class="card">
                 <h2 id="akun-title" class="text-lg font-bold">Data akun</h2>
                 <form method="post" action="{% url 'accounts:profile_edit' %}" novalidate>
                     {% csrf_token %}
@@ -22,7 +22,7 @@
                 </form>
             </section>
 
-            <section class="card" aria-labelledby="password-title">
+            <section class="card">
                 <h2 id="password-title" class="text-lg font-bold">Ganti password</h2>
                 <form method="post" action="{% url 'accounts:password' %}" novalidate>
                     {% csrf_token %}
@@ -35,7 +35,7 @@
             </section>
         </div>
 
-        <section aria-labelledby="aktivitas-title">
+        <section>
             <h2 id="aktivitas-title" class="text-lg font-bold">Aktivitasmu</h2>
             <ul class="mt-4 space-y-3">
                 {% for link in links %}

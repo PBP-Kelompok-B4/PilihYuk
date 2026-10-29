@@ -9,7 +9,6 @@
         const current = new AbortController();
         controller = current;
         status.textContent = 'Memuat produk…';
-        results.setAttribute('aria-busy', 'true');
         try {
             const endpoint = new URL(url, window.location.href);
             endpoint.searchParams.set('partial', '1');
@@ -24,7 +23,6 @@
         } catch (error) {
             if (controller === current && error.name !== 'AbortError') status.textContent = 'Gagal memuat produk. Coba terapkan filter lagi.';
         } finally {
-            if (controller === current) results.removeAttribute('aria-busy');
         }
     }
     form.addEventListener('submit', event => {

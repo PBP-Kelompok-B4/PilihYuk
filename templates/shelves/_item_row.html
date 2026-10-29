@@ -6,7 +6,7 @@
     </span>
     <form method="post" action="{{ action }}" data-remove>
         {% csrf_token %}
-        <button type="submit" aria-label="Keluarkan {{ product.product_name }}"
+        <button type="submit"
                 class="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-lg leading-none hover:text-[#b42318]">×</button>
     </form>
 </li>

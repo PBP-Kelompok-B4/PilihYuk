@@ -5,7 +5,7 @@
 
 {% block content %}
 <main class="section w-full flex-1 py-10">
-    <nav aria-label="Breadcrumb" class="text-xs text-muted"><a href="{% url 'shelves:list' %}" class="hover:text-brand">Shelf</a> › {{ shelf.name }}</nav>
+    <nav class="text-xs text-muted"><a href="{% url 'shelves:list' %}" class="hover:text-brand">Shelf</a> › {{ shelf.name }}</nav>
 
     <div class="mt-2 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -28,7 +28,7 @@
             <form method="post" action="{% url 'shelves:save' shelf.pk %}" data-save-form>
                 {% csrf_token %}
                 <input type="hidden" name="saved" value="{{ is_saved|yesno:'0,1' }}">
-                <button type="submit" aria-pressed="{{ is_saved|yesno:'true,false' }}" class="btn-white btn-small aria-pressed:bg-mint aria-pressed:text-brand">
+                <button type="submit" class="btn-white btn-small">
                     <img src="{% static 'img/bookmark-check.svg' %}" alt=""><span data-save-label>{{ is_saved|yesno:"Tersimpan di Shelf Saya,Simpan ke Shelf Saya" }}</span>
                 </button>
             </form>
@@ -38,7 +38,7 @@
         </div>
     </div>
 
-    <section class="mt-8" aria-labelledby="compare-title">
+    <section class="mt-8">
         <div class="flex flex-wrap items-baseline justify-between gap-2">
             <h2 id="compare-title" class="text-lg font-bold">Pilih produk untuk dibandingkan</h2>
             <p class="text-xs text-muted">{{ products|length }} produk · maksimal {{ max_compared }} kolom agar tetap mudah dibaca</p>
@@ -60,7 +60,7 @@
             </ul>
             <button type="submit" class="btn-white btn-small mt-2" data-compare-submit>Bandingkan</button>
         </form>
-        <p class="sr-only" aria-live="polite" data-compare-status></p>
+        <p class="sr-only" data-compare-status></p>
         <div id="comparison" class="mt-6" data-comparison>{% include "shelves/_comparison.html" %}</div>
         {% else %}
         <p class="card mt-3 text-sm text-muted">Shelf ini belum berisi produk.</p>

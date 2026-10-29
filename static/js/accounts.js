@@ -5,6 +5,5 @@ document.querySelectorAll('[data-toggle-password]').forEach((btn) => {
         const show = input.type === 'password';
         input.type = show ? 'text' : 'password';
         btn.textContent = show ? 'Sembunyikan' : 'Tampilkan';
-        btn.setAttribute('aria-pressed', String(show));
     });
 });

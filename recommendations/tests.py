@@ -145,3 +145,108 @@ class RecommendationPageTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertFalse(Recommendation.objects.exists())
+
+
+class RecommendationVotingTests(TestCase):
+    def setUp(self):
+        self.author = get_user_model().objects.create_user(username="author", password="Rahasia-12345")
+        self.voter = get_user_model().objects.create_user(username="voter", password="Rahasia-12345")
+        source = Product.objects.create(source="manual", product_name="Produk Asal")
+        replacement = Product.objects.create(source="manual", product_name="Produk Pengganti")
+        self.recommendation = Recommendation.objects.create(
+            source_product=source,
+            replacement_product=replacement,
+            author=self.author,
+            reason="Lebih sesuai untuk pilihan ini.",
+        )
+        self.url = reverse("recommendations:vote", args=[self.recommendation.pk])
+
+    def test_authenticated_user_can_vote_and_receive_updated_json_counts(self):
+        self.client.force_login(self.voter)
+
+        response = self.client.post(
+            self.url,
+            {"value": RecommendationVote.AGREE},
+            HTTP_ACCEPT="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {"value": 1, "agree_count": 1, "disagree_count": 0, "score": 1},
+        )
+        self.assertEqual(
+            RecommendationVote.objects.get(recommendation=self.recommendation, user=self.voter).value,
+            RecommendationVote.AGREE,
+        )
+
+    def test_user_can_change_and_withdraw_their_vote(self):
+        self.client.force_login(self.voter)
+        RecommendationVote.objects.create(
+            recommendation=self.recommendation,
+            user=self.voter,
+            value=RecommendationVote.AGREE,
+        )
+
+        response = self.client.post(
+            self.url,
+            {"value": RecommendationVote.DISAGREE},
+            HTTP_ACCEPT="application/json",
+        )
+        self.assertEqual(
+            response.json(),
+            {"value": -1, "agree_count": 0, "disagree_count": 1, "score": -1},
+        )
+
+        response = self.client.post(
+            self.url,
+            {"value": RecommendationVote.DISAGREE},
+            HTTP_ACCEPT="application/json",
+        )
+        self.assertEqual(
+            response.json(),
+            {"value": None, "agree_count": 0, "disagree_count": 0, "score": 0},
+        )
+        self.assertFalse(
+            RecommendationVote.objects.filter(recommendation=self.recommendation, user=self.voter).exists()
+        )
+
+    def test_vote_requires_login_and_rejects_invalid_values(self):
+        response = self.client.post(self.url, {"value": RecommendationVote.AGREE})
+        self.assertRedirects(response, f"{reverse('accounts:login')}?next={self.url}")
+
+        self.client.force_login(self.voter)
+        response = self.client.post(self.url, {"value": "0"}, HTTP_ACCEPT="application/json")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json(), {"error": "Pilihan suara tidak valid."})
+        self.assertFalse(RecommendationVote.objects.exists())
+
+    def test_detail_marks_the_current_users_vote(self):
+        RecommendationVote.objects.create(
+            recommendation=self.recommendation,
+            user=self.voter,
+            value=RecommendationVote.AGREE,
+        )
+        self.client.force_login(self.voter)
+
+        response = self.client.get(reverse("recommendations:detail", args=[self.recommendation.pk]))
+
+        self.assertEqual(response.context["user_vote"], RecommendationVote.AGREE)
+        self.assertContains(response, 'data-current-vote="1"')
+
+    def test_vote_form_has_a_redirect_fallback_without_javascript(self):
+        self.client.force_login(self.voter)
+
+        response = self.client.post(self.url, {"value": RecommendationVote.AGREE})
+
+        self.assertRedirects(
+            response,
+            reverse("recommendations:detail", args=[self.recommendation.pk]),
+        )
+        self.assertTrue(
+            RecommendationVote.objects.filter(
+                recommendation=self.recommendation,
+                user=self.voter,
+                value=RecommendationVote.AGREE,
+            ).exists()
+        )
