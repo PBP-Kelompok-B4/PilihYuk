@@ -147,6 +147,29 @@ class RecommendationPageTests(TestCase):
         self.assertFalse(Recommendation.objects.exists())
 
 
+class RecommendationListTests(TestCase):
+    def setUp(self):
+        self.author = get_user_model().objects.create_user(username="author", first_name="Penulis")
+        source = Product.objects.create(source="manual", product_name="Teh Botol", category="Minuman")
+        for i in range(11):
+            Recommendation.objects.create(
+                source_product=source,
+                replacement_product=Product.objects.create(source="manual", product_name=f"Teh {i}", category="Minuman"),
+                author=self.author,
+                reason="Alasan",
+            )
+        self.url = reverse("recommendations:list")
+
+    def test_list_filters_paginates_and_shows_author_only_to_logged_in_users(self):
+        first_page = self.client.get(self.url)
+        self.assertEqual(len(first_page.context["page"]), 10)
+        self.assertNotContains(first_page, "Diusulkan oleh")
+        self.assertEqual(len(self.client.get(self.url, {"page": 2}).context["page"]), 1)
+        self.assertEqual(len(self.client.get(self.url, {"q": "Teh 3"}).context["page"]), 1)
+        self.client.force_login(self.author)
+        self.assertContains(self.client.get(self.url), "Diusulkan oleh Penulis")
+
+
 class RecommendationVotingTests(TestCase):
     def setUp(self):
         self.author = get_user_model().objects.create_user(username="author", password="Rahasia-12345")
