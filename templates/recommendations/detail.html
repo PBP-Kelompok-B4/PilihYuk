@@ -44,7 +44,7 @@
             <p class="mt-6 text-sm text-muted"><a class="text-brand underline" href="{% url 'accounts:login' %}?next={{ request.path|urlencode }}">Masuk</a> untuk memberi suara.</p>
         {% endif %}
 
-        <p class="mt-6 text-xs text-muted">Dibuat {{ recommendation.created_at|date:'j F Y, H:i' }}.</p>
+        <p class="mt-6 text-xs text-muted">Dibuat {{ recommendation.created_at|date:'j F Y, H:i' }}{% if user.is_authenticated %} oleh {{ recommendation.author.first_name|default:"Pengguna PilihYuk" }}{% endif %}.</p>
     </article>
 </main>
 <script src="{% static 'js/recommendations.js' %}" defer></script>

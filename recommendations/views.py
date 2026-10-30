@@ -1,4 +1,5 @@
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, Q
 from django.http import HttpResponseForbidden, JsonResponse
@@ -11,10 +12,13 @@ from .forms import RecommendationForm, RecommendationReasonForm
 from .models import Recommendation, RecommendationVote
 
 
+PAGE_SIZE = 10
+
+
 def recommendations_with_vote_counts():
     return Recommendation.objects.filter(
         source_product__is_active=True, replacement_product__is_active=True,
-    ).select_related("source_product", "replacement_product").annotate(
+    ).select_related("source_product", "replacement_product", "author").annotate(
         agree_count=Count("votes", filter=Q(votes__value=RecommendationVote.AGREE)),
         disagree_count=Count("votes", filter=Q(votes__value=RecommendationVote.DISAGREE)),
         score=Count("votes", filter=Q(votes__value=RecommendationVote.AGREE))
@@ -41,12 +45,22 @@ def serialize_recommendation(recommendation):
 
 
 def recommendation_list(request):
-    recommendations = recommendations_with_vote_counts().order_by("-created_at")
+    recommendations = recommendations_with_vote_counts()
+    query = request.GET.get("q", "").strip()
+    if query:
+        recommendations = recommendations.filter(
+            Q(source_product__product_name__icontains=query) | Q(replacement_product__product_name__icontains=query)
+        )
+    sort = request.GET.get("urutan", "")
+    recommendations = recommendations.order_by("-score", "-created_at") if sort == "skor" else recommendations.order_by("-created_at")
+    page = Paginator(recommendations, PAGE_SIZE).get_page(request.GET.get("page"))
     if wants_json(request):
         return JsonResponse({
-            "recommendations": [serialize_recommendation(item) for item in recommendations],
+            "recommendations": [serialize_recommendation(item) for item in page],
+            "page": page.number,
+            "num_pages": page.paginator.num_pages,
         })
-    return render(request, "recommendations/list.html", {"recommendations": recommendations})
+    return render(request, "recommendations/list.html", {"page": page, "query": query, "sort": sort})
 
 
 def recommendation_detail(request, pk):
