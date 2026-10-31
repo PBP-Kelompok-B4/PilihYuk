@@ -10,9 +10,9 @@ from django.test import SimpleTestCase, TestCase, TransactionTestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from .forms import BarcodeLookupForm, has_valid_gtin
-from .lookup import reserve_off_lookup, save_imported_product
-from .models import OffLookupQuota, Product
+from ..forms import BarcodeLookupForm, has_valid_gtin
+from ..lookup import reserve_off_lookup, save_imported_product
+from ..models import OffLookupQuota, Product
 
 
 CODE = "0089686010947"

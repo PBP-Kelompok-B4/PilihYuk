@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 
-from .open_food_facts import normalize_barcode
+from ..open_food_facts import normalize_barcode
 
 EXCLUSIONS_FILE = Path(__file__).with_name("off_seed_exclusions.json")
 

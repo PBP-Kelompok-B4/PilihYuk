@@ -1,6 +1,6 @@
 """Rebuild the development fixture from the committed OFF research snapshot.
 
-Run from the repository root: python -m product_catalog.fixture_data
+Run from the repository root: python -m product_catalog.seed.fixture_data
 No HTTP requests or database writes are performed.
 """
 
@@ -10,9 +10,9 @@ from pathlib import Path
 from .off_mapping import product_fields
 
 
-ROOT = Path(__file__).resolve().parent.parent
-SOURCE = ROOT / ".claude/off-samples/q1_v2_search_sample.json"
-FIXTURE = Path(__file__).resolve().parent / "fixtures/products.json"
+ROOT = Path(__file__).resolve().parent.parent.parent
+SOURCE = ROOT / ".ai/product_catalog/helpers/off-samples/q1_v2_search_sample.json"
+FIXTURE = Path(__file__).resolve().parent.parent / "fixtures/products.json"
 # Explicit selection preserves reproducibility even if the sample order changes.
 CODES = (
     "80053835", "0089686120714", "3451790188718", "8906010500870",

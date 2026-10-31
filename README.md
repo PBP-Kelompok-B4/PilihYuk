@@ -2,29 +2,26 @@
 
 > Bandingkan gizi dan jejak lingkungan sebelum pilih satu.
 
-Proyek Tengah Semester, Pemrograman Berbasis Platform (CSGE602022)
-Fakultas Ilmu Komputer, Universitas Indonesia, Semester Gasal 2026/2027
-Kelompok 4, Kelas B, Sub-tema: Sustainable Food & Diet
+Proyek Tengah Semester, Pemrograman Berbasis Platform (CSGE602022), Fakultas Ilmu Komputer, Universitas Indonesia, Semester Gasal 2026/2027. Kelompok 4, Kelas B, sub-tema Sustainable Food & Diet.
 
-Deployment PWS: https://ahmad-rizki53-pilihyuk.pws.cs.ui.ac.id/
-
-Desain Figma: https://www.figma.com/design/6CwhelVNc1lJ9XWB4OnYlc/Wireframe?m=auto&t=CVl65mv1cAQ71x4E-6
-
-Database ERD: https://drive.google.com/file/d/1ifEXnbhhhzuR_gfXwdXOaAetRQwDuM4c/view?usp=sharing
+- Deployment PWS: https://ahmad-rizki53-pilihyuk.pws.cs.ui.ac.id/
+- Desain Figma: https://www.figma.com/design/6CwhelVNc1lJ9XWB4OnYlc/Wireframe?m=auto&t=CVl65mv1cAQ71x4E-6
+- ERD: https://drive.google.com/file/d/1ifEXnbhhhzuR_gfXwdXOaAetRQwDuM4c/view?usp=sharing
+- Dokumen kerja tim: folder [`.ai/`](.ai/README.md)
 
 ## Deskripsi
 
 PilihYuk menaruh gizi dan dampak lingkungan produk makanan dan minuman dalam satu tabel, supaya pengguna bisa memilih satu di antaranya.
 
-Unit kerjanya adalah shelf, yaitu kumpulan produk yang saling menggantikan karena pengguna cuma akan mengambil satu. "Mie instan goreng di Alfamart" adalah shelf. "Yang bisa dituang ke kopi" juga shelf, walau isinya (susu UHT, susu bubuk, krimer, oat milk) berasal dari beberapa kategori. Pengguna membuat shelf dan memakainya lagi di lain waktu, dan halaman shelf langsung berupa tabel pembanding.
+Unit kerjanya adalah shelf: kumpulan produk yang saling menggantikan karena pengguna hanya akan mengambil satu. "Mie instan goreng di Alfamart" adalah shelf, dan "yang bisa dituang ke kopi" juga, walau isinya (susu UHT, susu bubuk, krimer, oat milk) lintas kategori. Pengguna membuat shelf, memakainya lagi, dan halaman shelf langsung berupa tabel pembanding.
 
 ## Latar Belakang
 
-Orang memutuskan beli makanan kemasan dalam hitungan detik di depan rak. Harga dan klaim label seperti "alami" atau "rendah gula" tidak terstandar, jadi sulit dibandingkan antar merek.
+Orang memutuskan beli makanan kemasan dalam hitungan detik di depan rak. Klaim label seperti "alami" atau "rendah gula" tidak terstandar, jadi sulit dibandingkan antarmerek.
 
-[Open Food Facts](https://world.openfoodfacts.org/) punya data yang sudah terstandar (Nutri-Score, NOVA, Green-Score), tapi berbahasa Inggris dan disusun per kategori, padahal keputusan belanja sering melintasi kategori. Preferensinya pun hanya mengenal arah "hindari": orang yang mencari kandungan tertinggi, misalnya protein, tidak bisa menyatakannya. Data produk Indonesia di sana juga masih jauh dari lengkap. Dari 8.186 produk Indonesia di dump, Nutri-Score baru terisi di 5,3% dan skor lingkungan di 4,2%.
+[Open Food Facts](https://world.openfoodfacts.org/) (OFF) punya data terstandar (Nutri-Score, NOVA, Green-Score), tetapi berbahasa Inggris dan disusun per kategori, padahal keputusan belanja sering melintasi kategori. Preferensinya hanya mengenal arah "hindari", dan data produk Indonesia masih jarang: dari 8.186 produk Indonesia di dump, Nutri-Score baru terisi di 5,3% dan skor lingkungan di 4,2%.
 
-PilihYuk membawa data ini ke saat orang berbelanja, dalam bahasa Indonesia dan bentuk yang langsung bisa dibandingkan. Shelf dan rekomendasi yang dibuat satu pengguna bisa dipakai pengguna lain sebagai rujukan.
+PilihYuk membawa data ini ke saat orang berbelanja, dalam bahasa Indonesia dan bentuk yang langsung bisa dibandingkan.
 
 ## Anggota Kelompok
 
@@ -38,70 +35,70 @@ PilihYuk membawa data ini ke saat orang berbelanja, dalam bahasa Indonesia dan b
 
 ## Jenis Pengguna
 
-| Jenis | Yang Bisa Dilakukan |
+| Jenis | Yang bisa dilakukan |
 |-------|---------------------|
-| Pengunjung | Menelusuri katalog dan shelf publik, melihat tabel pembanding, memakai filter, dan membaca rekomendasi tanpa melihat siapa pembuatnya |
-| Pengguna Terdaftar | Semua hal di atas, ditambah mengelola shelf, membuat rekomendasi dan memberi suara, mengajukan koreksi data, mengatur preferensi nutrisi, dan mencatat riwayat keputusan |
-| Kurator Data / Admin | Meninjau pengajuan koreksi lalu menyetujui atau menolaknya, dan menyunting produk yang ditambahkan secara manual |
+| Pengunjung | Menelusuri katalog dan shelf publik, melihat tabel pembanding, memakai filter, dan membaca rekomendasi tanpa melihat pembuatnya |
+| Pengguna terdaftar | Semua di atas, ditambah mengelola shelf, membuat rekomendasi dan memberi suara, mengajukan koreksi data, mengatur preferensi nutrisi, dan mencatat keputusan |
+| Kurator data / admin | Meninjau pengajuan koreksi (setujui atau tolak) dan menyunting produk manual |
 
-Target pengguna utama kami adalah mahasiswa dan pekerja muda di kota besar yang rutin belanja di minimarket. Mereka ingin memilih dengan lebih baik, tapi tidak punya info pembanding di depan rak. Karena mereka sering membeli produk yang sama, shelf yang sudah dikurasi layak dipakai lagi. Ini masih asumsi kelompok dan belum kami uji lewat wawancara.
+Target utamanya mahasiswa dan pekerja muda di kota besar yang rutin belanja di minimarket. Ini asumsi kelompok dan belum diuji lewat wawancara.
 
-## Inspirasi dan Unsur Kebaruan
+## Unsur Kebaruan
 
-[Open Food Facts](https://world.openfoodfacts.org) adalah sumber data sekaligus rujukan kami. Mereka sudah punya perbandingan berdampingan dan preferensi berbobot, jadi dua hal itu tidak kami klaim sebagai kebaruan. Yang kami ubah adalah unit pembandingnya, arah preferensinya, dan cara menangani data kosong.
+OFF sudah punya perbandingan berdampingan dan preferensi berbobot, jadi dua hal itu bukan klaim kami. Yang kami ubah:
 
-1. Shelf, bukan kategori. Produk disusun menurut situasi saat memilih, bukan menurut jenis pangan. "Yang bisa dituang ke kopi" tidak bisa dinyatakan lewat satu kategori pun karena isinya lintas kategori. Sejauh yang kami telusuri, belum ada platform pembanding pangan yang menjadikan kumpulan pilihan sebagai entitas yang dikurasi pengguna.
-
-2. Preferensi nutrisi dua arah. Alat yang ada sekarang hanya punya kriteria "rendah X". Di PilihYuk, nutrien, arah, dan bobot dipisah, jadi pengguna bisa meminta "maksimalkan protein" selain "hindari gula". Urutan tabel pembanding mengikuti preferensi ini, bukan satu skor tunggal.
-
-3. Rekomendasi lintas shelf. Pengguna merekomendasikan produk X diganti Y beserta alasannya, lalu pengguna lain menyetujui atau menolak. Rekomendasi boleh menyeberangi shelf, misalnya dari krimer ke susu UHT. Bedanya dengan alternatif hasil algoritma, rekomendasi di sini datang dari sesama pembeli dan alasannya bisa dinilai.
-
-4. Antrean kelengkapan data pasar Indonesia. Produk yang datanya kosong muncul sebagai antrean kontribusi, diurutkan dari yang paling sering ada di shelf.
-
-5. Skor estimasi yang transparan. Kalau skor lingkungan resmi kosong, kami menghitung estimasi dari tingkat pemrosesan, kemasan, minyak sawit, dan asal produk. Estimasi itu ditandai berbeda dari nilai resmi.
+1. Shelf menggantikan kategori. Produk disusun menurut situasi saat memilih, dan shelf adalah entitas yang dikurasi pengguna.
+2. Preferensi nutrisi dua arah. Nutrien, arah, dan bobot dipisah, sehingga pengguna bisa meminta "maksimalkan protein" selain "hindari gula". Urutan tabel mengikuti preferensi ini.
+3. Rekomendasi lintas shelf. Pengguna menyarankan X diganti Y beserta alasannya, lalu pengguna lain setuju atau tidak setuju.
+4. Antrean kelengkapan data. Produk yang datanya kosong muncul sebagai antrean kontribusi, diurutkan dari yang paling sering ada di shelf.
+5. Skor estimasi yang transparan. Bila skor lingkungan resmi kosong, estimasi dihitung dari tingkat pemrosesan, kemasan, minyak sawit, dan asal produk, dan ditandai berbeda dari nilai resmi.
 
 ## Public API
 
-Kami memakai API Open Food Facts (OFF). API ini gratis dan tidak butuh key untuk operasi baca. Satu produk dibaca lewat barcode dengan v3. Pencarian memakai `/api/v2/search` karena belum ada di v3, meski v2 sudah deprecated.
+Kami memakai API OFF (gratis, tanpa key untuk baca). Satu produk dibaca lewat barcode dengan v3. Pencarian memakai `/api/v2/search` karena belum ada di v3.
 
 | Keperluan | Tautan |
 |-----------|--------|
 | Panduan API | https://openfoodfacts.github.io/openfoodfacts-server/api/ |
 | Referensi OpenAPI v3 | https://openfoodfacts.github.io/documentation/docs/Product-Opener/api/ref-v3 |
-| Cheatsheet endpoint | https://openfoodfacts.github.io/openfoodfacts-server/api/ref-cheatsheet/ |
 | Produksi | https://id.openfoodfacts.org/ |
-| Staging (basic auth `off` / `off`) | https://world.openfoodfacts.net/ |
 | Dump data untuk seeding | https://world.openfoodfacts.org/data |
 | Keterangan field | https://static.openfoodfacts.org/data/data-fields.txt |
 
-Saat aplikasi berjalan, kami memanggil `id.openfoodfacts.org`. Subdomain ini menyaring pencarian ke produk Indonesia, tetapi tidak menyaring pembacaan barcode lewat v3. Karena itu setiap produk diperiksa dengan `is_sold_in_indonesia()` (berdasarkan `countries_tags`) sebelum masuk, baik saat seeding, lookup barcode, maupun refresh. Dump seeding tetap diambil dari `world` karena OFF hanya menyediakannya secara global. Lookup barcode saat aplikasi berjalan dibatasi 3 per menit per pengguna, sebab semua pengguna berbagi satu alamat server dan OFF hanya mengizinkan 15 permintaan per menit per alamat.
+- Aplikasi memanggil `id.openfoodfacts.org`. Subdomain ini menyaring pencarian ke produk Indonesia tetapi tidak menyaring baca barcode v3, jadi setiap produk diperiksa dengan `is_sold_in_indonesia()` sebelum masuk (seeding, lookup, dan refresh).
+- Lookup barcode dibatasi 3 per menit per pengguna, karena semua pengguna berbagi satu alamat server dan OFF hanya mengizinkan 15 permintaan per menit per alamat.
+- Skor lingkungan dibaca dari `environmental_score_grade`, dengan `ecoscore_grade` sebagai cadangan. Skor kosong disimpan sebagai `"unknown"` atau `"not-applicable"`, bukan `null`, dan tidak pernah diperingkat.
+- Seeding awal memakai dump nightly OFF yang disaring ke produk Indonesia (406 produk ber-Nutri-Score). Saat aplikasi berjalan, API dipakai untuk mencari barcode baru dan menyegarkan satu produk.
+- Filter dijalankan di database lokal, bukan di API. Atribusi ke OFF (ODbL) ada di footer dan halaman produk.
 
-Field yang kami pakai: `code`, `product_name`, `brands`, `quantity`, `image_url`, `nutrition_grades`, `nova_group`, `categories_tags`, `labels_tags`, `countries_tags`, `origins_tags`, `manufacturing_places`, `packaging_tags`, `ingredients_analysis_tags`, `ingredients_text`, `allergens_tags`, `serving_size`, `nutriments`, `misc_tags`, dan skor lingkungan. Skor lingkungan dibaca dari `environmental_score_grade`, dengan `ecoscore_grade` sebagai cadangan karena v2 dan v3 masih memakai nama lama. Skor yang kosong dikembalikan sebagai `"unknown"` (atau `"not-applicable"`), bukan `null`.
+## Menjalankan Proyek
 
-Data masuk lewat dua jalur. Atribusi ke OFF (ODbL) dan tautan "Lihat di Open Food Facts" ada di footer dan halaman produk.
-
-- Seeding awal: dump nightly OFF, bukan panggilan API berulang. Dokumentasi OFF meminta dump dipakai untuk lebih dari beberapa ratus produk. Dump disaring ke produk Indonesia lalu diekspor menjadi fixture Django.
-- Saat aplikasi berjalan: API dipakai untuk mencari barcode yang belum ada di katalog dan menyegarkan satu produk, dengan User-Agent yang menyebut aplikasi ini. OFF menormalisasi barcode (UPC 12 digit menjadi 13 digit), jadi `code` disimpan dari respons API, bukan dari ketikan pengguna.
-
-Setiap anggota memfilter data dari database lokal, bukan dari Public/mock API. API hanya mengisi database.
-
-## Tailwind CSS
-
-Tampilan memakai Tailwind CSS v4 lewat script CDN (`@tailwindcss/browser`), jadi tidak ada CLI, Node.js, atau langkah build. Tema (warna, font) dan kelas komponen (`btn-brand`, `btn-secondary`, `card`, `chip`, `back-link`, `nav-chip`, dan lainnya) ditulis di `templates/components/tailwind.html` dan dimuat oleh `base.html`. Warna baru ditambahkan di blok `@theme`, kelas berulang di `@layer components` dengan `@apply`. Script CDN membuat CSS di browser, jadi butuh internet.
-
-
-## Autentikasi dan pengaturan lokal
-
-File `.env` (tidak di-commit) wajib berisi dua baris:
+Buat `.env` (tidak di-commit):
 
 ```
 PRODUCTION=False
 SECRET_KEY=<teks acak apa saja>
 ```
 
-`SECRET_KEY` tidak punya nilai bawaan, jadi tanpa baris itu `manage.py` berhenti dengan `KeyError: 'SECRET_KEY'`. Buat nilainya dengan `python -c "from django.core.management.utils import get_random_secret_key as g; print(g())"`. Di PWS, `SECRET_KEY` dan `PRODUCTION=True` diisi di environment variables proyek. `DEBUG` mengikuti `PRODUCTION`. Setelah `git pull`, jalankan `pip install -r requirements.txt` dan `python manage.py migrate` (django-axes menambah paket dan tabel).
+`SECRET_KEY` tidak punya nilai bawaan. Buat nilainya dengan `python -c "from django.core.management.utils import get_random_secret_key as g; print(g())"`. `DEBUG` mengikuti `PRODUCTION`: PostgreSQL bila `PRODUCTION=True` (di PWS), SQLite bila tidak.
 
-App `accounts` mengurus daftar, masuk, keluar, dan profil. Pengguna memakai `User` bawaan Django: `username` berisi email huruf kecil, `first_name` berisi nama tampilan, dan `is_staff` menandai kurator. Cara memakainya di modul lain:
+```
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py seed_products
+python manage.py runserver
+python manage.py test
+```
+
+Hasil terakhir: `check` bersih, 525 tes lulus (7 tes browser di `preferences` dilewati tanpa Chrome), cakupan sekitar 93%. Tes Modul 1 ada di `tests.py` dan paket `test_suites/`, sedangkan mapping dan manifes seed OFF ada di paket `seed/`.
+
+## Tampilan
+
+Tailwind CSS v4 lewat script CDN (`@tailwindcss/browser`), tanpa CLI, Node.js, atau langkah build, jadi butuh internet. Tema dan kelas komponen (`btn-brand`, `btn-secondary`, `card`, `chip`, `back-link`, `nav-chip`, dan lainnya) ada di `templates/components/tailwind.html`, dimuat oleh `base.html`. Halaman mewarisi `base.html` (header dan footer sebagai komponen), JavaScript ada di `static/js/<app>.js`, dan view AJAX juga menjawab JSON. Permintaan JSON ke URL yang tidak ada dijawab `{"error": "Tidak ditemukan."}`.
+
+## Autentikasi
+
+App `accounts` mengurus daftar, masuk, keluar, profil, dan reset password (`/lupa-password/`). Pengguna memakai `User` bawaan Django: `username` berisi email huruf kecil, `first_name` nama tampilan, `is_staff` menandai kurator. Login menerima email atau username dan dikunci 15 menit setelah 5 kegagalan per isian (django-axes).
 
 ```python
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -113,65 +110,79 @@ def my_view(request): ...
 def curator_view(request): ...
 ```
 
-Untuk class-based view, pakai `LoginRequiredMixin` dan `UserPassesTestMixin`. Di template: `{% if user.is_authenticated %}` dan `{% firstof user.first_name user.username %}` untuk nama. Query data milik pengguna selalu lewat `request.user`, jangan menerima id pengguna dari URL atau form. Halaman `/profil/` menaut ke `/preferensi/`, `/keputusan/`, dan `/shelf/saya/`; kartunya aktif sendiri saat URL itu ada, jadi pakai path itu atau kabari Daffaa bila berbeda.
+Di template pakai `{% if user.is_authenticated %}` dan `{% firstof user.first_name user.username %}`. Query data pengguna selalu lewat `request.user`, dan email (yang juga username) tidak ditampilkan ke pengguna lain. Waktu disimpan dalam UTC dan ditampilkan menurut zona waktu browser (cookie `tz`, `pilihyuk/middleware.py`). `LANGUAGE_CODE = 'id'` membuat desimal di template berkoma, jadi nilai CSS atau JS memakai bilangan bulat atau `{{ x|unlocalize }}`.
 
-Waktu disimpan dalam UTC dan ditampilkan menurut zona waktu browser pengguna (cookie `tz`, `pilihyuk/middleware.py`). Di template cukup pakai `|date` atau `|time` seperti biasa.
-
-Batasan yang diketahui: belum ada verifikasi email, pendaftaran belum dibatasi, dan `SECURE_SSL_REDIRECT` menunggu uji di proxy PWS. Reset password lewat email ada di `/lupa-password/`. Login dikunci 15 menit setelah 5 kegagalan per isian (django-axes). Akun dari halaman Daftar memakai email sebagai username, sedangkan nama tampilan bukan username. Admin dari `createsuperuser` bisa masuk dengan username atau emailnya di kolom "Email atau username". `LANGUAGE_CODE = 'id'` membuat desimal di template berkoma ("7,5 g"), jadi jangan menaruh float di nilai CSS atau JS (`style="width: {{ x }}%"`); pakai bilangan bulat atau `{{ x|unlocalize }}`.
+Belum ada verifikasi email, pendaftaran belum dibatasi, dan `SECURE_SSL_REDIRECT` menunggu uji di proxy PWS.
 
 ## Modul dan Pembagian Kerja
 
-### 1. Katalog Produk (Yasmin)
+### 1. Katalog Produk (Yasmin) · `/katalog/`
 
-*Pintu masuk aplikasi.*
+- Entitas: `Product`, `ProductView`.
+- CRUD: tambah produk lewat barcode atau manual; daftar berpaginasi dan detail (skor, gizi, kemasan, gambar); sunting dan hapus entri sendiri (soft delete, produk yang masih dipakai shelf, rekomendasi, atau koreksi tidak bisa dihapus). Produk OFF dikoreksi lewat modul 4.
+- Filter database: kategori, merek, asal, Nutri-Score, dan "berlabel halal" (penanda dari `labels_tags`, bukan pernyataan halal).
+- Khusus login: penambah entri dan riwayat produk yang dilihat (`/katalog/riwayat/`).
+- AJAX: pencarian dan filter katalog.
 
-- Entitas: `Product`, `ProductView`
-- CRUD: tambah produk (lewat barcode atau manual); baca daftar berpaginasi dan halaman detail (skor, gizi, kemasan, gambar); sunting entri sendiri; hapus entri sendiri berupa soft delete, dan produk yang masih dipakai shelf, rekomendasi, atau pengajuan koreksi tidak bisa dihapus. Kurator bisa menyunting entri manual siapa pun, sedangkan produk dari Open Food Facts dikoreksi lewat modul 4
-- Filter database: kategori, merek, asal produk, Nutri-Score, dan "berlabel halal" (penanda dari `labels_tags`, bukan pernyataan halal), dijalankan pada data `Product` di database. Pencarian barcode ke API hanya mengisi katalog, dan filter tidak dijalankan di API
-- Dikunci login: identitas penambah entri dan riwayat produk yang dilihat
-- AJAX: pencarian dan filter katalog
+### 2. Shelf dan Tabel Pembanding (Ahmad Rizki Daffaa) · `/shelf/`
 
-### 2. Shelf dan Tabel Pembanding (Ahmad Rizki Daffaa)
+- Entitas: `Shelf`, `ShelfItem`, `SavedShelf`.
+- CRUD: buat, ubah, dan hapus shelf; daftar shelf publik dan tabel pembanding (maksimal 4 produk: Nutri-Score, Green-Score, NOVA, kemasan, asal, gizi utama, nilai terbaik); tambah dan keluarkan produk; "Simpan ke Shelf Saya" (`/shelf/saya/`).
+- Filter database: kandidat produk shelf dari tabel `Product`.
+- Khusus login: membuat dan menyunting shelf, shelf privat, dan koleksi tersimpan.
+- AJAX: tambah dan keluarkan produk, simpan shelf, dan pilih produk yang dibandingkan.
+- Catatan: satu shelf paling banyak 12 produk. Nilai `"unknown"` ditampilkan apa adanya dan ditautkan ke modul 4. Bagi pengguna login, urutan baris mengikuti preferensi (modul 5) dan ada tombol "Pilih ini" yang mencatat keputusan.
 
-*Modul inti: kumpulan produk yang saling menggantikan, ditampilkan sebagai tabel pembanding.*
+### 3. Rekomendasi Komunitas (Rafael Arlen Wijanarko) · `/rekomendasi/`
 
-- Entitas: `Shelf`, `ShelfItem`, `SavedShelf`
-- Simpan shelf: pengguna terdaftar bisa menyimpan shelf sendiri atau shelf publik milik orang lain lewat tombol "Simpan ke Shelf Saya" (ikon penanda). Identitas penyimpan tidak ditampilkan. Halaman jelajah shelf publik punya tombol "Shelf Saya" yang menuju halaman koleksi, berisi shelf buatan pengguna dan shelf publik orang lain yang ia simpan
-- CRUD: buat shelf (nama, konteks toko, deskripsi); baca daftar shelf publik dan tabel pembanding (maksimal empat produk sekali bandingkan, memuat Nutri-Score, Green-Score, NOVA, kemasan, asal, gizi utama, dan penanda nilai terbaik); tambah dan keluarkan produk; hapus shelf sendiri
-- Filter database: kandidat produk yang boleh masuk shelf, disaring dari tabel `Product`
-- Dikunci login: membuat dan menyunting shelf, serta shelf privat
-- AJAX: menambah dan mengeluarkan produk, mengurutkan ulang tabel
-- Catatan: satu shelf berisi paling banyak dua belas produk supaya tidak berubah jadi kategori. Nilai `"unknown"` ditampilkan apa adanya, tidak ikut diperingkat, dan ditautkan ke modul 4. Kalau pengguna login, urutan baris mengikuti preferensi di modul 5
+- Entitas: `Recommendation`, `RecommendationVote`.
+- CRUD: buat rekomendasi X diganti Y beserta alasan; daftar dan detail; sunting alasan; tarik rekomendasi sendiri.
+- Filter database: daftar bisa dicari menurut nama produk dan diurutkan (terbaru atau skor tertinggi), berpaginasi 10 per halaman. Kandidat pengganti disaring menurut kategori yang sama.
+- Khusus login: nama pembuat, hak memberi suara, sunting, dan tarik.
+- AJAX: tombol setuju dan tidak setuju.
+- Catatan: rekomendasi berarah (X ke Y tidak otomatis berlaku sebaliknya). Satu pengguna punya satu suara per rekomendasi, bisa diubah atau ditarik, dan pembuat tidak bisa memilih rekomendasinya sendiri.
 
-### 3. Rekomendasi Komunitas (Rafael Arlen Wijanarko)
+### 4. Antrean Data (Muhammad Rayyan Basalamah) · `/antrean/`, `/moderasi/`
 
-*Rekomendasi penggantian produk yang dinilai komunitas dan boleh melintasi shelf.*
+- Entitas: `DataCorrection`, `DataCorrectionItem` (satu pengajuan untuk satu produk, ditinjau per field).
+- CRUD: ajukan koreksi; antrean produk yang paling butuh dilengkapi (diurutkan dari yang paling sering ada di shelf); pengajuan saya dan penarikan; kurator menyetujui atau menolak di `/moderasi/`.
+- Filter database: produk dengan data belum lengkap (dari `misc_tags` dan kolom gizi yang kosong).
+- Khusus login: identitas pengaju, riwayat pengajuan, dan halaman moderasi (kurator).
+- AJAX: kirim dan tinjau pengajuan.
+- Catatan: hanya untuk mengoreksi produk yang sudah ada, dan field yang boleh dikoreksi dibatasi daftar tetap.
 
-- Entitas: `Recommendation`, `RecommendationVote`
-- CRUD: buat rekomendasi X diganti Y beserta alasannya; baca rekomendasi dengan persetujuan terbanyak di halaman produk; sunting alasan; tarik rekomendasi sendiri
-- Filter database: kandidat pengganti disaring menurut kategori dan skor dari tabel `Product`
-- Dikunci login: identitas pembuat rekomendasi, hak memberi suara, dan riwayat rekomendasi
-- AJAX: tombol setuju dan tidak setuju
-- Catatan: rekomendasi punya arah, jadi rekomendasi X ke Y tidak otomatis berlaku sebaliknya. Satu pengguna punya satu suara per rekomendasi, dan suara itu bisa diubah atau ditarik
+### 5. Preferensi Nutrisi dan Riwayat Keputusan (Jonathan Sebastian Sindhu) · `/preferensi/`, `/keputusan/`
 
-### 4. Antrean Data (Muhammad Rayyan Basalamah)
+- Entitas: `Preference` (nutrien, arah, bobot) dan `Decision` (produk terpilih, shelf asal, alasan, tanggal).
+- CRUD: tambah, ubah, dan hapus preferensi; catat, ubah, dan hapus keputusan (termasuk hapus massal dan ekspor CSV).
+- Filter database: mencocokkan preferensi dengan kolom gizi `Product`, dan menyaring riwayat menurut kata kunci, shelf, dan tanggal.
+- Khusus login: seluruh isi modul bersifat pribadi.
+- AJAX: pratinjau jumlah produk yang lolos saat preferensi disunting, dan pemuatan riwayat.
+- Catatan: nutrien dibatasi pada protein, serat, gula, natrium, lemak jenuh, dan energi. Aplikasi hanya menyaring dan mengurutkan, bukan memberi saran gizi.
 
-*Jalur perbaikan data sekaligus antrean kontribusi.*
+## AI Disclosure
 
-- Entitas: `DataCorrection`, `DataCorrectionItem` (satu pengajuan untuk satu produk, boleh memuat beberapa field, dan ditinjau per field)
-- CRUD: ajukan koreksi saat data keliru atau kosong; baca antrean produk yang paling butuh dilengkapi, diurutkan dari yang paling sering muncul di shelf; kurator menyetujui atau menolak; pengaju bisa menarik pengajuannya
-- Filter database: mendeteksi `Product` yang datanya belum lengkap, dari `misc_tags` yang tersimpan dan dari kolom gizi yang kosong
-- Dikunci login: identitas pengaju dan riwayat pengajuan
-- AJAX: kirim dan tinjau pengajuan
-- Catatan: modul ini hanya untuk mengoreksi produk yang sudah ada. Produk baru ditambahkan lewat modul 1. Field yang boleh dikoreksi dibatasi pada daftar tetap
+### Yasmin
 
-### 5. Preferensi Nutrisi dan Riwayat Keputusan (Jonathan Sebastian Sindhu)
 
-*Kebutuhan gizi pengguna dan keputusan akhir yang ia ambil.*
+### Ahmad Rizki Daffaa
 
-- Entitas: `Preference` (nutrien, arah, bobot) dan `Decision` (produk terpilih, shelf asal, alasan, tanggal)
-- CRUD: tambah preferensi (misalnya maksimalkan protein) dan catat keputusan; baca preferensi aktif dan riwayat pribadi; ubah arah dan bobot; hapus
-- Filter database: mencocokkan preferensi dengan kolom gizi di `Product`
-- Dikunci login: seluruh isi modul ini bersifat pribadi
-- AJAX: pratinjau jumlah produk yang lolos filter saat preferensi disunting
-- Catatan: pilihan nutrien dibatasi pada protein, serat, gula, natrium, lemak jenuh, dan energi, karena hanya itu yang cukup terisi di Open Food Facts. Aplikasi hanya menyaring dan mengurutkan, bukan memberi saran gizi, jadi teks antarmuka menghindari kesan rekomendasi kesehatan
+Saya memakai Claude Code (model Claude Sonnet 5.5 dan Opus 5.5) untuk membantu menulis dan mengubah kode, menjalankan perintah, dan merapikan dokumen. Cakupannya Modul 2 (shelf dan tabel pembanding), autentikasi termasuk reset password, file bersama seperti `base.html`, komponen, dan Tailwind, riset API Open Food Facts, serta dokumentasi tim. Plugin ECC (security reviewer, Django reviewer, Playwright) saya pakai untuk meninjau kode dan mengecek tampilan di browser, dan Figma MCP untuk membaca wireframe supaya template mengikuti desain.
+
+Sebelum AI menulis kode, saya memberinya konteks tertulis: aturan tugas, PRD, handoff, brief rapat, dan timeline. Acuannya saya tentukan sendiri (tutorial PBP 0 sampai 5, dokumentasi Tailwind, wireframe Figma, dan dokumentasi Open Food Facts). Untuk soal API, AI saya minta menguji langsung dan menyimpan responsnya, jadi kontraknya berasal dari bukti, bukan dugaan. Perubahan saya minta kecil dan mudah dibaca karena tim baru memakai Tailwind, dan tes serta tampilan di browser dicek sebelum commit. Semua commit dan push saya kerjakan sendiri, dan AI tidak boleh menjalankan Git.
+
+Beberapa hasil AI salah atau tidak sesuai, dan saya perbaiki sendiri. AI menyimpulkan nama field skor lingkungan sudah berganti dan mengira subdomain `id.openfoodfacts.org` menyaring semua produk ke Indonesia. Keduanya terbukti keliru setelah diuji, sehingga kode membaca kedua nama field dan memakai `is_sold_in_indonesia()`. AI menamai app `catalog` dan `dataflags`, dan saya menggantinya menjadi `product_catalog` dan `data_correction`. Modul rak dan perbandingan saya gabung menjadi Modul 2. Panah ERD dan pilihan favicon butuh beberapa putaran sampai terbaca, dan dokumen buatan AI cenderung panjang sehingga beberapa kali saya minta dirapikan.
+
+Tampilan paling banyak butuh arahan manual. Tombol setuju dan tidak setuju di rekomendasi awalnya tidak bergaya karena kelas `btn-secondary` belum pernah didefinisikan, dan tautan "Kembali", tombol, serta paginasi tampil berbeda di tiap halaman. Saya meminta AI menyeragamkannya dan memeriksa hasilnya di browser.
+
+Pada 29 sampai 31 Oktober saya juga meminta AI menyunting sebagian modul anggota lain: larangan memilih usulan sendiri, filter, dan paginasi di Modul 3, perubahan rute riwayat keputusan menjadi `/keputusan/` di Modul 5, serta pemindahan kode seed dan tes Modul 1 ke folder `seed/` dan `test_suites/`. Pemilik modulnya perlu memeriksa perubahan itu.
+
+Secara keseluruhan AI sangat membantu untuk backend, tes, dan dokumentasi. Klaim yang belum diuji dan tampilan sering salah atau kurang, jadi keduanya tetap saya periksa sendiri. Deployment di PWS, PostgreSQL, proxy, dan tampilan di ponsel sungguhan tidak bisa dicek AI, dan saya catat sebagai butir terbuka. Rekaman sesi tersedia kalau diminta.
+
+### Rafael Arlen Wijanarko
+
+
+### Muhammad Rayyan Basalamah
+
+
+### Jonathan Sebastian Sindhu

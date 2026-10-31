@@ -13,7 +13,7 @@ from django.db.models.deletion import PROTECT
 from django.test import TestCase
 from django.urls import reverse
 
-from .models import Product, ProductView
+from ..models import Product, ProductView
 
 
 class CatalogCompletionTests(TestCase):
@@ -206,7 +206,7 @@ class CatalogCompletionTests(TestCase):
 
 class PopulationPipelineTests(TestCase):
     def setUp(self):
-        member = patch("product_catalog.seed_dataset.is_seed_member", return_value=True)
+        member = patch("product_catalog.seed.seed_dataset.is_seed_member", return_value=True)
         member.start()
         self.addCleanup(member.stop)
 
@@ -240,7 +240,7 @@ class PopulationPipelineTests(TestCase):
                 call_command("build_off_fixture", stdout=StringIO(), **args)
 
     def test_seed_failure_rolls_back_and_preserves_relation(self):
-        from .fixture_data import build_fixture
+        from ..seed.fixture_data import build_fixture
         fixture = build_fixture()
         owner = get_user_model().objects.create_user(username="seed-owner")
         existing = Product.objects.create(code=fixture[0]["fields"]["code"], source="manual", product_name="Keep")

@@ -3,6 +3,6 @@
   "source_sha256": "d12f9aba7bc10f3a6a58902df31d9ee7f8e93dee954e47087e07a1aca8400588",
   "count": 406,
   "selection": "reviewed 406 membership, exact Indonesia, known Nutri-Score; 62 seed-only exceptions",
-  "mapping": "product_catalog.off_mapping.product_fields",
+  "mapping": "product_catalog.seed.off_mapping.product_fields",
   "licenses": "ODbL; DbCL; CC BY-SA"
 }

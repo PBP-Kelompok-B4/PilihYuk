@@ -12,14 +12,14 @@ from django.core.management import call_command, CommandError
 from django.db import DatabaseError
 from django.test import TestCase, SimpleTestCase
 
-from .models import Product, ProductView
-from .open_food_facts import read_indonesian_products_from_csv
+from ..models import Product, ProductView
+from ..open_food_facts import read_indonesian_products_from_csv
 
 
 class CsvSeedTests(TestCase):
     def setUp(self):
         # Parser/mapping unit tests isolate membership; real 406 integration is unmocked.
-        member = patch("product_catalog.seed_dataset.is_seed_member", return_value=True)
+        member = patch("product_catalog.seed.seed_dataset.is_seed_member", return_value=True)
         member.start()
         self.addCleanup(member.stop)
         self.folder = TemporaryDirectory()

@@ -1,6 +1,6 @@
 # Temuan API Open Food Facts
 
-Diuji 2 Oktober 2026, hanya baca, dengan User-Agent PilihYuk dan jeda di bawah batas resmi. Respons mentah ada di `off-samples/` (file `qN_*` merujuk nomor di bawah). Sampel 100 produk search (`q1_v2_search_sample.json`) juga dibaca tes Modul 1. Kode server yang dirujuk adalah `openfoodfacts-server` commit `d1eb237`.
+Diuji 2 Oktober 2026, hanya baca, dengan User-Agent PilihYuk dan jeda di bawah batas resmi. Respons mentah ada di `helpers/off-samples/` (file `qN_*` merujuk nomor di bawah). Sampel 100 produk search (`q1_v2_search_sample.json`) juga dibaca tes Modul 1. Kode server yang dirujuk adalah `openfoodfacts-server` commit `d1eb237`.
 
 Dua sumber data dipakai. Sampel 100 produk dari search condong ke produk populer, karena search mengurutkan dari yang paling sering dipindai. Populasi 8.186 produk Indonesia di dump CSV 1 Oktober tidak bias, jadi angka populasi yang dipakai untuk keputusan.
 
