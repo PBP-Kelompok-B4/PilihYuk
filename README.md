@@ -186,3 +186,15 @@ Secara keseluruhan AI sangat membantu untuk backend, tes, dan dokumentasi. Klaim
 
 
 ### Jonathan Sebastian Sindhu
+
+Saya menggunakan Codex di VS Code untuk membantu pengembangan Modul 5, meliputi model `Preference` dan `Decision`, form, endpoint Django, template, interaksi JavaScript, ranking produk, pengujian, serta dokumentasi modul. Tujuannya adalah membantu menerjemahkan kebutuhan menjadi implementasi yang sederhana dan dapat saya jelaskan saat demo. AI juga membantu menjalankan pemeriksaan proyek, meninjau hasil pengujian, dan memeriksa tampilan melalui Playwright dengan Chrome lokal.
+
+Sebelum implementasi, saya memberikan konteks melalui `AGENTS.md`, PRD, handoff, timeline, kode modul terkait, dan gambar desain. Pekerjaan dilakukan bertahap dengan batas kepemilikan berkas agar tidak mengubah modul anggota lain tanpa izin. Untuk perubahan perilaku utama, saya meminta pendekatan *test-driven development*: menulis dan menjalankan tes yang gagal terlebih dahulu, kemudian menambahkan implementasi sampai tes lulus. Pemeriksaan mencakup validasi form, kepemilikan data, transaksi penyimpanan, ranking dengan nilai kosong dan nol, serta interaksi halaman. Codex membuat commit lokal sesuai arahan saya; push dan pengelolaan PR dilakukan oleh saya.
+
+Hasil AI tetap memerlukan pemeriksaan dan koreksi. Implementasi awal menggunakan penyimpanan preferensi langsung saat kontrol berubah, kemudian disesuaikan menjadi draft dengan tombol Simpan Preferensi global agar mengikuti desain. Pemeriksaan juga menemukan risiko terbukanya metadata shelf yang kemudian menjadi privat, masalah fokus setelah pembaruan halaman melalui AJAX, serta simbol tutup modal yang tersimpan dengan encoding keliru. Temuan tersebut menunjukkan bahwa kode yang berjalan dan tes yang lulus belum menjamin seluruh perilaku, keamanan, dan tampilan sudah sesuai kebutuhan.
+
+AI juga memiliki keterbatasan dalam menafsirkan spesifikasi. Contohnya, desain menyebut jumlah produk yang paling sesuai dengan preferensi, tetapi belum menentukan ambang kecocokan. Implementasi menggunakan istilah “produk dapat diperingkat” untuk menghitung kandidat yang memiliki data relevan, sehingga tidak mengklaim adanya kriteria kelulusan yang belum disepakati. Jumlah produk pembanding pada riwayat hanya dicatat ketika subset yang valid dikirim; riwayat lama tidak diisi dengan tebakan dari jumlah isi shelf. Koreksi selama sesi bersama AI tersebut juga ada yang saya perbaiki sendiri melalui penyampaian ide dan pengecekan sendiri terhadap kode yang ada.
+
+Pengujian otomatis dan browser membantu memeriksa perilaku modul serta tampilan pada beberapa ukuran layar. Namun, hasil tersebut tidak menggantikan pemeriksaan perangkat nyata, integrasi terbaru antaranggota, atau pengujian deployment PWS, PostgreSQL, dan proxy. Klaim pengujian dalam dokumentasi dibatasi pada pemeriksaan yang benar-benar dijalankan. Saya tetap bertanggung jawab untuk memahami kode, meninjau hasil AI, dan memastikan implementasi akhir sesuai kebutuhan proyek.
+
+Log Obrolan / Riwayat: [Tautan log chat atau ringkasan obrolan](https://chatgpt.com/s/cx_6aeabe902cd88191aa22b0035cf65f99)
