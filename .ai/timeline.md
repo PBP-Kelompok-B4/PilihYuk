@@ -1,5 +1,38 @@
 # Timeline PilihYuk
 
+## Proyek Akhir Semester (mulai 17 November)
+
+Aplikasi Flutter ada di repo terpisah `PBP-Kelompok-B4/PilihYuk-Mobile`. API Django REST Framework (DRF) ditulis di repo ini.
+
+- Checkpoint 1: Jumat, 20 November 2026, 23.59 WIB. Endpoint tiap modul sudah jalan di PWS, dan halaman tiap modul bisa dibuka dari drawer.
+- Tenggat akhir: Rabu, 9 Desember 2026, 23.59 WIB, tanpa perpanjangan. APK di GitHub Release dan Bitrise.
+
+### Branch
+
+- Web: setiap anggota memakai lagi branch modul lamanya. Jalankan `git merge origin/main` dulu, lalu PR ke `dev`.
+- Mobile: `main`, `dev`, dan branch modul baru dengan nama yang sama (`product_catalog`, `shelves`, `recommendations`, `data_correction`, `preferences`). Buat dari `main`, lalu PR ke `dev`.
+
+### Konvensi API
+
+- Ikuti pola Tutorial 07: `serializers.py`, `api_views.py`, `api_urls.py`, dan `tests_api.py` di app masing-masing. View memakai `@api_view`, `@authentication_classes([SessionAuthentication])`, dan `@permission_classes`, tanpa `@csrf_exempt`.
+- `api_urls.py` tiap app sudah dibuat dan sudah dimuat di `pilihyuk/urls.py`, jadi file itu tidak perlu disentuh. Prefix: `/api/v1/products/`, `/api/v1/shelves/`, `/api/v1/recommendations/`, `/api/v1/corrections/`, `/api/v1/preferences/` (termasuk keputusan).
+- Auth untuk aplikasi ada di `/api/v1/auth/` (`login/`, `register/`, `logout/`). Ketiganya memakai `authentication_classes([])`, jadi tidak butuh token CSRF.
+- `pbp_django_auth` 0.4.0 tidak mengirim token CSRF, sehingga POST, PUT, dan DELETE dari pengguna yang sudah login akan ditolak 403. Untuk Checkpoint 1 cukup GET. Cara menulis data dari aplikasi diputuskan setelah tutorial Flutter tentang autentikasi rilis.
+
+### Tugas per orang
+
+| Anggota | Branch web | Checkpoint 1 web | Branch mobile | Checkpoint 1 mobile |
+|---------|------------|------------------|---------------|---------------------|
+| Yasmin | `product_catalog` | GET daftar produk (dengan pencarian) dan detail | `product_catalog` | Halaman Katalog |
+| Daffaa | `dev`, lalu `shelves` | DRF dan API auth (selesai 17 Nov), GET daftar shelf | `main`, lalu `shelves` | Kerangka, login, drawer, README (selesai 17 Nov), halaman Shelf |
+| Rafael | `recommendations` | GET daftar dan detail rekomendasi | `recommendations` | Halaman Rekomendasi |
+| Rayyan | `data_correction` | GET antrean kontribusi | `data_correction` | Halaman Antrean Data |
+| Jonathan | `preferences` | GET preferensi dan keputusan milik pengguna | `preferences` | Halaman Preferensi |
+
+Halaman placeholder tiap modul sudah ada di `lib/screens/<modul>/<modul>_page.dart` dan sudah tersambung ke drawer. Ganti isinya tanpa mengganti nama kelasnya. Model Dart masuk ke `lib/models/<modul>.dart`. `main.dart`, `config.dart`, dan `widgets/left_drawer.dart` dipegang Daffaa. Lingkup sampai 9 Desember per modul ada di README repo mobile.
+
+## Proyek Tengah Semester (selesai)
+
 Tenggat: Jumat, 30 Oktober 2026, 23.59 WIB. Jadwal harian dibahas di grup, jadi dokumen ini hanya mencatat status, pembagian, aturan kerja, dan sisa tugas.
 
 ## Status per 31 Oktober

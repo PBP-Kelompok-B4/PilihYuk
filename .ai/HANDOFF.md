@@ -6,7 +6,16 @@ Date: 2026-10-31. Project state, notes that live nowhere else, and open items. `
 
 A Django app that compares nutrition and environmental impact of food and drink products inside a user-made shelf. Five members build one module each, and every module covers the course's seven "Aturan Khusus". Data comes from Open Food Facts (OFF), limited to products sold in Indonesia. Final submission: 30 October 2026, 23.59 WIB.
 
-## Current state
+## Final project (PAS), from 17 November
+
+A Flutter app in `PBP-Kelompok-B4/PilihYuk-Mobile` reads and writes this site's data through DRF. Checkpoint 1 is 20 November and the final deadline 9 December 2026. Branches, API conventions and the work split are in `timeline.md`.
+
+- `dev` (17 November): `rest_framework` installed, `ALLOWED_HOSTS` has `10.0.2.2` for the Android emulator, `/api-auth/` for the Browsable API, and an `api_urls.py` per app mounted under `/api/v1/<resource>/`. Only `accounts` has views so far: `/api/v1/auth/login/`, `register/` and `logout/`, built on the existing `LoginForm` and `RegisterForm` (so axes and the password rules apply) and tested in `accounts/tests_api.py`. 530 tests pass.
+- Auth endpoints use `authentication_classes([])`, so DRF skips CSRF without `@csrf_exempt` (Tutorial 07 forbids it). They return `display_name` and `is_staff`, never the email.
+- Open: `pbp_django_auth` 0.4.0 sends no CSRF token, so authenticated writes through `SessionAuthentication` get 403. Decide once the Flutter auth tutorial is out.
+- No CORS package yet: the Android app does not need it. Add `django-cors-headers` only if someone runs the app in Chrome.
+
+## Current state (PTS)
 
 Other members' progress is read from Git metadata only, so it says nothing about whether their code works.
 
