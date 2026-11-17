@@ -10,6 +10,7 @@ class Shelf(models.Model):
     store_context = models.CharField(max_length=100, blank=True)
     description = models.TextField(blank=True)
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="shelves")
+    notes = models.CharField(max_length=255, blank=True)
     is_private = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
