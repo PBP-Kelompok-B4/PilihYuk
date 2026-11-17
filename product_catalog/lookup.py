@@ -7,9 +7,9 @@ from django.db.models import F
 from django.utils import timezone
 
 from .models import OffLookupQuota, Product
-from .off_mapping import nutrition_grade
-from .name_eligibility import screen_name
-from .seed_exclusions import load_seed_exclusions
+from .seed.off_mapping import nutrition_grade
+from .seed.name_eligibility import screen_name
+from .seed.seed_exclusions import load_seed_exclusions
 from .open_food_facts import normalize_barcode
 
 

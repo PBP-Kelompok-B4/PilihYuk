@@ -1,4 +1,4 @@
-// Run with node product_catalog/test_catalog_client.cjs (no npm dependency).
+// Run with node product_catalog/test_suites/test_catalog_client.cjs (no npm dependency).
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');

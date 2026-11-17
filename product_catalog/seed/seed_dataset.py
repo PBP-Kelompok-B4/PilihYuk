@@ -2,11 +2,11 @@
 import json
 from pathlib import Path
 
-from .open_food_facts import normalize_barcode
+from ..open_food_facts import normalize_barcode
 from .seed_exclusions import load_seed_exclusions
 
 MANIFEST = Path(__file__).with_name("off_seed_dataset.json")
-FINAL_FIXTURE = Path(__file__).with_name("fixtures") / "products-406.json"
+FINAL_FIXTURE = Path(__file__).resolve().parent.parent / "fixtures" / "products-406.json"
 
 
 def load_seed_dataset():

@@ -12,10 +12,10 @@ from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 
-from .models import Product, ProductView
-from .open_food_facts import read_indonesian_products_from_csv, normalize_barcode
-from .seed_exclusions import load_seed_exclusions
-from .seed_dataset import load_seed_dataset, FINAL_FIXTURE
+from ..models import Product, ProductView
+from ..open_food_facts import read_indonesian_products_from_csv, normalize_barcode
+from ..seed.seed_exclusions import load_seed_exclusions
+from ..seed.seed_dataset import load_seed_dataset, FINAL_FIXTURE
 
 
 @skipUnless(os.environ.get("PILIHYUK_FINAL_CSV"), "Set PILIHYUK_FINAL_CSV for the real 406-row integration test")

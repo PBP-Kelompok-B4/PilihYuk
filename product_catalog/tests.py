@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from .models import Product, ProductView
 from . import open_food_facts as off
-from .off_mapping import product_fields
+from .seed.off_mapping import product_fields
 
 
 NUTRIENTS = (
@@ -511,7 +511,7 @@ class OffMappingTests(SimpleTestCase):
 class ProductFixtureTests(TestCase):
     def test_fixture_is_reproducible_and_all_models_validate(self):
         import json
-        from .fixture_data import FIXTURE, build_fixture
+        from .seed.fixture_data import FIXTURE, build_fixture
         fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
         self.assertEqual(fixture, build_fixture())
         self.assertGreaterEqual(len(fixture), 50)
@@ -526,14 +526,14 @@ class ProductFixtureTests(TestCase):
     def test_seed_is_repeatable_and_preserves_existing_rows_and_ids(self):
         from io import StringIO
         from django.core.management import call_command
-        from .fixture_data import CODES
+        from .seed.fixture_data import CODES
         existing = Product.objects.create(code=CODES[0], source="manual", product_name="My edit", is_active=False)
         unrelated = Product.objects.create(source="manual", product_name="Keep me")
         call_command("seed_products", stdout=StringIO())
         snapshot = list(Product.objects.order_by("pk").values())
         call_command("seed_products", stdout=StringIO())
         self.assertEqual(list(Product.objects.order_by("pk").values()), snapshot)
-        from .seed_dataset import load_seed_dataset
+        from .seed.seed_dataset import load_seed_dataset
         eligible_codes = set(load_seed_dataset()["canonical_barcodes"])
         self.assertEqual(Product.objects.count(), len(eligible_codes) + 2 - int(CODES[0] in eligible_codes))
         existing.refresh_from_db()

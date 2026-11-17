@@ -16,10 +16,10 @@ from .forms import BarcodeLookupForm, ManualProductForm, has_valid_gtin
 from .lookup import reserve_off_lookup, save_imported_product
 from .models import Product, ProductView
 from .responses import catalog_login_required, error_response, json_error, serialize_product, wants_json
-from .off_mapping import product_fields, tag_name
+from .seed.off_mapping import product_fields, tag_name
 from . import open_food_facts as off
-from .name_eligibility import screen_name
-from .seed_exclusions import load_seed_exclusions
+from .seed.name_eligibility import screen_name
+from .seed.seed_exclusions import load_seed_exclusions
 
 
 def lookup_exclusions():

@@ -31,3 +31,13 @@ urlpatterns = [
     path('', include('data_correction.urls')),
     path('', include('preferences.urls')),
 ]
+
+urlpatterns += [
+    path('api/v1/auth/', include('accounts.api_urls')),
+    path('api/v1/products/', include('product_catalog.api_urls')),
+    path('api/v1/shelves/', include('shelves.api_urls')),
+    path('api/v1/recommendations/', include('recommendations.api_urls')),
+    path('api/v1/corrections/', include('data_correction.api_urls')),
+    path('api/v1/preferences/', include('preferences.api_urls')),
+    path('api-auth/', include('rest_framework.urls')),
+]

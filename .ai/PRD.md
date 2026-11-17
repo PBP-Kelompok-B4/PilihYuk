@@ -2,14 +2,15 @@
 
 **Produk:** PilihYuk, pembanding gizi dan dampak lingkungan makanan dan minuman per shelf
 **Konteks:** Proyek Tengah Semester PBP (CSGE602022), Fasilkom UI, Gasal 2026/2027, Kelompok 4 Kelas B, sub-tema Sustainable Food & Diet
-**Versi:** 0.8, 28 Oktober 2026. Tenggat 30 Oktober 2026, 23.59 WIB.
-**Status:** draf kerja. README adalah sumber kebenaran untuk pembagian modul. Bukti perilaku API ada di `off-api-findings.md`.
+**Versi:** 0.9, 31 Oktober 2026. Tenggat 30 Oktober 2026, 23.59 WIB.
+**Status:** draf kerja. README adalah sumber kebenaran untuk pembagian modul. Bukti perilaku API ada di `product_catalog/off-api-findings.md`.
 
 ## Riwayat versi
 
+- **v0.9 (31 Okt).** Dokumen tim dipindah dari `.claude/` ke `.ai/` dan dikelompokkan per modul. Rute riwayat keputusan menjadi `/keputusan/`. Daftar rekomendasi punya filter, urutan, dan paginasi. Kode `product_catalog` dipisah ke paket `seed/` (mapping OFF dan manifes seed) dan `test_suites/` (tes selain `tests.py`).
 - **v0.8 (28 Okt).** Waktu disimpan UTC dan ditampilkan menurut zona waktu browser pengguna. Landing memakai shelf publik asli.
 - **v0.7 (28 Okt).** Model data disamakan dengan kode di `dev`: Modul 3 memakai `Recommendation` dan `RecommendationVote` (app `recommendations`), `Decision` menyimpan jumlah produk yang dibandingkan, dan `OffLookupQuota` dicatat.
-- **v0.6 (24 Okt).** Login menerima email atau username, password wajib berisi huruf dan angka, centang persetujuan dihapus, masuk dengan Google dibatalkan, reset password direncanakan (`reset-password-plan.md`). Dokumen diringkas dan dipindah dari `pilihyuk-docs/` ke `.claude/`.
+- **v0.6 (24 Okt).** Login menerima email atau username, password wajib berisi huruf dan angka, centang persetujuan dihapus, masuk dengan Google dibatalkan, reset password direncanakan (`accounts/reset-password-plan.md`). Dokumen diringkas dan dipindah dari `pilihyuk-docs/` ke `.claude/` (kini `.ai/`).
 - **v0.5 (23 Okt).** Tenggat diundur ke 30 Oktober. Modul 3 bernama Rekomendasi Komunitas (app dan model tetap `substitutions`). Seeding Modul 1 berisi 406 produk.
 - **v0.4 (4 Okt).** Autentikasi selesai.
 - **v0.3.** Hanya produk Indonesia, seeding dari dump CSV, wireframe Figma dibaca, filter berjalan di database.
@@ -45,7 +46,7 @@ Open Food Facts (OFF), gratis tanpa API key untuk baca. Baca barcode lewat API v
 
 **Hanya produk Indonesia.** Produk masuk hanya bila `countries_tags` memuat `en:indonesia` (negara tempat dijual, bukan negara asal). Satu fungsi `is_sold_in_indonesia()` dipakai di seeding (baris dilewati), lookup barcode (ditolak dengan pesan dan tawaran input manual), dan refresh (dilewati, data lokal tidak ditimpa). Produk `source=manual` dianggap Indonesia dan tidak pernah di-refresh.
 
-**Fakta yang memengaruhi rancangan** (rincian dan bukti di `off-api-findings.md`):
+**Fakta yang memengaruhi rancangan** (rincian dan bukti di `product_catalog/off-api-findings.md`):
 
 - Subdomain `id` menyaring search tapi tidak menyaring baca barcode v3, jadi pemeriksaan Indonesia wajib di lookup dan refresh.
 - Cakupan sangat rendah. Dari 8.186 produk Indonesia di dump: Nutri-Score 5,3%, skor lingkungan 4,2%, NOVA 4,7%, asal 4,2%, kemasan 3,5%, gambar 84,1%, berlabel halal 24,3%. Hanya 196 produk punya minimal 4 dari 6 baris pembanding.
@@ -88,7 +89,7 @@ Dipakai semua modul untuk butir 6, jadi tidak dinilai sendiri. Memakai `User` ba
 | F-0.8 | Mengganti email wajib memasukkan password saat ini. Mengganti password mempertahankan sesi |
 | F-0.9 | Header menampilkan Masuk dan Daftar bagi pengunjung, serta avatar, nama, dan Keluar bagi pengguna masuk. Pesan tampil lewat toast |
 | F-0.10 | Modul lain memakai `@login_required` (dengan `?next=`) dan `is_staff` |
-| F-0.11 | Lupa password: tautan sekali pakai lewat email, berlaku 1 jam. Halaman konfirmasi sama untuk email terdaftar dan tidak, supaya akun tidak bisa ditebak (`reset-password-plan.md`) |
+| F-0.11 | Lupa password: tautan sekali pakai lewat email, berlaku 1 jam. Halaman konfirmasi sama untuk email terdaftar dan tidak, supaya akun tidak bisa ditebak (`accounts/reset-password-plan.md`) |
 
 ### Modul 1: Katalog Produk
 
@@ -131,11 +132,12 @@ Dipakai semua modul untuk butir 6, jadi tidak dinilai sendiri. Memakai `User` ba
 | F-3.2 | Usulan punya arah: X ke Y tidak berarti Y ke X |
 | F-3.3 | Usulan boleh lintas shelf dan kategori |
 | F-3.4 | Pengusul bisa menyunting alasan dan menarik usulannya |
-| F-3.5 | Satu suara (setuju atau tidak) per pengguna per usulan, bisa diubah atau ditarik |
+| F-3.5 | Satu suara (setuju atau tidak) per pengguna per usulan, bisa diubah atau ditarik. Pengusul tidak bisa memilih usulannya sendiri |
 | F-3.6 | Detail produk menampilkan usulan dengan selisih suara tertinggi |
 | F-3.7 | Kandidat pengganti difilter menurut kategori dan skor di database |
 | F-3.8 | Pengunjung melihat usulan tanpa identitas pengusul |
 | F-3.9 | Pemberian suara tanpa memuat ulang halaman |
+| F-3.10 | Daftar usulan bisa dicari menurut nama produk, diurutkan (terbaru atau skor tertinggi), dan dipaginasi 10 per halaman. Nama pengusul hanya tampil bagi pengguna login |
 
 ### Modul 4: Antrean Data
 
@@ -212,14 +214,14 @@ Tautan ke OFF dan penanda estimasi dihitung saat serialisasi.
 |----|-----------|
 | NF-1 | Responsif di ponsel dan desktop (Tailwind) |
 | NF-2 | Kerangka template bersama: `base.html`, `header.html`, `footer.html` |
-| NF-3 | Views melayani HTML dan JSON, karena Flutter di PAS hanya memanggil Django. Kontrak JSON di `off-sdk-evaluation.md` |
+| NF-3 | Views melayani HTML dan JSON, karena Flutter di PAS hanya memanggil Django. Kontrak JSON di `product_catalog/off-sdk-evaluation.md`. Permintaan JSON ke URL yang tidak ada dijawab `{"error": "Tidak ditemukan."}` dengan status 404 |
 | NF-4 | Minimal 50 produk saat deploy |
 | NF-5 | Cakupan unit test minimal 80% |
 | NF-6 | Aplikasi tetap jalan saat OFF tidak bisa dihubungi |
 | NF-7 | Setiap permintaan ke OFF memakai User-Agent di atas, retry pada 5xx, dan lookup dibatasi per pengguna |
 | NF-8 | Push ke `main` men-deploy ke PWS lewat GitHub Actions, jadi `main` hanya menerima `dev` yang lulus `check` dan `test` |
 | NF-10 | Footer memuat atribusi OFF dan lisensi (ODbL, DbCL, CC BY-SA) dengan tautan ke openfoodfacts.org. Detail produk `source=off` menaut ke halamannya |
-| NF-11 | `SECRET_KEY` dari environment tanpa fallback, `DEBUG = not PRODUCTION`, cookie `Secure` dan HSTS 1 jam di produksi. Password lolos validator bawaan dan wajib berisi huruf dan angka. `SECURE_SSL_REDIRECT` dan `SECURE_PROXY_SSL_HEADER` belum dipasang sampai proxy PWS diuji |
+| NF-11 | `SECRET_KEY` dari environment tanpa fallback, `DEBUG = not PRODUCTION`, cookie `Secure` dan HSTS 1 jam di produksi. Password lolos validator bawaan dan wajib berisi huruf dan angka. `SECURE_PROXY_SSL_HEADER` aktif di produksi sejak 28 Oktober, dan `SECURE_SSL_REDIRECT` belum dipasang sampai header HSTS terlihat di PWS |
 
 ## 9. Ukuran keberhasilan
 
@@ -283,7 +285,7 @@ Disetujui kelompok, kecuali yang ditandai belum final. Cakupan: **Kelompok** ata
 | 29 | `sodium_100g` (gram, tampil mg) menggantikan garam, dan `carbohydrates_100g` ditambah | Kelompok |
 | 31 | Product punya `ingredients_text`, `allergens`, `serving_size`. "Dapat didaur ulang" tidak dipakai | Kelompok |
 | 32 | Figma punya frame desktop dan ponsel. Tabel pembanding di ponsel: 2 produk per layar, geser horizontal, kolom metrik menempel | Kelompok |
-| 33 | Enam app: `accounts`, `product_catalog`, `shelves`, `substitutions` (branch `recommendations`), `data_correction`, `preferences` | Kelompok |
+| 33 | Enam app: `accounts`, `product_catalog`, `shelves`, `recommendations`, `data_correction`, `preferences` | Kelompok |
 | 34 | `featured_shelf()` dan `featured_shelves()` di landing diganti query `Shelf` dan `Product` | Modul 1, 2 |
 | 36 | Tiap modul punya branch, digabung ke `dev` lalu `main` | Kelompok |
 | 37 | Tujuh Aturan Khusus dulu, bonus belakangan | Kelompok |

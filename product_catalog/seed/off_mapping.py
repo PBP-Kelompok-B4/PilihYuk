@@ -1,6 +1,6 @@
 """Pure OFF-to-Product field mapping; no model imports or database writes."""
 
-from .open_food_facts import has_value, is_number, is_sold_in_indonesia, normalize_barcode
+from ..open_food_facts import has_value, is_number, is_sold_in_indonesia, normalize_barcode
 
 
 NUTRIENT_KEYS = {

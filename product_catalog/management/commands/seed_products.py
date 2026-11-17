@@ -10,13 +10,13 @@ from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand, CommandError
 from django.db import DatabaseError, transaction
 
-from product_catalog.seed_dataset import FINAL_FIXTURE as FIXTURE
-from product_catalog import seed_dataset
+from product_catalog.seed.seed_dataset import FINAL_FIXTURE as FIXTURE
+from product_catalog.seed import seed_dataset
 from product_catalog.models import Product
-from product_catalog.off_mapping import product_fields, has_valid_nutriscore
+from product_catalog.seed.off_mapping import product_fields, has_valid_nutriscore
 from product_catalog.open_food_facts import read_indonesian_products_from_csv, normalize_barcode
-from product_catalog.name_eligibility import screen_name
-from product_catalog.seed_exclusions import load_seed_exclusions
+from product_catalog.seed.name_eligibility import screen_name
+from product_catalog.seed.seed_exclusions import load_seed_exclusions
 
 
 class Command(BaseCommand):

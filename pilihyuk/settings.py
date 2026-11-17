@@ -18,7 +18,7 @@ from pathlib import Path
 # Load environment variables from .env file
 load_dotenv()
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "ahmad-rizki53-pilihyuk.pws.cs.ui.ac.id"]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "10.0.2.2", "ahmad-rizki53-pilihyuk.pws.cs.ui.ac.id"]
 PRODUCTION = os.getenv('PRODUCTION', 'False').lower() == 'true'
 CSRF_TRUSTED_ORIGINS = ["https://ahmad-rizki53-pilihyuk.pws.cs.ui.ac.id"]
 
@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'axes',
+    'rest_framework',
     'accounts',
     'product_catalog',
     'shelves',

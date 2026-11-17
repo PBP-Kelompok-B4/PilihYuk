@@ -4,7 +4,7 @@ from pathlib import Path
 from django.core.management import CommandError
 from django.test import SimpleTestCase, TestCase
 
-from .name_eligibility import screen_name
+from ..seed.name_eligibility import screen_name
 from . import test_csv_seed
 
 
@@ -62,8 +62,8 @@ class CsvNameImportTests(TestCase):
         self.assertEqual(self.run_seed()["created"], 0)
 
     def test_original_name_preserved_and_strict_mapper_unchanged(self):
-        from .models import Product
-        from .off_mapping import product_fields
+        from ..models import Product
+        from ..seed.off_mapping import product_fields
         self.write([self.row(product_name="  Susu   UHT 1 L  ", nutriscore_grade="a")])
         self.assertEqual(self.run_seed()["created"], 1)
         product = Product.objects.get()

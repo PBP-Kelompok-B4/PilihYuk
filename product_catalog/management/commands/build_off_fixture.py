@@ -7,11 +7,11 @@ from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand, CommandError
 
 from product_catalog.models import Product
-from product_catalog.off_mapping import product_fields, has_valid_nutriscore
-from product_catalog import seed_dataset
+from product_catalog.seed.off_mapping import product_fields, has_valid_nutriscore
+from product_catalog.seed import seed_dataset
 from product_catalog.open_food_facts import read_indonesian_products_from_csv, normalize_barcode
-from product_catalog.name_eligibility import screen_name
-from product_catalog.seed_exclusions import load_seed_exclusions
+from product_catalog.seed.name_eligibility import screen_name
+from product_catalog.seed.seed_exclusions import load_seed_exclusions
 
 
 class Command(BaseCommand):
@@ -76,7 +76,7 @@ class Command(BaseCommand):
             output.with_suffix(output.suffix + ".provenance.json").write_text(json.dumps({
                 "source_file": source.name, "source_sha256": digest.hexdigest(), "count": len(fixture),
                 "selection": "reviewed 406 membership, exact Indonesia, known Nutri-Score; 62 seed-only exceptions",
-                "mapping": "product_catalog.off_mapping.product_fields", "licenses": "ODbL; DbCL; CC BY-SA",
+                "mapping": "product_catalog.seed.off_mapping.product_fields", "licenses": "ODbL; DbCL; CC BY-SA",
             }, indent=2) + "\n", encoding="utf-8")
         except (OSError, UnicodeError, ValueError, KeyError, TypeError) as exc:
             raise CommandError(f"CSV export failed: {type(exc).__name__}") from exc

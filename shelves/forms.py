@@ -16,11 +16,12 @@ class ShelfForm(Styled, forms.ModelForm):
 
     class Meta:
         model = Shelf
-        fields = ["name", "store_context", "description", "is_private"]
-        labels = {"name": "Nama shelf", "store_context": "Konteks", "is_private": "Privat"}
+        fields = ["name", "store_context", "description", "notes", "is_private"]
+        labels = {"name": "Nama shelf", "store_context": "Konteks", "notes": "Catatan", "is_private": "Privat"}
         widgets = {
             "name": forms.TextInput(attrs={"placeholder": "Mie instan goreng di minimarket"}),
             "store_context": forms.TextInput(attrs={"placeholder": "Alfamart, kopi pagi di kos, kantin kampus"}),
+            "notes": forms.TextInput(attrs={"placeholder": "Harganya 3 ribuan"})
         }
 
 

@@ -4,9 +4,9 @@ from django.core.management import CommandError
 from django.test import SimpleTestCase, TestCase
 
 from . import test_csv_seed
-from .models import Product
-from .seed_exclusions import load_seed_exclusions
-from .seed_dataset import load_seed_dataset
+from ..models import Product
+from ..seed.seed_exclusions import load_seed_exclusions
+from ..seed.seed_dataset import load_seed_dataset
 
 
 class ReviewedExclusionsTests(SimpleTestCase):

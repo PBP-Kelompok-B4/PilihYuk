@@ -1,5 +1,5 @@
 from preferences.constants import NUTRIENT_FIELDS
-from product_catalog.off_mapping import tag_name
+from product_catalog.seed.off_mapping import tag_name
 
 MAX_COMPARED = 4
 NUTRI_ORDER = ["a", "b", "c", "d", "e"]
