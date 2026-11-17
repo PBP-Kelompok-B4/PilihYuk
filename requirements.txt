@@ -6,4 +6,5 @@ requests
 urllib3
 python-dotenv
 django-axes~=8.3
+djangorestframework~=3.18
 tzdata
