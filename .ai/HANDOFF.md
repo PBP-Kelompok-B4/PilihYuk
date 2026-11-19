@@ -1,6 +1,6 @@
 # Handoff: PilihYuk (PBP midterm project)
 
-Date: 2026-10-31. Project state, notes that live nowhere else, and open items. `README.md` in this folder indexes the other docs.
+Date: 2026-11-20. Project state, notes that live nowhere else, and open items. `README.md` in this folder indexes the other docs.
 
 ## Goal
 
@@ -10,7 +10,8 @@ A Django app that compares nutrition and environmental impact of food and drink 
 
 A Flutter app in `PBP-Kelompok-B4/PilihYuk-Mobile` reads and writes this site's data through DRF. Checkpoint 1 is 20 November and the final deadline 9 December 2026. Branches, API conventions and the work split are in `timeline.md`.
 
-- `dev` (17 November): `rest_framework` installed, `ALLOWED_HOSTS` has `10.0.2.2` for the Android emulator, `/api-auth/` for the Browsable API, and an `api_urls.py` per app mounted under `/api/v1/<resource>/`. `accounts` has `/api/v1/auth/login/`, `register/` and `logout/`, built on the existing `LoginForm` and `RegisterForm` (so axes and the password rules apply) and tested in `accounts/tests_api.py`. `preferences` (PR #19) and `shelves` (`GET /api/v1/shelves/`, branch `shelves`) followed on 20 November. 543 tests pass.
+- `dev` and `shelves` (20 November): DRF installed, `10.0.2.2` in `ALLOWED_HOSTS` for the Android emulator, `/api-auth/` for the Browsable API, and an `api_urls.py` per app under `/api/v1/<resource>/`. Routes so far: `auth/` (login, register and logout on the existing `LoginForm` and `RegisterForm`, so axes and the password rules apply), `preferences/` (PR #19) and `shelves/` (public list with `q` and `page`). 543 tests pass.
+- PWS still runs the PTS build (`29009d1`). The deploy of `main` at `cbfb25e` was cancelled on 17 and 18 November, so every `/api/v1/` path returns 404 there. Merging `dev` into `main` starts a new deploy. If it is cancelled again, read its log in the Actions tab.
 - Auth endpoints use `authentication_classes([])`, so DRF skips CSRF without `@csrf_exempt` (Tutorial 07 forbids it). They return `display_name` and `is_staff`, never the email.
 - Writes (decided 20 November): standard REST verbs with `SessionAuthentication`, never `@csrf_exempt`. Login sets a `csrftoken` cookie, and the app's `sendJson` in `lib/api.dart` sends it back as `X-CSRFToken` with a `Referer` (Django checks it on HTTPS), because `pbp_django_auth` 0.4.0 sends no CSRF header and has no PUT or DELETE. `accounts/tests_api.py` pins this flow.
 - No CORS package yet: the Android app does not need it. Add `django-cors-headers` only if someone runs the app in Chrome.

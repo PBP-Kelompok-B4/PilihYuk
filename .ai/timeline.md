@@ -6,6 +6,7 @@ Aplikasi Flutter ada di repo terpisah `PBP-Kelompok-B4/PilihYuk-Mobile`. API Dja
 
 - Checkpoint 1: Jumat, 20 November 2026, 23.59 WIB. Endpoint tiap modul sudah jalan di PWS, dan halaman tiap modul bisa dibuka dari drawer.
 - Tenggat akhir: Rabu, 9 Desember 2026, 23.59 WIB, tanpa perpanjangan. APK di GitHub Release dan Bitrise.
+- Status 20 November: API auth, preferensi, dan shelf sudah ada di `dev`, tetapi belum jalan di PWS karena deploy `main` terakhir dibatalkan. API produk, rekomendasi, dan antrean data belum di-push. Di repo mobile, `dev` berisi kerangka dan halaman Shelf.
 
 ### Branch
 
@@ -25,7 +26,7 @@ Aplikasi Flutter ada di repo terpisah `PBP-Kelompok-B4/PilihYuk-Mobile`. API Dja
 | Anggota | Branch web | Checkpoint 1 web | Branch mobile | Checkpoint 1 mobile |
 |---------|------------|------------------|---------------|---------------------|
 | Yasmin | `product_catalog` | GET daftar produk (dengan pencarian) dan detail | `product_catalog` | Halaman Katalog |
-| Daffaa | `dev`, lalu `shelves` | DRF dan API auth (selesai 17 Nov), GET daftar shelf | `main`, lalu `shelves` | Kerangka, login, drawer, README (selesai 17 Nov), halaman Shelf |
+| Daffaa | `dev`, lalu `shelves` | DRF dan API auth (selesai 17 Nov), GET daftar shelf (selesai 20 Nov) | `main`, lalu `shelves` | Kerangka, login, drawer, README (selesai 17 Nov), halaman Shelf (selesai 20 Nov) |
 | Rafael | `recommendations` | GET daftar dan detail rekomendasi | `recommendations` | Halaman Rekomendasi |
 | Rayyan | `data_correction` | GET antrean kontribusi | `data_correction` | Halaman Antrean Data |
 | Jonathan | `preferences` | GET preferensi dan keputusan milik pengguna | `preferences` | Halaman Preferensi |
