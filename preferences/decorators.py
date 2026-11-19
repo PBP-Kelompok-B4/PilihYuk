@@ -25,20 +25,24 @@ def module_methods(*allowed):
     return decorate
 
 
+def write_limit_exceeded(user):
+    key = f"preferences:writes:{user.pk}"
+    if cache.add(key, 1, timeout=WRITE_WINDOW_SECONDS):
+        count = 1
+    else:
+        try:
+            count = cache.incr(key)
+        except ValueError:
+            # Jendela bisa berakhir di antara add dan incr.
+            cache.set(key, 1, timeout=WRITE_WINDOW_SECONDS)
+            count = 1
+    return count > WRITE_LIMIT
+
+
 def rate_limit(view):
     @wraps(view)
     def wrapped(request, *args, **kwargs):
-        key = f"preferences:writes:{request.user.pk}"
-        if cache.add(key, 1, timeout=WRITE_WINDOW_SECONDS):
-            count = 1
-        else:
-            try:
-                count = cache.incr(key)
-            except ValueError:
-                # Jendela bisa berakhir di antara add dan incr.
-                cache.set(key, 1, timeout=WRITE_WINDOW_SECONDS)
-                count = 1
-        if count > WRITE_LIMIT:
+        if write_limit_exceeded(request.user):
             message = "Perubahan terlalu sering. Coba lagi dalam satu menit."
             if wants_json(request):
                 response = JsonResponse({"ok": False, "message": message}, status=429)

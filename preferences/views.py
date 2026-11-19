@@ -68,11 +68,15 @@ def preference_combined_preview(request):
     form = draft_form(request)
     if not form.is_valid():
         return JsonResponse({"ok": False, "message": "Periksa kembali preferensi.", "errors": form.errors}, status=400)
-    active = [row for row in form.cleaned_data["preferences"] if row["active"]]
+    return JsonResponse({"ok": True, **combined_preview_data(form.cleaned_data["preferences"])})
+
+
+def combined_preview_data(rows):
+    active = [row for row in rows if row["active"]]
     products = Product.objects.filter(is_active=True)
     total = products.count()
     if not active:
-        return JsonResponse({"ok": True, "ranked_count": 0, "total_active": total, "samples": [], "state": "inactive"})
+        return {"ranked_count": 0, "total_active": total, "samples": [], "state": "inactive"}
     known = Q()
     for row in active:
         known |= Q(**{NUTRIENT_FIELDS[row["nutrient"]]["field"] + "__isnull": False})
@@ -87,8 +91,8 @@ def preference_combined_preview(request):
             values.append({"label": metadata["label"], "value": None if value is None else round(value * metadata["scale"], 1),
                            "unit": metadata["unit"]})
         samples.append({"id": product.pk, "name": product.product_name, "values": values})
-    return JsonResponse({"ok": True, "ranked_count": len(candidates), "total_active": total, "samples": samples,
-                         "state": "ready" if candidates else "empty"})
+    return {"ranked_count": len(candidates), "total_active": total, "samples": samples,
+            "state": "ready" if candidates else "empty"}
 
 
 def preference_item(item):
@@ -159,6 +163,10 @@ def preference_preview(request):
     direction = request.GET.get("direction")
     if nutrient not in NUTRIENT_FIELDS or direction not in dict(DIRECTION_CHOICES):
         return JsonResponse({"ok": False, "message": "Nutrien atau arah tidak valid."}, status=400)
+    return JsonResponse({"ok": True, **single_preview_data(nutrient, direction)})
+
+
+def single_preview_data(nutrient, direction):
     metadata = NUTRIENT_FIELDS[nutrient]
     field = metadata["field"]
     active = Product.objects.filter(is_active=True)
@@ -166,7 +174,7 @@ def preference_preview(request):
     ordered = ranked.order_by(("-" if direction == "max" else "") + field, "pk")[:3]
     samples = [{"name": item.product_name, "value": round(getattr(item, field) * metadata["scale"], 1),
                 "unit": metadata["unit"]} for item in ordered]
-    return JsonResponse({"ok": True, "ranked_count": ranked.count(), "total_active": active.count(), "samples": samples})
+    return {"ranked_count": ranked.count(), "total_active": active.count(), "samples": samples}
 
 
 def decision_item(item, user):
