@@ -41,5 +41,16 @@ class AuthApiTests(APITestCase):
         self.assertEqual(r.status_code, 200)
         self.assertNotIn("_auth_user_id", self.client.session)
 
+    def test_login_cookie_unlocks_session_writes_over_https(self):
+        # The app copies the csrftoken cookie into X-CSRFToken and sends a Referer, as lib/api.dart does.
+        make_user()
+        r = self.client.post(reverse("accounts_api:login"), {"username": "rani@email.com", "password": PASSWORD})
+        token = r.cookies["csrftoken"].value
+        url = reverse("preferences_api:decision-bulk-delete")
+        headers = {"secure": True, "format": "json", "HTTP_REFERER": "https://testserver/"}
+        self.assertEqual(self.client.post(url, {"ids": [1]}, **headers).status_code, 403)
+        r = self.client.post(url, {"ids": [1]}, HTTP_X_CSRFTOKEN=token, **headers)
+        self.assertNotEqual(r.status_code, 403)
+
     def test_get_is_not_allowed(self):
         self.assertEqual(self.client.get(reverse("accounts_api:login")).status_code, 405)

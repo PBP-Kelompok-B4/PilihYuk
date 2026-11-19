@@ -10,9 +10,9 @@ A Django app that compares nutrition and environmental impact of food and drink 
 
 A Flutter app in `PBP-Kelompok-B4/PilihYuk-Mobile` reads and writes this site's data through DRF. Checkpoint 1 is 20 November and the final deadline 9 December 2026. Branches, API conventions and the work split are in `timeline.md`.
 
-- `dev` (17 November): `rest_framework` installed, `ALLOWED_HOSTS` has `10.0.2.2` for the Android emulator, `/api-auth/` for the Browsable API, and an `api_urls.py` per app mounted under `/api/v1/<resource>/`. Only `accounts` has views so far: `/api/v1/auth/login/`, `register/` and `logout/`, built on the existing `LoginForm` and `RegisterForm` (so axes and the password rules apply) and tested in `accounts/tests_api.py`. 530 tests pass.
+- `dev` (17 November): `rest_framework` installed, `ALLOWED_HOSTS` has `10.0.2.2` for the Android emulator, `/api-auth/` for the Browsable API, and an `api_urls.py` per app mounted under `/api/v1/<resource>/`. `accounts` has `/api/v1/auth/login/`, `register/` and `logout/`, built on the existing `LoginForm` and `RegisterForm` (so axes and the password rules apply) and tested in `accounts/tests_api.py`. `preferences` (PR #19) and `shelves` (`GET /api/v1/shelves/`, branch `shelves`) followed on 20 November. 543 tests pass.
 - Auth endpoints use `authentication_classes([])`, so DRF skips CSRF without `@csrf_exempt` (Tutorial 07 forbids it). They return `display_name` and `is_staff`, never the email.
-- Open: `pbp_django_auth` 0.4.0 sends no CSRF token, so authenticated writes through `SessionAuthentication` get 403. Decide once the Flutter auth tutorial is out.
+- Writes (decided 20 November): standard REST verbs with `SessionAuthentication`, never `@csrf_exempt`. Login sets a `csrftoken` cookie, and the app's `sendJson` in `lib/api.dart` sends it back as `X-CSRFToken` with a `Referer` (Django checks it on HTTPS), because `pbp_django_auth` 0.4.0 sends no CSRF header and has no PUT or DELETE. `accounts/tests_api.py` pins this flow.
 - No CORS package yet: the Android app does not need it. Add `django-cors-headers` only if someone runs the app in Chrome.
 
 ## Current state (PTS)
