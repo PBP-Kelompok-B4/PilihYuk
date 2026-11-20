@@ -6,6 +6,7 @@ Aplikasi Flutter ada di repo terpisah `PBP-Kelompok-B4/PilihYuk-Mobile`. API Dja
 
 - Checkpoint 1: Jumat, 20 November 2026, 23.59 WIB. Endpoint tiap modul sudah jalan di PWS, dan halaman tiap modul bisa dibuka dari drawer.
 - Tenggat akhir: Rabu, 9 Desember 2026, 23.59 WIB, tanpa perpanjangan. APK di GitHub Release dan Bitrise.
+- Status 20 November: API auth, preferensi, dan shelf sudah ada di `dev`, tetapi belum jalan di PWS karena deploy `main` terakhir dibatalkan. API produk, rekomendasi, dan antrean data belum di-push. Di repo mobile, `dev` berisi kerangka dan halaman Shelf.
 
 ### Branch
 
@@ -17,14 +18,15 @@ Aplikasi Flutter ada di repo terpisah `PBP-Kelompok-B4/PilihYuk-Mobile`. API Dja
 - Ikuti pola Tutorial 07: `serializers.py`, `api_views.py`, `api_urls.py`, dan `tests_api.py` di app masing-masing. View memakai `@api_view`, `@authentication_classes([SessionAuthentication])`, dan `@permission_classes`, tanpa `@csrf_exempt`.
 - `api_urls.py` tiap app sudah dibuat dan sudah dimuat di `pilihyuk/urls.py`, jadi file itu tidak perlu disentuh. Prefix: `/api/v1/products/`, `/api/v1/shelves/`, `/api/v1/recommendations/`, `/api/v1/corrections/`, `/api/v1/preferences/` (termasuk keputusan).
 - Auth untuk aplikasi ada di `/api/v1/auth/` (`login/`, `register/`, `logout/`). Ketiganya memakai `authentication_classes([])`, jadi tidak butuh token CSRF.
-- `pbp_django_auth` 0.4.0 tidak mengirim token CSRF, sehingga POST, PUT, dan DELETE dari pengguna yang sudah login akan ditolak 403. Untuk Checkpoint 1 cukup GET. Cara menulis data dari aplikasi diputuskan setelah tutorial Flutter tentang autentikasi rilis.
+- Menulis data memakai kata kerja REST biasa: POST untuk membuat (201), PUT atau PATCH untuk mengubah (200), DELETE untuk menghapus (204), dan galat validasi 400. View tulis memakai `SessionAuthentication` dan permission seperti `IsAuthenticated`, tanpa `@csrf_exempt`.
+- Di aplikasi, GET memakai `request.get`. Semua POST, PUT, PATCH, dan DELETE ke endpoint yang butuh login memakai `sendJson(request, 'PUT', url, data)` dari `lib/api.dart`. `pbp_django_auth` 0.4.0 tidak mengirim token CSRF dan tidak punya PUT atau DELETE, jadi `sendJson` mengambil token dari cookie `csrftoken` (dipasang Django saat login), mengirimnya sebagai `X-CSRFToken`, dan menambahkan `Referer` yang dicek Django di HTTPS. `request.post` dan `request.postJson` ke endpoint ini akan ditolak 403.
 
 ### Tugas per orang
 
 | Anggota | Branch web | Checkpoint 1 web | Branch mobile | Checkpoint 1 mobile |
 |---------|------------|------------------|---------------|---------------------|
 | Yasmin | `product_catalog` | GET daftar produk (dengan pencarian) dan detail | `product_catalog` | Halaman Katalog |
-| Daffaa | `dev`, lalu `shelves` | DRF dan API auth (selesai 17 Nov), GET daftar shelf | `main`, lalu `shelves` | Kerangka, login, drawer, README (selesai 17 Nov), halaman Shelf |
+| Daffaa | `dev`, lalu `shelves` | DRF dan API auth (selesai 17 Nov), GET daftar shelf (selesai 20 Nov) | `main`, lalu `shelves` | Kerangka, login, drawer, README (selesai 17 Nov), halaman Shelf (selesai 20 Nov) |
 | Rafael | `recommendations` | GET daftar dan detail rekomendasi | `recommendations` | Halaman Rekomendasi |
 | Rayyan | `data_correction` | GET antrean kontribusi | `data_correction` | Halaman Antrean Data |
 | Jonathan | `preferences` | GET preferensi dan keputusan milik pengguna | `preferences` | Halaman Preferensi |
