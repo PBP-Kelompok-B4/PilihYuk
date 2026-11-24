@@ -1,4 +1,5 @@
 """API DRF Modul Antrean Data. Aturan tetap di services, validators, dan contribution."""
+from dataclasses import replace
 from functools import wraps
 
 from django.core.paginator import Paginator
@@ -8,26 +9,32 @@ from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from product_catalog.models import Product
 
-from . import contribution, services, shelf_frequency
+from . import contribution, moderation, services, shelf_frequency
+from .constants import CORRECTABLE_FIELDS, FIELD_LABELS, STATUS_CHOICES
 from .forms import GROUPS, CorrectionForm
 from .models import DataCorrection
+from .permissions import Curator, LoggedIn
 from .serializers import (
     ContributionQueueSerializer,
     CorrectionFormSerializer,
     CorrectionPageSerializer,
     CorrectionSerializer,
     CorrectionSubmitSerializer,
+    FieldGuideEntrySerializer,
+    ModerationPageSerializer,
+    ModerationRowSerializer,
 )
 from .services import CorrectionError
 from .validators import to_display
-from .views import CONTRIBUTION_PAGE_SIZE, PAGE_SIZE
+from .views import CONTRIBUTION_PAGE_SIZE, PAGE_SIZE, QUEUE_PAGE_SIZE
 
 INVALID_MESSAGE = "Periksa kembali isian koreksi."
+ITEM_NOT_FOUND = "Item tidak ditemukan atau pengajuannya sudah ditarik."
 GROUP_TITLES = {name: title for title, names in GROUPS for name in names}
 
 
@@ -148,7 +155,7 @@ def contribution_queue(request):
 
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([LoggedIn])
 @correction_errors
 def correction_form(request, pk):
     """GET products/<pk>/form/?field=<nama> (boleh berulang)."""
@@ -168,7 +175,7 @@ def correction_form(request, pk):
 
 @api_view(["GET", "POST"])
 @authentication_classes([SessionAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([LoggedIn])
 @correction_errors
 def my_corrections(request):
     """GET mine/?page= daftar milik sendiri; POST mine/ {"product", "items"} ajukan koreksi."""
@@ -188,7 +195,7 @@ def my_corrections(request):
 
 @api_view(["GET", "DELETE"])
 @authentication_classes([SessionAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([LoggedIn])
 @correction_errors
 def correction_detail(request, pk):
     """GET mine/<pk>/ detail; DELETE mine/<pk>/ tarik selama semua item masih pending (204)."""
@@ -197,3 +204,55 @@ def correction_detail(request, pk):
         services.withdraw_correction(request.user, correction)
         return Response(status=status.HTTP_204_NO_CONTENT)
     return Response(CorrectionSerializer(correction).data)
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([LoggedIn, Curator])
+def curator_queue(request):
+    """GET moderation/?tab=antrean|semua&field=&status=&page= (20 per halaman); tab=panduan -> antrean."""
+    filters = moderation.QueueFilters.from_query(request.query_params)
+    if filters.tab == "panduan":
+        filters = replace(filters, tab=moderation.DEFAULT_TAB)
+    page = Paginator(moderation.queue_items(filters), QUEUE_PAGE_SIZE).get_page(filters.page)
+    statuses = STATUS_CHOICES if filters.tab == "semua" else ()
+    data = {
+        **page_fields(page),
+        "tab": filters.tab,
+        "field": filters.field or None,
+        "status": filters.status or None,
+        "tab_options": [{"key": key, "label": label} for key, label in moderation.TABS],
+        "field_options": [{"key": name, "label": FIELD_LABELS[name]} for name in CORRECTABLE_FIELDS],
+        "status_options": [{"key": key, "label": label} for key, label in statuses],
+        "stats": moderation.queue_stats(),
+        "results": [moderation.queue_row(item, filters) for item in page],
+    }
+    return Response(ModerationPageSerializer(data).data)
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([LoggedIn, Curator])
+def field_guide(request):
+    """GET moderation/guide/ -> {"fields": [...]}, isi tab Panduan field."""
+    return Response({"fields": FieldGuideEntrySerializer(moderation.field_guide(), many=True).data})
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([LoggedIn, Curator])
+@correction_errors
+def curator_item(request, pk):
+    """GET moderation/items/<pk>/; item yang sudah ditinjau tetap bisa dibaca."""
+    item = moderation.find_item(pk)
+    if item is None:
+        raise CorrectionError("correction_not_found", ITEM_NOT_FOUND, 404)
+    return Response(ModerationRowSerializer(moderation.queue_row(item, moderation.QueueFilters())).data)
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([AllowAny])
+def me(request):
+    """GET me/ -> {"logged_in", "is_staff"}; sesi kedaluwarsa dibaca sebagai belum masuk."""
+    return Response({"logged_in": request.user.is_authenticated, "is_staff": request.user.is_staff})

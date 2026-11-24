@@ -145,3 +145,73 @@ class CorrectionChangeSerializer(serializers.Serializer):
 class CorrectionSubmitSerializer(serializers.Serializer):
     product = serializers.IntegerField(min_value=1, max_value=MAX_ID)
     items = CorrectionChangeSerializer(many=True)
+
+
+class ModerationRowSerializer(serializers.Serializer):
+    """Satu baris dari moderation.queue_row. Pengaju hanya nama tampilan."""
+
+    id = serializers.IntegerField(source="item.pk")
+    correction_id = serializers.IntegerField(source="item.correction_id")
+    product = ProductSummarySerializer()
+    submitted_by = serializers.CharField(source="submitter")
+    created_at = serializers.DateTimeField(source="item.correction.created_at")
+    field_name = serializers.CharField(source="item.field_name")
+    label = serializers.CharField(source="item.get_field_name_display")
+    old_value = serializers.SerializerMethodField()
+    proposed_value = serializers.SerializerMethodField()
+    current_value = serializers.SerializerMethodField()
+    old_display = serializers.SerializerMethodField()
+    proposed_display = serializers.SerializerMethodField()
+    current_display = serializers.SerializerMethodField()
+    status = serializers.CharField(source="item.status")
+    status_label = serializers.CharField(source="item.get_status_display")
+    review_note = serializers.CharField(source="item.review_note")
+    stale = serializers.BooleanField()
+
+    def get_old_value(self, row):
+        return to_column_value(row["item"].field_name, row["item"].old_value)
+
+    def get_proposed_value(self, row):
+        return to_column_value(row["item"].field_name, row["item"].proposed_value)
+
+    def get_current_value(self, row):
+        return to_column_value(row["item"].field_name, row["current"])
+
+    def get_old_display(self, row):
+        return to_display(row["item"].field_name, row["item"].old_value)
+
+    def get_proposed_display(self, row):
+        return to_display(row["item"].field_name, row["item"].proposed_value)
+
+    def get_current_display(self, row):
+        return to_display(row["item"].field_name, row["current"])
+
+
+class ModerationStatsSerializer(serializers.Serializer):
+    pending = serializers.IntegerField()
+    approved = serializers.IntegerField()
+    rejected = serializers.IntegerField()
+
+
+class ModerationPageSerializer(serializers.Serializer):
+    count = serializers.IntegerField()
+    page = serializers.IntegerField()
+    page_size = serializers.IntegerField()
+    num_pages = serializers.IntegerField()
+    next_page = serializers.IntegerField(allow_null=True)
+    previous_page = serializers.IntegerField(allow_null=True)
+    tab = serializers.CharField()
+    field = serializers.CharField(allow_null=True)
+    status = serializers.CharField(allow_null=True)
+    tab_options = OptionSerializer(many=True)
+    field_options = OptionSerializer(many=True)
+    status_options = OptionSerializer(many=True)
+    stats = ModerationStatsSerializer()
+    results = ModerationRowSerializer(many=True)
+
+
+class FieldGuideEntrySerializer(serializers.Serializer):
+    field_name = serializers.CharField()
+    label = serializers.CharField()
+    kind = serializers.CharField()
+    rules = serializers.ListField(child=serializers.CharField())
