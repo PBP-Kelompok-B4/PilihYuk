@@ -15,8 +15,8 @@ from rest_framework.response import Response
 from product_catalog.models import Product
 
 from . import contribution, moderation, services, shelf_frequency
-from .constants import CORRECTABLE_FIELDS, FIELD_LABELS, STATUS_CHOICES
-from .forms import GROUPS, CorrectionForm
+from .constants import APPROVED, CORRECTABLE_FIELDS, FIELD_LABELS, REJECTED, STATUS_CHOICES
+from .forms import APPROVE, GROUPS, REJECT, CorrectionForm, ReviewForm
 from .models import DataCorrection
 from .permissions import Curator, LoggedIn
 from .serializers import (
@@ -30,11 +30,13 @@ from .serializers import (
     ModerationRowSerializer,
 )
 from .services import CorrectionError
-from .validators import to_display
-from .views import CONTRIBUTION_PAGE_SIZE, PAGE_SIZE, QUEUE_PAGE_SIZE
+from .validators import get_current_value, to_column_value, to_display
+from .views import CONTRIBUTION_PAGE_SIZE, PAGE_SIZE, QUEUE_PAGE_SIZE, _review_message
 
 INVALID_MESSAGE = "Periksa kembali isian koreksi."
 ITEM_NOT_FOUND = "Item tidak ditemukan atau pengajuannya sudah ditarik."
+STATUS_MESSAGE = "Pilih status approved atau rejected."
+REVIEW_ACTIONS = {APPROVED: APPROVE, REJECTED: REJECT}
 GROUP_TITLES = {name: title for title, names in GROUPS for name in names}
 
 
@@ -116,6 +118,42 @@ def own_correction(user, pk):
         return get_object_or_404(own_corrections(user), pk=pk)
     except Http404:
         raise CorrectionError("correction_not_found", "Pengajuan tidak ditemukan.", 404) from None
+
+
+def review_input(data):
+    """Body PATCH {"status", "review_note"} -> cleaned_data ReviewForm (action, review_note)."""
+    data = data if hasattr(data, "get") else {}
+    value = data.get("status")
+    action = REVIEW_ACTIONS.get(value) if isinstance(value, str) else None
+    if action is None:
+        raise CorrectionError("validation_error", STATUS_MESSAGE, fields={"status": [STATUS_MESSAGE]})
+    form = ReviewForm({"action": action, "review_note": data.get("review_note") or ""})
+    if not form.is_valid():
+        raise CorrectionError("validation_error", INVALID_MESSAGE, fields=form.errors)
+    return form.cleaned_data
+
+
+def review_data(result):
+    """ReviewResult -> balasan PATCH: serialize_review web, plus baris item lengkap, display, message."""
+    item = result.item
+    correction, product = item.correction, item.correction.product
+    value = get_current_value(product, item.field_name)
+    return {
+        "item": ModerationRowSerializer(moderation.queue_row(item, moderation.QueueFilters())).data,
+        "correction": {
+            "id": correction.pk,
+            "status": correction.status,
+            "status_label": correction.get_status_display(),
+        },
+        "product": {
+            "id": product.pk,
+            "field_name": item.field_name,
+            "value": to_column_value(item.field_name, value),
+            "display": to_display(item.field_name, value),
+        },
+        "stale": result.stale,
+        "message": _review_message(result),
+    }
 
 
 def contribution_queue_data(query):
@@ -238,15 +276,20 @@ def field_guide(request):
     return Response({"fields": FieldGuideEntrySerializer(moderation.field_guide(), many=True).data})
 
 
-@api_view(["GET"])
+@api_view(["GET", "PATCH"])
 @authentication_classes([SessionAuthentication])
 @permission_classes([LoggedIn, Curator])
 @correction_errors
 def curator_item(request, pk):
-    """GET moderation/items/<pk>/; item yang sudah ditinjau tetap bisa dibaca."""
+    """GET moderation/items/<pk>/ (yang sudah ditinjau tetap bisa dibaca);
+    PATCH {"status": "approved"|"rejected", "review_note"} meninjau item lewat services."""
     item = moderation.find_item(pk)
     if item is None:
         raise CorrectionError("correction_not_found", ITEM_NOT_FOUND, 404)
+    if request.method == "PATCH":
+        review = review_input(request.data)
+        review_item = services.approve_item if review["action"] == APPROVE else services.reject_item
+        return Response(review_data(review_item(request.user, item, review["review_note"])))
     return Response(ModerationRowSerializer(moderation.queue_row(item, moderation.QueueFilters())).data)
 
 

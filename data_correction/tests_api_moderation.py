@@ -1,4 +1,4 @@
-"""Tes API moderasi: GET moderation/, moderation/guide/, dan moderation/items/<pk>/."""
+"""Tes API moderasi: GET moderation/, moderation/guide/, GET dan PATCH moderation/items/<pk>/."""
 import json
 
 from django.urls import reverse
@@ -7,9 +7,9 @@ from rest_framework.test import APITestCase
 from product_catalog.models import Product
 
 from . import moderation
-from .api_fixtures import api_client
+from .api_fixtures import api_client, csrf_token
 from .constants import APPROVED, PENDING, REJECTED
-from .models import DataCorrectionItem
+from .models import DataCorrection, DataCorrectionItem
 from .permissions import AUTH_REQUIRED, FORBIDDEN
 from .tests import make_complete_product, make_correction, make_staff, make_user, set_created_at, submit_items
 
@@ -25,6 +25,18 @@ PAGE_KEYS = [
     "count", "page", "page_size", "num_pages", "next_page", "previous_page", "tab", "field", "status",
     "tab_options", "field_options", "status_options", "stats", "results",
 ]
+STATUS_ERROR = {
+    "detail": "Pilih status approved atau rejected.",
+    "code": "validation_error",
+    "fields": {"status": ["Pilih status approved atau rejected."]},
+}
+NOTE_REQUIRED = {
+    "detail": "Catatan wajib diisi saat menolak.",
+    "code": "validation_error",
+    "fields": {"review_note": ["Tulis alasan penolakan untuk pengaju."]},
+}
+ALREADY_REVIEWED = {"detail": "Item ini sudah ditinjau.", "code": "already_reviewed"}
+PRODUCT_INACTIVE = {"detail": "Produk ini tidak aktif; tolak item ini.", "code": "product_inactive"}
 ITEM_NOT_FOUND = {
     "detail": "Item tidak ditemukan atau pengajuannya sudah ditarik.",
     "code": "correction_not_found",
@@ -205,3 +217,146 @@ class ModerationApiTests(APITestCase):
                     self.assertEqual({key: api_row[key] for key in keys}, {key: web_row[key] for key in keys})
                     product = web_row["product"]
                     self.assertEqual({key: api_row["product"][key] for key in product}, product)
+
+
+class ReviewApiTests(APITestCase):
+    def setUp(self):
+        self.user = make_user()
+        self.staff = make_staff()
+        self.product = make_complete_product(fiber_100g=None)
+        self.client = api_client(self.staff)
+        self.token = csrf_token(self.client)
+
+    def review(self, item, body, client=None, token=None):
+        client = client or self.client
+        return client.patch(item_url(item.pk), body, format="json", HTTP_X_CSRFTOKEN=token or self.token)
+
+    def submit(self, **changes):
+        return submit_items(self.product, self.user, **changes)
+
+    def assertUntouched(self, item):
+        item.refresh_from_db()
+        self.product.refresh_from_db()
+        self.assertEqual((item.status, self.product.fiber_100g), (PENDING, None))
+
+    def test_visitor_and_regular_user_get_403(self):
+        item = self.submit(fiber_100g="2,5")["fiber_100g"]
+        visitor, user = api_client(), api_client(self.user)
+        for client, body in ((visitor, AUTH_REQUIRED), (user, FORBIDDEN)):
+            with self.subTest(code=body["code"]):
+                response = self.review(item, {"status": "approved"}, client, csrf_token(client))
+                self.assertEqual((response.status_code, response.json()), (403, body))
+                self.assertUntouched(item)
+
+    def test_approve_writes_typed_values_to_product(self):
+        items = self.submit(nova_group="3", fiber_100g="2,5", sodium_100g="500")
+        for field_name in ("nova_group", "fiber_100g"):
+            response = self.review(items[field_name], {"status": "approved"})
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["correction"]["status"], "pending")
+        body = {"status": "approved", "review_note": "Sesuai label."}
+        data = self.review(items["sodium_100g"], body).json()
+        self.product.refresh_from_db()
+        values = (self.product.nova_group, self.product.fiber_100g, self.product.sodium_100g)
+        self.assertEqual(values, (3, 2.5, 0.5))
+        self.assertIsInstance(self.product.nova_group, int)
+        self.assertIsInstance(self.product.fiber_100g, float)
+        expected = {"id": self.product.pk, "field_name": "sodium_100g", "value": 0.5, "display": "500"}
+        self.assertEqual(data["product"], expected)
+        self.assertEqual(data["correction"]["status"], "approved")
+        self.assertEqual((data["item"]["status"], data["item"]["review_note"]), ("approved", "Sesuai label."))
+        self.assertEqual(list(data), ["item", "correction", "product", "stale", "message"])
+        self.assertIn("disetujui", data["message"])
+        correction = DataCorrection.objects.get(pk=data["correction"]["id"])
+        self.assertEqual(correction.reviewed_by, self.staff)
+        self.assertIsNotNone(correction.reviewed_at)
+
+    def test_reject_needs_note_and_keeps_product(self):
+        item = self.submit(fiber_100g="2,5")["fiber_100g"]
+        for body in ({"status": "rejected"}, {"status": "rejected", "review_note": "   "}):
+            with self.subTest(body=body):
+                response = self.review(item, body)
+                self.assertEqual((response.status_code, response.json()), (400, NOTE_REQUIRED))
+                self.assertUntouched(item)
+        data = self.review(item, {"status": "rejected", "review_note": "Tidak sesuai label."}).json()
+        item_state = (data["item"]["status"], data["item"]["review_note"])
+        self.assertEqual(item_state, ("rejected", "Tidak sesuai label."))
+        self.assertEqual((data["correction"]["status"], data["product"]["value"]), ("rejected", None))
+        self.assertIn("ditolak", data["message"])
+        self.product.refresh_from_db()
+        self.assertIsNone(self.product.fiber_100g)
+
+    def test_second_review_is_409(self):
+        item = self.submit(fiber_100g="2,5")["fiber_100g"]
+        self.assertEqual(self.review(item, {"status": "approved"}).status_code, 200)
+        for body in ({"status": "approved"}, {"status": "rejected", "review_note": "Ganti."}):
+            with self.subTest(body=body):
+                response = self.review(item, body)
+                self.assertEqual((response.status_code, response.json()), (409, ALREADY_REVIEWED))
+
+    def test_unknown_status_is_400(self):
+        item = self.submit(fiber_100g="2,5")["fiber_100g"]
+        for body in ({}, {"status": "approve"}, {"status": "pending"}, {"status": ["approved"]}, []):
+            with self.subTest(body=body):
+                response = self.review(item, body)
+                self.assertEqual((response.status_code, response.json()), (400, STATUS_ERROR))
+                self.assertUntouched(item)
+
+    def test_inactive_product_can_only_be_rejected(self):
+        items = self.submit(fiber_100g="2,5", nova_group="3")
+        Product.objects.filter(pk=self.product.pk).update(is_active=False)
+        response = self.review(items["fiber_100g"], {"status": "approved"})
+        self.assertEqual((response.status_code, response.json()), (409, PRODUCT_INACTIVE))
+        self.assertUntouched(items["fiber_100g"])
+        response = self.review(items["nova_group"], {"status": "rejected", "review_note": "Produk ditarik."})
+        self.assertEqual((response.status_code, response.json()["item"]["status"]), (200, "rejected"))
+
+    def test_stale_when_product_changed_before_approval(self):
+        item = self.submit(fiber_100g="2,5")["fiber_100g"]
+        Product.objects.filter(pk=self.product.pk).update(fiber_100g=1.2)
+        data = self.review(item, {"status": "approved"}).json()
+        self.assertEqual((data["stale"], data["item"]["stale"], data["product"]["value"]), (True, False, 2.5))
+        self.assertIn("sempat berubah", data["message"])
+
+    def test_without_csrf_token_gets_403(self):
+        item = self.submit(fiber_100g="2,5")["fiber_100g"]
+        response = self.client.patch(item_url(item.pk), {"status": "approved"}, format="json")
+        self.assertEqual(response.status_code, 403)
+        self.assertUntouched(item)
+
+    def test_missing_item_and_other_methods(self):
+        response = self.client.patch(item_url(999999), {"status": "approved"}, format="json",
+                                     HTTP_X_CSRFTOKEN=self.token)
+        self.assertEqual((response.status_code, response.json()), (404, ITEM_NOT_FOUND))
+        item = self.submit(fiber_100g="2,5")["fiber_100g"]
+        for method in ("post", "put", "delete"):
+            with self.subTest(method=method):
+                response = getattr(self.client, method)(item_url(item.pk), {}, format="json",
+                                                        HTTP_X_CSRFTOKEN=self.token)
+                self.assertEqual(response.status_code, 405)
+        self.assertUntouched(item)
+
+    def test_same_result_as_web_review(self):
+        cases = [
+            ({"status": "approved"}, {"action": "approve"}),
+            ({"status": "rejected", "review_note": "Salah."}, {"action": "reject", "review_note": "Salah."}),
+        ]
+        for api_body, web_body in cases:
+            with self.subTest(action=web_body["action"]):
+                by_api = submit_items(make_complete_product(fiber_100g=None), self.user, fiber_100g="2,5")
+                by_web = submit_items(make_complete_product(fiber_100g=None), self.user, fiber_100g="2,5")
+                api = self.review(by_api["fiber_100g"], api_body).json()
+                web_url = f"/moderasi/item/{by_web['fiber_100g'].pk}/tinjau/?format=json"
+                web = self.client.post(web_url, web_body, HTTP_X_CSRFTOKEN=self.token).json()
+                keys = [key for key in web["item"] if key not in ("id", "correction_id")]
+                self.assertEqual(
+                    {key: api["item"][key] for key in keys}, {key: web["item"][key] for key in keys}
+                )
+                self.assertEqual(
+                    [api["correction"][key] for key in ("status", "status_label")] + [api["stale"]],
+                    [web["correction"][key] for key in ("status", "status_label")] + [web["stale"]],
+                )
+                self.assertEqual(
+                    (api["product"]["field_name"], api["product"]["value"]),
+                    (web["product"]["field_name"], web["product"]["value"]),
+                )
