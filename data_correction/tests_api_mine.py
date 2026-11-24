@@ -1,4 +1,4 @@
-"""Tes API GET mine/ dan GET mine/<pk>/."""
+"""Tes API GET mine/, GET mine/<pk>/, dan DELETE mine/<pk>/."""
 from datetime import timedelta
 
 from django.urls import reverse
@@ -7,7 +7,7 @@ from rest_framework.test import APITestCase
 
 from .api_fixtures import api_client, csrf_token
 from .constants import APPROVED, PENDING, REJECTED
-from .models import DataCorrection
+from .models import DataCorrection, DataCorrectionItem
 from .tests import make_complete_product, make_correction, make_user
 from .tests_api_submit import CORRECTION_KEYS, ITEM_KEYS, PRODUCT_KEYS
 
@@ -15,6 +15,10 @@ MINE_URL = "/api/v1/corrections/mine/"
 WEB_URL = "/antrean/saya/"
 PAGE_KEYS = ["count", "page", "page_size", "num_pages", "next_page", "previous_page", "results"]
 NOT_FOUND = {"detail": "Pengajuan tidak ditemukan.", "code": "correction_not_found"}
+NOT_WITHDRAWABLE = {
+    "detail": "Pengajuan ini sudah mulai ditinjau sehingga tidak bisa ditarik.",
+    "code": "not_withdrawable",
+}
 SHARED_KEYS = ["id", "status", "status_label", "is_withdrawable"]
 SHARED_ITEM_KEYS = [
     "field_name", "label", "old_value", "proposed_value", "status", "status_label", "review_note",
@@ -169,3 +173,89 @@ class MyCorrectionsApiTests(APITestCase):
             with self.subTest(method=method):
                 response = getattr(self.client, method)(MINE_URL, {}, format="json", HTTP_X_CSRFTOKEN=token)
                 self.assertEqual(response.status_code, 405)
+
+
+class WithdrawApiTests(APITestCase):
+    def setUp(self):
+        self.user = make_user()
+        self.other = make_user("lain@email.com", "Lain")
+        self.product = make_complete_product(fiber_100g=None)
+        self.client = api_client(self.user)
+        self.token = csrf_token(self.client)
+
+    def withdraw(self, pk, client=None, token=None):
+        client = client or self.client
+        return client.delete(detail_url(pk), HTTP_X_CSRFTOKEN=token or self.token)
+
+    def assertKept(self, correction, item_count):
+        self.assertTrue(DataCorrection.objects.filter(pk=correction.pk).exists())
+        self.assertEqual(DataCorrectionItem.objects.filter(correction_id=correction.pk).count(), item_count)
+
+    def test_owner_withdraws_pending_correction(self):
+        correction = make_correction(self.product, self.user, brand=PENDING, fiber_100g=PENDING)
+        response = self.withdraw(correction.pk)
+        self.assertEqual((response.status_code, response.content), (204, b""))
+        self.assertFalse(DataCorrection.objects.filter(pk=correction.pk).exists())
+        self.assertFalse(DataCorrectionItem.objects.filter(correction_id=correction.pk).exists())
+        self.assertEqual(self.client.get(detail_url(correction.pk)).status_code, 404)
+        response = self.withdraw(correction.pk)
+        self.assertEqual((response.status_code, response.json()), (404, NOT_FOUND))
+
+    def test_reviewed_correction_is_not_withdrawable(self):
+        cases = [{"brand": APPROVED}, {"brand": REJECTED}, {"brand": PENDING, "fiber_100g": APPROVED}]
+        for statuses in cases:
+            with self.subTest(statuses=statuses):
+                correction = make_correction(self.product, self.user, **statuses)
+                response = self.withdraw(correction.pk)
+                self.assertEqual((response.status_code, response.json()), (409, NOT_WITHDRAWABLE))
+                self.assertKept(correction, len(statuses))
+
+    def test_someone_elses_or_missing_is_404(self):
+        theirs = make_correction(self.product, self.other, brand=PENDING)
+        for pk in (theirs.pk, 999999):
+            with self.subTest(pk=pk):
+                response = self.withdraw(pk)
+                self.assertEqual((response.status_code, response.json()), (404, NOT_FOUND))
+        self.assertKept(theirs, 1)
+
+    def test_visitor_gets_403(self):
+        correction = make_correction(self.product, self.user, brand=PENDING)
+        visitor = api_client()
+        response = self.withdraw(correction.pk, visitor, csrf_token(visitor))
+        self.assertEqual(response.status_code, 403)
+        self.assertKept(correction, 1)
+
+    def test_without_csrf_token_gets_403(self):
+        correction = make_correction(self.product, self.user, brand=PENDING)
+        response = self.client.delete(detail_url(correction.pk))
+        self.assertEqual(response.status_code, 403)
+        self.assertKept(correction, 1)
+
+    def test_unregistered_methods_get_405(self):
+        correction = make_correction(self.product, self.user, brand=PENDING)
+        for method in ("put", "post"):
+            with self.subTest(method=method):
+                response = getattr(self.client, method)(
+                    detail_url(correction.pk), {}, format="json", HTTP_X_CSRFTOKEN=self.token
+                )
+                self.assertEqual(response.status_code, 405)
+        self.assertKept(correction, 1)
+
+    def test_same_result_as_web_withdraw_button(self):
+        web_url = "/antrean/saya/{}/tarik/?format=json"
+        for statuses in ({"brand": PENDING}, {"brand": APPROVED}):
+            with self.subTest(statuses=statuses):
+                by_web = make_correction(self.product, self.user, **statuses)
+                by_api = make_correction(self.product, self.user, **statuses)
+                web = self.client.post(web_url.format(by_web.pk), HTTP_X_CSRFTOKEN=self.token)
+                api = self.withdraw(by_api.pk)
+                self.assertEqual(
+                    DataCorrection.objects.filter(pk=by_web.pk).exists(),
+                    DataCorrection.objects.filter(pk=by_api.pk).exists(),
+                )
+                if web.status_code == 200:
+                    self.assertEqual(api.status_code, 204)
+                else:
+                    error = web.json()["error"]
+                    self.assertEqual((api.status_code, api.json()),
+                                     (web.status_code, {"detail": error["message"], "code": error["id"]}))

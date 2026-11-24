@@ -186,10 +186,14 @@ def my_corrections(request):
     return Response(CorrectionSerializer(correction).data, status=status.HTTP_201_CREATED)
 
 
-@api_view(["GET"])
+@api_view(["GET", "DELETE"])
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 @correction_errors
 def correction_detail(request, pk):
-    """GET mine/<pk>/."""
-    return Response(CorrectionSerializer(own_correction(request.user, pk)).data)
+    """GET mine/<pk>/ detail; DELETE mine/<pk>/ tarik selama semua item masih pending (204)."""
+    correction = own_correction(request.user, pk)
+    if request.method == "DELETE":
+        services.withdraw_correction(request.user, correction)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    return Response(CorrectionSerializer(correction).data)
