@@ -1,29 +1,15 @@
-"""Serializer Django REST Framework Modul Antrean Data untuk aplikasi Flutter.
-
-Notes:
-- Semua serializer di sini HANYA untuk keluaran (read-only). Datanya dict yang sudah disusun
-  contribution.py, bukan instance model, jadi memakai serializers.Serializer biasa.
-- Bentuk satu baris sama dengan ?format=json di /antrean/, tanpa submit_url dan detail_url
-  (keduanya tautan halaman web, tidak dipakai aplikasi), ditambah image_url.
-- Identitas pengaju TIDAK PERNAH ada di sini (F-4.9): tidak ada field user, nama, atau email.
-
-Daftar isi:
-1. MissingEntrySerializer       : satu kategori data yang kurang
-2. ContributionRowSerializer    : satu produk di antrean
-3. ContributionStatsSerializer  : kartu statistik
-4. OptionSerializer             : pilihan urutan dan filter
-5. ContributionQueueSerializer  : satu halaman antrean lengkap
-"""
+"""Serializer DRF Modul Antrean Data. Masukan hanya diperiksa bentuknya; isinya dinilai services.py."""
 from rest_framework import serializers
+
+from product_catalog.models import Product
+
+from .models import DataCorrection, DataCorrectionItem
+from .validators import to_column_value, to_display
+
+MAX_ID = 9223372036854775807  # batas BIGINT
 
 
 class MissingEntrySerializer(serializers.Serializer):
-    """Contoh: {"key": "nutrition", "label": "Gizi", "correctable": true, "fields": ["fiber_100g"]}
-
-    - correctable=false : hanya informasi (mis. "Kemasan"), tidak bisa diisi lewat koreksi;
-                          fields-nya kosong.
-    """
-
     key = serializers.CharField()
     label = serializers.CharField()
     correctable = serializers.BooleanField()
@@ -31,21 +17,6 @@ class MissingEntrySerializer(serializers.Serializer):
 
 
 class ContributionRowSerializer(serializers.Serializer):
-    """Satu produk di antrean kontribusi.
-
-    Contoh:
-        {"id": 6, "product_name": "Sarimi isi 2 Goreng Ayam Kremes", "brand": "Sarimi Isi 2",
-         "quantity": "125g", "image_url": "https://images.openfoodfacts.org/...jpg",
-         "missing": [{"key": "nutrition", "label": "Gizi", "correctable": true,
-                      "fields": ["fiber_100g"]}],
-         "missing_count": 1, "shelf_count": 3,
-         "status": "needs_contribution", "status_label": "Perlu kontribusi"}
-
-    - image_url   : "" kalau produk tidak punya gambar
-    - shelf_count : jumlah shelf PUBLIK yang memuat produk; null kalau data shelf tidak ada
-    - status      : "needs_contribution" atau "needs_verification" (sudah ada usulan menunggu)
-    """
-
     id = serializers.IntegerField(source="pk")
     product_name = serializers.CharField()
     brand = serializers.CharField()
@@ -59,13 +30,6 @@ class ContributionRowSerializer(serializers.Serializer):
 
 
 class ContributionStatsSerializer(serializers.Serializer):
-    """Kartu statistik, dihitung contribution.contribution_stats (semua akun, tanpa filter).
-
-    Contoh: {"incomplete_products": 347, "submitted_last_7_days": 7, "approved": 3,
-             "shelf_average": 0.1}
-    - shelf_average : null kalau data shelf tidak ada
-    """
-
     incomplete_products = serializers.IntegerField()
     submitted_last_7_days = serializers.IntegerField()
     approved = serializers.IntegerField()
@@ -73,24 +37,11 @@ class ContributionStatsSerializer(serializers.Serializer):
 
 
 class OptionSerializer(serializers.Serializer):
-    """Satu pilihan chip. Contoh: {"key": "terbaru", "label": "Terbaru"}"""
-
     key = serializers.CharField()
     label = serializers.CharField()
 
 
 class ContributionQueueSerializer(serializers.Serializer):
-    """Satu halaman antrean kontribusi.
-
-    - count, page, page_size, results : bentuk daftar yang sama dengan ?format=json di web
-    - num_pages, next_page, previous_page : nomor halaman (null kalau tidak ada)
-    - sort, missing : filter yang benar-benar dipakai (nilai tidak dikenal sudah kembali ke
-                      bawaan); missing null berarti semua kategori
-    - sort_options, missing_options : chip yang bisa ditampilkan aplikasi. sort_options tanpa
-                      "shelf" kalau data shelf tidak ada; missing_options hanya kategori yang
-                      benar-benar ada di antrean.
-    """
-
     count = serializers.IntegerField()
     page = serializers.IntegerField()
     page_size = serializers.IntegerField()
@@ -104,3 +55,169 @@ class ContributionQueueSerializer(serializers.Serializer):
     missing_options = OptionSerializer(many=True)
     stats = ContributionStatsSerializer()
     results = ContributionRowSerializer(many=True)
+
+
+class ProductSummarySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ("id", "product_name", "brand", "quantity", "image_url", "is_active")
+        read_only_fields = fields
+
+
+class CorrectionFieldSerializer(serializers.Serializer):
+    field_name = serializers.CharField()
+    label = serializers.CharField()
+    group = serializers.CharField()
+    type = serializers.CharField()
+    current_value = serializers.ReadOnlyField()
+    current_display = serializers.CharField(allow_null=True)
+    display_factor = serializers.IntegerField()
+    help_text = serializers.CharField()
+
+
+class CorrectionFormSerializer(serializers.Serializer):
+    product = ProductSummarySerializer()
+    focus = serializers.ListField(child=serializers.CharField())
+    correctable_fields = CorrectionFieldSerializer(many=True)
+
+
+class CorrectionItemSerializer(serializers.ModelSerializer):
+    """Nilai dalam satuan kolom (natrium gram); *_display untuk tampilan (natrium mg)."""
+
+    label = serializers.CharField(source="get_field_name_display")
+    old_value = serializers.SerializerMethodField()
+    proposed_value = serializers.SerializerMethodField()
+    old_display = serializers.SerializerMethodField()
+    proposed_display = serializers.SerializerMethodField()
+    status_label = serializers.CharField(source="get_status_display")
+
+    class Meta:
+        model = DataCorrectionItem
+        fields = (
+            "id", "field_name", "label", "old_value", "proposed_value", "old_display",
+            "proposed_display", "status", "status_label", "review_note",
+        )
+        read_only_fields = ("id", "field_name", "status", "review_note")
+
+    def get_old_value(self, item):
+        return to_column_value(item.field_name, item.old_value)
+
+    def get_proposed_value(self, item):
+        return to_column_value(item.field_name, item.proposed_value)
+
+    def get_old_display(self, item):
+        return to_display(item.field_name, item.old_value)
+
+    def get_proposed_display(self, item):
+        return to_display(item.field_name, item.proposed_value)
+
+
+class CorrectionSerializer(serializers.ModelSerializer):
+    """Prefetch items dulu, karena status, is_withdrawable, dan items membaca items.all()."""
+
+    product = ProductSummarySerializer()
+    status = serializers.CharField()
+    status_label = serializers.CharField(source="get_status_display")
+    is_withdrawable = serializers.BooleanField()
+    items = CorrectionItemSerializer(many=True)
+
+    class Meta:
+        model = DataCorrection
+        fields = ("id", "product", "status", "status_label", "is_withdrawable", "created_at", "items")
+        read_only_fields = ("id", "created_at")
+
+
+class CorrectionPageSerializer(serializers.Serializer):
+    count = serializers.IntegerField()
+    page = serializers.IntegerField()
+    page_size = serializers.IntegerField()
+    num_pages = serializers.IntegerField()
+    next_page = serializers.IntegerField(allow_null=True)
+    previous_page = serializers.IntegerField(allow_null=True)
+    results = CorrectionSerializer(many=True)
+
+
+class CorrectionChangeSerializer(serializers.Serializer):
+    field_name = serializers.CharField()
+    proposed_value = serializers.JSONField(allow_null=True)
+
+
+class CorrectionSubmitSerializer(serializers.Serializer):
+    product = serializers.IntegerField(min_value=1, max_value=MAX_ID)
+    items = CorrectionChangeSerializer(many=True)
+
+
+class CorrectionUpdateSerializer(serializers.Serializer):
+    """Body PATCH mine/<pk>/: daftar lengkap usulan yang baru. Tanpa product, karena produk tidak bisa diganti."""
+
+    items = CorrectionChangeSerializer(many=True)
+
+
+class ModerationRowSerializer(serializers.Serializer):
+    """Satu baris dari moderation.queue_row. Pengaju hanya nama tampilan."""
+
+    id = serializers.IntegerField(source="item.pk")
+    correction_id = serializers.IntegerField(source="item.correction_id")
+    product = ProductSummarySerializer()
+    submitted_by = serializers.CharField(source="submitter")
+    created_at = serializers.DateTimeField(source="item.correction.created_at")
+    field_name = serializers.CharField(source="item.field_name")
+    label = serializers.CharField(source="item.get_field_name_display")
+    old_value = serializers.SerializerMethodField()
+    proposed_value = serializers.SerializerMethodField()
+    current_value = serializers.SerializerMethodField()
+    old_display = serializers.SerializerMethodField()
+    proposed_display = serializers.SerializerMethodField()
+    current_display = serializers.SerializerMethodField()
+    status = serializers.CharField(source="item.status")
+    status_label = serializers.CharField(source="item.get_status_display")
+    review_note = serializers.CharField(source="item.review_note")
+    stale = serializers.BooleanField()
+
+    def get_old_value(self, row):
+        return to_column_value(row["item"].field_name, row["item"].old_value)
+
+    def get_proposed_value(self, row):
+        return to_column_value(row["item"].field_name, row["item"].proposed_value)
+
+    def get_current_value(self, row):
+        return to_column_value(row["item"].field_name, row["current"])
+
+    def get_old_display(self, row):
+        return to_display(row["item"].field_name, row["item"].old_value)
+
+    def get_proposed_display(self, row):
+        return to_display(row["item"].field_name, row["item"].proposed_value)
+
+    def get_current_display(self, row):
+        return to_display(row["item"].field_name, row["current"])
+
+
+class ModerationStatsSerializer(serializers.Serializer):
+    pending = serializers.IntegerField()
+    approved = serializers.IntegerField()
+    rejected = serializers.IntegerField()
+
+
+class ModerationPageSerializer(serializers.Serializer):
+    count = serializers.IntegerField()
+    page = serializers.IntegerField()
+    page_size = serializers.IntegerField()
+    num_pages = serializers.IntegerField()
+    next_page = serializers.IntegerField(allow_null=True)
+    previous_page = serializers.IntegerField(allow_null=True)
+    tab = serializers.CharField()
+    field = serializers.CharField(allow_null=True)
+    status = serializers.CharField(allow_null=True)
+    tab_options = OptionSerializer(many=True)
+    field_options = OptionSerializer(many=True)
+    status_options = OptionSerializer(many=True)
+    stats = ModerationStatsSerializer()
+    results = ModerationRowSerializer(many=True)
+
+
+class FieldGuideEntrySerializer(serializers.Serializer):
+    field_name = serializers.CharField()
+    label = serializers.CharField()
+    kind = serializers.CharField()
+    rules = serializers.ListField(child=serializers.CharField())

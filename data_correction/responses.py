@@ -29,6 +29,7 @@ Notes:
       product_inactive       409   produk nonaktif
       already_reviewed       409   item sudah ditinjau
       not_withdrawable       409   pengajuan sudah mulai ditinjau
+      not_editable           409   pengajuan sudah mulai ditinjau, usulan tidak bisa diubah (hanya API)
 
 Daftar fungsi publik:
 - wants_json, json_ok, json_error, field_errors, page_payload, render_or_json
