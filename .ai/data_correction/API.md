@@ -21,7 +21,7 @@ Prefix `/api/v1/corrections/`. Kode: `data_correction/api_views.py`, `serializer
 | 403 | `forbidden` | Pengguna biasa di endpoint kurator |
 | 404 | `product_not_found` | Produk tidak ada atau nonaktif |
 | 404 | `correction_not_found` | Pengajuan tidak ada atau milik orang lain; item tidak ada atau sudah ditarik |
-| 409 | `product_inactive`, `already_reviewed`, `not_withdrawable` | Setujui produk nonaktif; item sudah ditinjau; tarik pengajuan yang sudah ditinjau |
+| 409 | `product_inactive`, `already_reviewed`, `not_withdrawable`, `not_editable` | Setujui atau ubah usulan untuk produk nonaktif; item sudah ditinjau; tarik atau ubah pengajuan yang sudah ditinjau |
 | 403, 400, 405 | tanpa `code` | Galat DRF: CSRF gagal, body bukan JSON, metode tidak didaftarkan |
 
 ## Endpoint
@@ -34,6 +34,7 @@ Prefix `/api/v1/corrections/`. Kode: `data_correction/api_views.py`, `serializer
 | GET | `mine/` | masuk | `?page=` | halaman pengajuan, 10 per halaman, terbaru dulu |
 | POST | `mine/` | masuk | `{"product": 1, "items": [{"field_name": "sodium_100g", "proposed_value": "500"}]}` | 201, satu pengajuan |
 | GET | `mine/<pk>/` | pemilik | | satu pengajuan |
+| PATCH | `mine/<pk>/` | pemilik | `{"items": [{"field_name": "sodium_100g", "proposed_value": "500"}]}` | 200, satu pengajuan, selama semua item Menunggu |
 | DELETE | `mine/<pk>/` | pemilik | | 204 tanpa body, selama semua item Menunggu |
 | GET | `moderation/` | kurator | `?tab=antrean\|semua&field=&status=&page=` | halaman baris item, 20 per halaman |
 | GET | `moderation/guide/` | kurator | | `{"fields": [{"field_name", "label", "kind", "rules"}]}` |
@@ -42,6 +43,11 @@ Prefix `/api/v1/corrections/`. Kode: `data_correction/api_views.py`, `serializer
 
 - Tab `antrean` hanya berisi item Menunggu, terlama dulu. Tab `semua` berisi semua status, terbaru dulu, dan `?status=` hanya berlaku di sini. `?tab=panduan` dan nilai asing kembali ke bawaan.
 - `review_note` wajib saat menolak.
+- **PATCH `mine/<pk>/`** (bonus, hanya di aplikasi):
+  - `items` adalah daftar lengkap yang baru. Field boleh ditambah atau dihapus, minimal satu, dan aturan isiannya sama dengan POST.
+  - Produk tidak bisa diganti; `product` di body diabaikan.
+  - Item lama diganti item baru (id baru, `old_value` dari nilai produk saat itu), jadi kurator yang masih membuka item lama mendapat 404.
+  - Begitu ada item yang ditinjau: 409 `not_editable`.
 - `?page=` yang bukan angka menjadi 1; yang melewati batas menjadi halaman terakhir.
 
 ## Bentuk JSON
@@ -93,4 +99,4 @@ Contoh item (natrium):
   2. Masuk di `http://127.0.0.1:8000/masuk/`.
   3. Buka `/api/v1/corrections/...`. POST dan PATCH lewat "Raw data" (`application/json`); DELETE lewat tombol merah.
 - **Emulator:** server yang sama, lalu di folder mobile jalankan `flutter run --dart-define=BASE_URL=http://10.0.2.2:8000`.
-- **Tes:** `tests_api_submit`, `tests_api_mine`, `tests_api_moderation`, `tests_api_access`, `tests_api_flow`.
+- **Tes:** `tests_api_submit`, `tests_api_mine`, `tests_api_update`, `tests_api_moderation`, `tests_api_access`, `tests_api_flow`.

@@ -1,13 +1,13 @@
 """URL API Modul Antrean Data di /api/v1/corrections/. Rincian: .ai/data_correction/API.md.
 
-    GET          queue/                   publik
-    GET          products/<pk>/form/      masuk
-    GET, POST    mine/                    masuk
-    GET, DELETE  mine/<pk>/               masuk, hanya milik sendiri
-    GET          moderation/              kurator
-    GET          moderation/guide/        kurator
-    GET, PATCH   moderation/items/<pk>/   kurator
-    GET          me/                      publik
+    GET                 queue/                   publik
+    GET                 products/<pk>/form/      masuk
+    GET, POST           mine/                    masuk
+    GET, PATCH, DELETE  mine/<pk>/               masuk, hanya milik sendiri
+    GET                 moderation/              kurator
+    GET                 moderation/guide/        kurator
+    GET, PATCH          moderation/items/<pk>/   kurator
+    GET                 me/                      publik
 """
 from django.urls import path
 

@@ -147,6 +147,12 @@ class CorrectionSubmitSerializer(serializers.Serializer):
     items = CorrectionChangeSerializer(many=True)
 
 
+class CorrectionUpdateSerializer(serializers.Serializer):
+    """Body PATCH mine/<pk>/: daftar lengkap usulan yang baru. Tanpa product, karena produk tidak bisa diganti."""
+
+    items = CorrectionChangeSerializer(many=True)
+
+
 class ModerationRowSerializer(serializers.Serializer):
     """Satu baris dari moderation.queue_row. Pengaju hanya nama tampilan."""
 

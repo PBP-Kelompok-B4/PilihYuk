@@ -25,6 +25,7 @@ from .serializers import (
     CorrectionPageSerializer,
     CorrectionSerializer,
     CorrectionSubmitSerializer,
+    CorrectionUpdateSerializer,
     FieldGuideEntrySerializer,
     ModerationPageSerializer,
     ModerationRowSerializer,
@@ -82,6 +83,19 @@ def _messages(value, where=""):
     if isinstance(value, list):
         return [message for inner in value for message in _messages(inner, where)]
     return [f"{where}{value}"]
+
+
+def body_changes(body):
+    """Serializer body POST/PATCH -> [(field_name, proposed_value), ...]; bentuk salah -> 400 validation_error.
+    Isinya (field boleh dikoreksi, nilai sah, field ganda) dinilai services, bukan di sini.
+
+    Contoh:
+        {"items": [{"field_name": "sodium_100g", "proposed_value": "500"}]}  -> [("sodium_100g", "500")]
+        {"items": "brand"}  -> CorrectionError("validation_error", ..., fields={"items": [...]})
+    """
+    if not body.is_valid():
+        raise CorrectionError("validation_error", INVALID_MESSAGE, fields=shape_errors(body.errors))
+    return [(item["field_name"], item["proposed_value"]) for item in body.validated_data["items"]]
 
 
 def active_product(pk):
@@ -222,22 +236,26 @@ def my_corrections(request):
         return Response(CorrectionPageSerializer({**page_fields(page), "results": page.object_list}).data)
 
     body = CorrectionSubmitSerializer(data=request.data)
-    if not body.is_valid():
-        raise CorrectionError("validation_error", INVALID_MESSAGE, fields=shape_errors(body.errors))
+    changes = body_changes(body)
     product = active_product(body.validated_data["product"])
-    changes = [(item["field_name"], item["proposed_value"]) for item in body.validated_data["items"]]
     correction = services.submit_correction(request.user, product, changes)
     prefetch_related_objects([correction], "items")
     return Response(CorrectionSerializer(correction).data, status=status.HTTP_201_CREATED)
 
 
-@api_view(["GET", "DELETE"])
+@api_view(["GET", "PATCH", "DELETE"])
 @authentication_classes([SessionAuthentication])
 @permission_classes([LoggedIn])
 @correction_errors
 def correction_detail(request, pk):
-    """GET mine/<pk>/ detail; DELETE mine/<pk>/ tarik selama semua item masih pending (204)."""
+    """GET mine/<pk>/ detail; PATCH {"items"} ganti usulan dan DELETE tarik, keduanya selama semua item
+    masih pending (200 berisi pengajuan lengkap, 204 tanpa body)."""
     correction = own_correction(request.user, pk)
+    if request.method == "PATCH":
+        changes = body_changes(CorrectionUpdateSerializer(data=request.data))
+        correction = services.update_correction(request.user, correction, changes)
+        prefetch_related_objects([correction], "items")
+        return Response(CorrectionSerializer(correction).data)
     if request.method == "DELETE":
         services.withdraw_correction(request.user, correction)
         return Response(status=status.HTTP_204_NO_CONTENT)

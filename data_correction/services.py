@@ -1,4 +1,4 @@
-"""Aturan Modul 4 (Antrean Data): ajukan, tarik, setujui, tolak.
+"""Aturan Modul 4 (Antrean Data): ajukan, ubah, tarik, setujui, tolak.
 
 Notes:
 - Semua aturan yang MENGUBAH data koreksi dikumpulkan di sini, tanpa
@@ -6,6 +6,7 @@ Notes:
   fungsi-fungsi di file ini, jadi aturannya hanya ditulis sekali.
 - Daftar fungsi publik:
   - submit_correction   : pengguna mengajukan koreksi (PRD F-4.1 sampai F-4.3)
+  - update_correction   : pengguna mengganti usulannya selama semua item pending (bonus, hanya API)
   - withdraw_correction : pengguna menarik pengajuannya (F-4.5)
   - approve_item        : kurator menyetujui satu field, nilainya ditulis ke Product (F-4.4)
   - reject_item         : kurator menolak satu field dengan catatan wajib (F-4.4)
@@ -105,47 +106,48 @@ def submit_correction(user, product, changes):
     if not getattr(user, "is_authenticated", False):
         raise CorrectionError("authentication_required", "Silakan masuk terlebih dahulu.", 401)
 
-    pairs = list(changes.items()) if isinstance(changes, Mapping) else list(changes or ())
-    pairs = [(str(name), raw) for name, raw in pairs]
-    if not pairs:
-        raise CorrectionError("validation_error", "Pilih minimal satu field untuk dikoreksi.")
-    # Hitung kemunculan tiap field untuk mendeteksi field ganda (PRD F-4.3).
-    counts = Counter(name for name, _ in pairs)
-
+    pairs = _change_pairs(changes)
     with transaction.atomic():
-        locked = Product.objects.select_for_update().filter(pk=product.pk).first()
-        if locked is None:
-            raise CorrectionError("product_not_found", "Produk tidak ditemukan.", 404)
-        if not locked.is_active:
-            raise CorrectionError(
-                "product_inactive", "Produk ini tidak aktif sehingga tidak bisa dikoreksi.", 409
-            )
-
-        errors, values = {}, {}
-        for name, raw in pairs:
-            if counts[name] > 1:
-                errors[name] = ["Field ini diajukan lebih dari sekali."]
-                continue
-            value, error = parse_proposed_value(name, raw, product=locked)
-            if error:
-                errors[name] = [error]
-            else:
-                values[name] = value
-        if errors:
-            raise CorrectionError("validation_error", "Periksa kembali isian koreksi.", fields=errors)
-
+        locked = _lock_active_product(product.pk)
+        values = _parse_changes(pairs, locked)
         correction = DataCorrection.objects.create(product=locked, submitted_by=user)
-        DataCorrectionItem.objects.bulk_create([
-            DataCorrectionItem(
-                correction=correction,
-                field_name=name,
-                old_value=get_current_value(locked, name),          # nilai saat diajukan (F-4.3)
-                proposed_value=to_stored_text(name, values[name]),  # satuan kolom
-            )
-            for name in CORRECTABLE_FIELDS  # urutan tetap, apa pun urutan isian
-            if name in values
-        ])
+        _create_items(correction, locked, values)
     return correction
+
+
+def update_correction(user, correction, changes):
+    """Ganti seluruh usulan pengajuan milik user selama SEMUA item-nya masih pending (bonus, hanya API).
+
+    changes sama bentuknya dengan submit_correction dan berisi daftar LENGKAP yang baru: field boleh
+    ditambah atau dihapus, minimal satu. Produk tidak bisa diganti. Aturan isian sama persis dengan saat
+    mengajukan (_parse_changes). Item lama dihapus lalu dibuat ulang (id baru, old_value diambil ulang dari
+    produk), supaya kurator yang sedang membuka item lama mendapat 404 dan tidak menyetujui nilai yang belum
+    ia lihat.
+
+    Hasil: pengajuan yang sama (pk tetap) berisi item baru.
+
+    Contoh:
+        update_correction(budi, <milik budi, semua pending>, {"sodium_100g": "500"})
+            -> <DataCorrection 12> berisi satu item sodium_100g (proposed_value "0.5")
+        update_correction(budi, <ada item ditinjau>, {"brand": "Sarimi"})
+            -> CorrectionError("not_editable", "Pengajuan ini sudah mulai ditinjau ...", 409)
+        update_correction(sari, <milik budi>, {"brand": "Sarimi"})
+            -> CorrectionError("correction_not_found", ..., 404)
+        update_correction(budi, <milik budi>, {})
+            -> CorrectionError("validation_error", "Pilih minimal satu field untuk dikoreksi.")
+    """
+    pairs = _change_pairs(changes)
+    with transaction.atomic():
+        # Kunci pengajuan -> item -> produk (urutan tetap, lihat catatan di atas file).
+        locked = _lock_own_pending(
+            user, correction, "not_editable", "Pengajuan ini sudah mulai ditinjau sehingga tidak bisa diubah."
+        )
+        product = _lock_active_product(locked.product_id)
+        values = _parse_changes(pairs, product)
+        locked.items.all().delete()
+        _create_items(locked, product, values)
+        locked.product = product  # serializer membaca produk tanpa query tambahan
+    return locked
 
 
 def withdraw_correction(user, correction):
@@ -161,20 +163,9 @@ def withdraw_correction(user, correction):
         withdraw_correction(sari, <milik budi>)                 -> CorrectionError("correction_not_found", ..., 404)
     """
     with transaction.atomic():
-        # Kunci pengajuan, sekaligus pastikan pemiliknya adalah user ini.
-        locked = (
-            DataCorrection.objects.select_for_update()
-            .filter(pk=correction.pk, submitted_by_id=getattr(user, "pk", None))
-            .first()
+        locked = _lock_own_pending(
+            user, correction, "not_withdrawable", "Pengajuan ini sudah mulai ditinjau sehingga tidak bisa ditarik."
         )
-        if locked is None or not getattr(user, "is_authenticated", False):
-            raise CorrectionError("correction_not_found", "Pengajuan tidak ditemukan.", 404)
-        # Kunci item-item-nya, lalu pastikan belum ada yang ditinjau kurator.
-        statuses = list(locked.items.select_for_update().values_list("status", flat=True))
-        if any(status != PENDING for status in statuses):
-            raise CorrectionError(
-                "not_withdrawable", "Pengajuan ini sudah mulai ditinjau sehingga tidak bisa ditarik.", 409
-            )
         deleted_pk = locked.pk
         locked.delete()
     return deleted_pk
@@ -240,6 +231,109 @@ def reject_item(reviewer, item, note=""):
         correction, locked = _lock_pending_item(item)
         _finish_review(reviewer, correction, locked, REJECTED, note)
     return ReviewResult(item=locked)
+
+
+def _change_pairs(changes):
+    """changes (dict atau daftar pasangan) -> daftar (field_name, isian); kosong ditolak.
+
+    Contoh:
+        {"brand": "Sarimi"}               -> [("brand", "Sarimi")]
+        [("brand", "A"), ("brand", "B")]  -> [("brand", "A"), ("brand", "B")] (ganda dinilai _parse_changes)
+        {} atau None                      -> CorrectionError("validation_error", "Pilih minimal satu field ...")
+    """
+    pairs = list(changes.items()) if isinstance(changes, Mapping) else list(changes or ())
+    pairs = [(str(name), raw) for name, raw in pairs]
+    if not pairs:
+        raise CorrectionError("validation_error", "Pilih minimal satu field untuk dikoreksi.")
+    return pairs
+
+
+def _parse_changes(pairs, product):
+    """Periksa semua isian dengan aturan yang sama untuk ajukan dan ubah. Hasil: {field_name: nilai kolom}.
+    Field ganda ditolak (PRD F-4.3); usulan yang sama dengan nilai produk sekarang ditolak oleh
+    parse_proposed_value(product=...).
+
+    Contoh:
+        ([("brand", "Sarimi Goreng")], <produk>)  -> {"brand": "Sarimi Goreng"}
+        ([("brand", "A"), ("brand", "B")], <produk>)
+            -> CorrectionError("validation_error", ..., fields={"brand": ["Field ini diajukan lebih dari sekali."]})
+    """
+    # Hitung kemunculan tiap field untuk mendeteksi field ganda (PRD F-4.3).
+    counts = Counter(name for name, _ in pairs)
+    errors, values = {}, {}
+    for name, raw in pairs:
+        if counts[name] > 1:
+            errors[name] = ["Field ini diajukan lebih dari sekali."]
+            continue
+        value, error = parse_proposed_value(name, raw, product=product)
+        if error:
+            errors[name] = [error]
+        else:
+            values[name] = value
+    if errors:
+        raise CorrectionError("validation_error", "Periksa kembali isian koreksi.", fields=errors)
+    return values
+
+
+def _create_items(correction, product, values):
+    """Satu item per field. old_value = nilai produk saat ini (F-4.3), proposed_value dalam satuan kolom.
+
+    Contoh:
+        (<pengajuan>, <produk natrium 0.3976>, {"sodium_100g": 0.78})
+            -> item sodium_100g (old_value "0.3976", proposed_value "0.78")
+    """
+    DataCorrectionItem.objects.bulk_create([
+        DataCorrectionItem(
+            correction=correction,
+            field_name=name,
+            old_value=get_current_value(product, name),          # nilai saat diajukan (F-4.3)
+            proposed_value=to_stored_text(name, values[name]),  # satuan kolom
+        )
+        for name in CORRECTABLE_FIELDS  # urutan tetap, apa pun urutan isian
+        if name in values
+    ])
+
+
+def _lock_active_product(product_pk):
+    """Kunci produk dan pastikan masih aktif.
+
+    Contoh:
+        <pk produk aktif>     -> <Product terkunci>
+        <pk produk nonaktif>  -> CorrectionError("product_inactive", ..., 409)
+        999999                -> CorrectionError("product_not_found", ..., 404)
+    """
+    locked = Product.objects.select_for_update().filter(pk=product_pk).first()
+    if locked is None:
+        raise CorrectionError("product_not_found", "Produk tidak ditemukan.", 404)
+    if not locked.is_active:
+        raise CorrectionError(
+            "product_inactive", "Produk ini tidak aktif sehingga tidak bisa dikoreksi.", 409
+        )
+    return locked
+
+
+def _lock_own_pending(user, correction, error_id, message):
+    """Kunci pengajuan milik user lalu item-item-nya (urutan tetap), dan pastikan semua item masih pending.
+    error_id dan message dipakai bila ada item yang sudah ditinjau (409). Milik orang lain dijawab 404.
+
+    Contoh:
+        (budi, <milik budi, semua pending>, ...)                -> <DataCorrection terkunci>
+        (budi, <ada item ditinjau>, "not_withdrawable", pesan)  -> CorrectionError("not_withdrawable", pesan, 409)
+        (sari, <milik budi>, ...)                               -> CorrectionError("correction_not_found", ..., 404)
+    """
+    # Kunci pengajuan, sekaligus pastikan pemiliknya adalah user ini.
+    locked = (
+        DataCorrection.objects.select_for_update()
+        .filter(pk=correction.pk, submitted_by_id=getattr(user, "pk", None))
+        .first()
+    )
+    if locked is None or not getattr(user, "is_authenticated", False):
+        raise CorrectionError("correction_not_found", "Pengajuan tidak ditemukan.", 404)
+    # Kunci item-item-nya, lalu pastikan belum ada yang ditinjau kurator.
+    statuses = list(locked.items.select_for_update().values_list("status", flat=True))
+    if any(status != PENDING for status in statuses):
+        raise CorrectionError(error_id, message, 409)
+    return locked
 
 
 def _ensure_staff(user):
